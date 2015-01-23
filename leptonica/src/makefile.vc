@@ -160,8 +160,8 @@ $(SHAREDLIB):
 	$(RC) $(RCFLAGS) liblept.rc
 	$(CC) $(CFLAGS) $(WFLAGS) -DLIBLEPT_EXPORTS $(LEPTLIB_C)
 	$(LD) $(LDFLAGS) -dll -out:$@ -implib:$(IMPLIB) $(LEPTLIB_O) \
-        ..\..\mybuild\zlib\zdll.lib ..\..\mybuild\libpng\libpng.lib \
-        liblept.res
+        ..\..\mybuild\zlib\zdll.lib ..\..\mybuild\libpng\libpng16.lib \
+        user32.lib gdi32.lib liblept.res
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;2
 

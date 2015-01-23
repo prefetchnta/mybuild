@@ -1,0 +1,28 @@
+# Where all the include files are:
+INCS = /I.
+CC = cl /nologo
+CFLAGS = /c /O2 /Oi /Ot /GS
+
+OBJS = egif_lib.obj dgif_lib.obj gifalloc.obj gif_font.obj gif_hash.obj \
+	gif_err.obj quantize.obj qprintf.obj getarg.obj
+
+.c.obj:
+	$(CC) $(INCS) $(CFLAGS) $<
+
+all:
+	del /Q libgif.lib
+	lib libgif.lib $(OBJS)
+
+egif_lib.obj: gif_lib.h gif_hash.h
+dgif_lib.obj: gif_lib.h gif_hash.h
+gif_hash.obj: gif_lib.h gif_hash.h
+gif_err.obj: gif_lib.h
+gifalloc.obj: gif_lib.h
+gif_font.obj: gif_lib.h
+quantize.obj: gif_lib.h
+qprintf.obj: gif_lib.h
+getarg.obj: getarg.h
+
+clean:
+	del /Q *.obj
+	del /Q *.lib

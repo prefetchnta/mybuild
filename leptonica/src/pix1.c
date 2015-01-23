@@ -1717,7 +1717,7 @@ void     **lines;
 /*--------------------------------------------------------------------*
  *                    Print output for debugging                      *
  *--------------------------------------------------------------------*/
-extern const char *ImageFileFormatExtensions[];
+extern "C" const char *ImageFileFormatExtensions[];
 
 /*!
  *  pixPrintStreamInfo()

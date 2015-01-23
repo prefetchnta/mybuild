@@ -138,8 +138,8 @@
 static const l_int32  INITIAL_PTR_ARRAYSIZE = 20;   /* n'import quoi */
 
     /* These two globals are defined in writefile.c */
-extern l_int32 NumImageFileFormatExtensions;
-extern const char *ImageFileFormatExtensions[];
+extern "C" l_int32 NumImageFileFormatExtensions;
+extern "C" const char *ImageFileFormatExtensions[];
 
     /* Static function */
 static l_int32 pixacompExtendArray(PIXAC *pixac);

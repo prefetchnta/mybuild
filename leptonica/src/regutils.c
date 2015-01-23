@@ -60,8 +60,8 @@
 #include <string.h>
 #include "allheaders.h"
 
-extern l_int32 NumImageFileFormatExtensions;
-extern const char *ImageFileFormatExtensions[];
+extern "C" l_int32 NumImageFileFormatExtensions;
+extern "C" const char *ImageFileFormatExtensions[];
 
 static char *getRootNameFromArgv0(const char *argv0);
 

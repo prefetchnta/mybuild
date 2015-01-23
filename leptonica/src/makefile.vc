@@ -47,7 +47,7 @@ LEPTLIB_C =	adaptmap.c affine.c \
 		grayquant.c grayquantlow.c \
 		heap.c jbclass.c \
 		jp2kheader.c jp2kheaderstub.c jp2kio.c jp2kiostub.c \
-		jpegio.c jpegiostub.c kernel.c \
+		jpegio.c jpegiostub.c kernel.c leptwin.c \
 		libversions.c list.c maze.c \
 		morph.c morphapp.c morphdwa.c morphseq.c \
 		numabasic.c numafunc1.c numafunc2.c \
@@ -110,7 +110,7 @@ LEPTLIB_O =	adaptmap.obj affine.obj \
 		grayquant.obj grayquantlow.obj \
 		heap.obj jbclass.obj \
 		jp2kheader.obj jp2kheaderstub.obj jp2kio.obj jp2kiostub.obj \
-		jpegio.obj jpegiostub.obj kernel.obj \
+		jpegio.obj jpegiostub.obj kernel.obj leptwin.obj \
 		libversions.obj list.obj maze.obj \
 		morph.obj morphapp.obj morphdwa.obj morphseq.obj \
 		numabasic.obj numafunc1.obj numafunc2.obj \

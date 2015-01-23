@@ -69,11 +69,11 @@ typedef unsigned int uintptr_t;
 #ifdef _WIN32
   /* DLL EXPORTS and IMPORTS */
   #if defined(LIBLEPT_EXPORTS)
-    #define LEPT_DLL __declspec(dllexport)
+    #define LEPT_DLL extern "C" __declspec(dllexport)
   #elif defined(LIBLEPT_IMPORTS)
-    #define LEPT_DLL __declspec(dllimport)
+    #define LEPT_DLL extern "C" __declspec(dllimport)
   #else
-    #define LEPT_DLL
+    #define LEPT_DLL extern "C"
   #endif
 #else  /* non-Windows specifics */
   #include <stdint.h>

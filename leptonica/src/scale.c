@@ -112,7 +112,7 @@
 #include <string.h>
 #include "allheaders.h"
 
-extern l_float32  AlphaMaskBorderVals[2];
+extern "C" l_float32  AlphaMaskBorderVals[2];
 
 
 /*------------------------------------------------------------------*

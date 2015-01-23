@@ -13,10 +13,10 @@ AS = ml
 LD = link
 AR = lib
 RC = rc
-CFLAGS  = -nologo -MD -W3 -O2 -Oy- -Zi $(LOC)
+CFLAGS  = -nologo -c -MD -W3 -O2 -Oi -Ot -GF -GR- -GS -Oy- -Zi $(LOC)
 WFLAGS  = -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE
 ASFLAGS = -coff -Zi $(LOC)
-LDFLAGS = -nologo -debug -incremental:no -opt:ref -manifest -manifestfile:$@.manifest
+LDFLAGS = -nologo -incremental:no -opt:ref -opt:icf -manifest -manifestfile:$@.manifest
 ARFLAGS = -nologo
 RCFLAGS = /dWIN32 /r
 

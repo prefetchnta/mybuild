@@ -13,7 +13,8 @@ AS = ml
 LD = link
 AR = lib
 RC = rc
-CFLAGS  = -nologo -c -MD -W3 -O2 -Oi -Ot -GF -GR- -GS -Oy- -TP -I "../../zlib" -arch:SSE -Zi $(LOC)
+CFLAGS  = -nologo -c -MD -W3 -O2 -Oi -Ot -GF -GR- -GS -Oy- -TP -DL_LITTLE_ENDIAN \
+          -I "../../zlib" -I "../../libpng" -arch:SSE -Zi $(LOC)
 WFLAGS  = -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE -wd4018 -wd4244 -wd4305
 ASFLAGS = -coff -Zi $(LOC)
 LDFLAGS = -nologo -incremental:no -opt:ref -opt:icf -manifest -manifestfile:$@.manifest
@@ -159,7 +160,8 @@ $(SHAREDLIB):
 	$(RC) $(RCFLAGS) liblept.rc
 	$(CC) $(CFLAGS) $(WFLAGS) -DLIBLEPT_EXPORTS $(LEPTLIB_C)
 	$(LD) $(LDFLAGS) -dll -out:$@ -implib:$(IMPLIB) $(LEPTLIB_O) \
-            ..\..\mybuild\zlib\zdll.lib liblept.res
+        ..\..\mybuild\zlib\zdll.lib ..\..\mybuild\libpng\libpng.lib \
+        liblept.res
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;2
 

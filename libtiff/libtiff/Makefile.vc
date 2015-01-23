@@ -90,8 +90,9 @@ libtiff.lib:	tif_config.h tiffconf.h $(OBJ)
 	$(AR) /out:libtiff.lib $(OBJ) $(LIBS)
 
 $(DLLNAME):	tif_config.h tiffconf.h libtiff.def $(OBJ)
-	$(LD) /dll /def:libtiff.def /out:$(DLLNAME) \
+	$(LD) /dll /manifest /manifestfile:$@.manifest /def:libtiff.def /out:$(DLLNAME) \
 	/implib:libtiff_i.lib $(OBJ) $(LIBS)
+	mt /nologo /manifest $@.manifest /outputresource:$@;1
 
 clean:
 	-del tif_config.h tiffconf.h

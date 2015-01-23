@@ -18,7 +18,7 @@ CFLAGS  = -nologo -c -MD -W3 -O2 -Oi -Ot -GF -GR- -GS -Oy- -TP -DL_LITTLE_ENDIAN
           -arch:SSE -Zi $(LOC)
 WFLAGS  = -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE -wd4018 -wd4244 -wd4305
 ASFLAGS = -coff -Zi $(LOC)
-LDFLAGS = -nologo -incremental:no -opt:ref -opt:icf -manifest -manifestfile:$@.manifest
+LDFLAGS = -nologo -ltcg -incremental:no -opt:ref -opt:icf -manifest -manifestfile:$@.manifest
 ARFLAGS = -nologo
 RCFLAGS = /dWIN32 /r
 
@@ -149,11 +149,7 @@ LEPTLIB_O =	adaptmap.obj affine.obj \
 		zlibmem.obj zlibmemstub.obj
 
 # targets
-all: $(STATICLIB) $(SHAREDLIB) $(IMPLIB)
-
-$(STATICLIB):
-	$(CC) $(CFLAGS) $(WFLAGS) $(LEPTLIB_C)
-	$(AR) $(ARFLAGS) -out:$@ $(LEPTLIB_O)
+all: $(SHAREDLIB) $(IMPLIB)
 
 $(IMPLIB): $(SHAREDLIB)
 

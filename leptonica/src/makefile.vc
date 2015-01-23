@@ -150,14 +150,14 @@ LEPTLIB_O =	adaptmap.obj affine.obj \
 all: $(STATICLIB) $(SHAREDLIB) $(IMPLIB)
 
 $(STATICLIB):
-	$(CC) $(CFLAGS) $(LEPTLIB_C)
+	$(CC) $(CFLAGS) $(WFLAGS) $(LEPTLIB_C)
 	$(AR) $(ARFLAGS) -out:$@ $(LEPTLIB_O)
 
 $(IMPLIB): $(SHAREDLIB)
 
 $(SHAREDLIB):
 	$(RC) $(RCFLAGS) liblept.rc
-	$(CC) $(CFLAGS) -DLIBLEPT_EXPORTS $(LEPTLIB_C)
+	$(CC) $(CFLAGS) $(WFLAGS) -DLIBLEPT_EXPORTS $(LEPTLIB_C)
 	$(LD) $(LDFLAGS) -dll -implib:$(IMPLIB) $(LEPTLIB_O) liblept.res
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;2

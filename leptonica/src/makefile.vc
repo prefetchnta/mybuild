@@ -13,7 +13,7 @@ AS = ml
 LD = link
 AR = lib
 RC = rc
-CFLAGS  = -nologo -c -MD -W3 -O2 -Oi -Ot -GF -GR- -GS -Oy- -Zi $(LOC)
+CFLAGS  = -nologo -c -MD -W3 -O2 -Oi -Ot -GF -GR- -GS -Oy- -arch:SSE -Zi $(LOC)
 WFLAGS  = -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE
 ASFLAGS = -coff -Zi $(LOC)
 LDFLAGS = -nologo -incremental:no -opt:ref -opt:icf -manifest -manifestfile:$@.manifest
@@ -150,13 +150,14 @@ LEPTLIB_O =	adaptmap.obj affine.obj \
 all: $(STATICLIB) $(SHAREDLIB) $(IMPLIB)
 
 $(STATICLIB):
+	$(CC) $(CFLAGS) $(LEPTLIB_C)
 	$(AR) $(ARFLAGS) -out:$@ $(LEPTLIB_O)
 
 $(IMPLIB): $(SHAREDLIB)
 
 $(SHAREDLIB):
 	$(RC) $(RCFLAGS) liblept.rc
-	$(CC) $(CFLAGS) $(LEPTLIB_C)
+	$(CC) $(CFLAGS) -DLIBLEPT_EXPORTS $(LEPTLIB_C)
 	$(LD) $(LDFLAGS) -dll -implib:$(IMPLIB) $(LEPTLIB_O) liblept.res
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;2

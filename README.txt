@@ -6,4 +6,5 @@ leptonica-1.71          DLL
 libjpeg-9a              LIB
 libpng-1.6.16           DLL
 libtiff-4.0.3           LIB & DLL
+zint-2.4.3              DLL
 zlib-1.2.8              LIB & DLL

@@ -129,8 +129,8 @@ USE_WIN_CRT_LIB = 1
 # for the option reference.
 #
 MAKE	=	nmake /nologo
-CC	=	cl /nologo
-CXX	=	cl /nologo
+CC	=	cl /nologo /arch:SSE
+CXX	=	cl /nologo /arch:SSE
 AR	=	lib /nologo
 LD	=	link /nologo /incremental:no /opt:ref /opt:icf
 

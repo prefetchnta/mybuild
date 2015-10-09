@@ -6,6 +6,6 @@ leptonica-1.71          DLL (without libwebp & libjp2k)
 libjpeg-9a              LIB
 libpng-1.6.17           DLL
 libtesseract-3.04       DLL
-libtiff-4.0.3           LIB & DLL
+libtiff-4.0.6           LIB & DLL
 zint-2.4.3              DLL
 zlib-1.2.8              LIB & DLL

@@ -1,4 +1,4 @@
-/* $Id: tiff2rgba.c,v 1.19 2011-02-23 21:46:09 fwarmerdam Exp $ */
+/* $Id: tiff2rgba.c,v 1.21 2015-06-21 01:09:10 bfriesen Exp $ */
 
 /*
  * Copyright (c) 1991-1997 Sam Leffler
@@ -65,8 +65,10 @@ main(int argc, char* argv[])
 {
 	TIFF *in, *out;
 	int c;
+#if !HAVE_DECL_OPTARG
 	extern int optind;
 	extern char *optarg;
+#endif
 
 	while ((c = getopt(argc, argv, "c:r:t:bn8")) != -1)
 		switch (c) {
@@ -506,7 +508,7 @@ static char* stuff[] = {
     "usage: tiff2rgba [-c comp] [-r rows] [-b] [-n] [-8] input... output",
     "where comp is one of the following compression algorithms:",
     " jpeg\t\tJPEG encoding",
-    " zip\t\tLempel-Ziv & Welch encoding",
+    " zip\t\tZip/Deflate encoding",
     " lzw\t\tLempel-Ziv & Welch encoding",
     " packbits\tPackBits encoding",
     " none\t\tno compression",

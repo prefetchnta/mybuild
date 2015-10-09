@@ -1,4 +1,4 @@
-/* $Id: bmp2tiff.c,v 1.23 2010-03-10 18:56:49 bfriesen Exp $
+/* $Id: bmp2tiff.c,v 1.27 2015-08-19 02:31:04 bfriesen Exp $
  *
  * Project:  libtiff tools
  * Purpose:  Convert Windows BMP files in TIFF.
@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -56,6 +57,7 @@
 # include "libport.h"
 #endif
 
+#include "tiffiop.h"
 #include "tiffio.h"
 
 #ifndef O_BINARY
@@ -233,7 +235,7 @@ main(int argc, char* argv[])
 	uint32	rowsperstrip = (uint32) -1;
         uint16	photometric = PHOTOMETRIC_MINISBLACK;
 	int	fd = 0;
-	struct stat instat;
+	_TIFF_stat_s instat;
 	char	*outfilename = NULL, *infilename = NULL;
 	TIFF	*out = NULL;
 
@@ -246,8 +248,10 @@ main(int argc, char* argv[])
 	uint32	row, clr;
 
 	int	c;
+#if !HAVE_DECL_OPTARG
 	extern int optind;
 	extern char* optarg;
+#endif
 
 	while ((c = getopt(argc, argv, "c:r:o:h")) != -1) {
 		switch (c) {
@@ -291,29 +295,50 @@ main(int argc, char* argv[])
 			return -1;
 		}
 
-		read(fd, file_hdr.bType, 2);
+		if (read(fd, file_hdr.bType, 2) != 2) {
+                        TIFFError(infilename, "Failed to read from file (%s)",
+                                  strerror(errno));
+			goto bad;
+                }
 		if(file_hdr.bType[0] != 'B' || file_hdr.bType[1] != 'M') {
 			TIFFError(infilename, "File is not BMP");
 			goto bad;
 		}
 
-/* -------------------------------------------------------------------- */
-/*      Read the BMPFileHeader. We need iOffBits value only             */
-/* -------------------------------------------------------------------- */
-		lseek(fd, 10, SEEK_SET);
-		read(fd, &file_hdr.iOffBits, 4);
+                /* -------------------------------------------------------------------- */
+                /*      Read the BMPFileHeader. We need iOffBits value only             */
+                /* -------------------------------------------------------------------- */
+                if (_TIFF_lseek_f(fd, 10, SEEK_SET) == (_TIFF_off_t)-1) {
+                        TIFFError(infilename, "Failed to seek to offset");
+                        goto bad;
+                }
+                if (read(fd, &file_hdr.iOffBits, 4) != 4) {
+                        TIFFError(infilename, "Failed to read from file (%s)",
+                                  strerror(errno));
+			goto bad;
+                }
 #ifdef WORDS_BIGENDIAN
 		TIFFSwabLong(&file_hdr.iOffBits);
 #endif
-		fstat(fd, &instat);
+		if (_TIFF_fstat_f(fd, &instat) == -1) {
+                        TIFFError(infilename, "Failed obtain file information");
+                        goto bad;
+                }
 		file_hdr.iSize = instat.st_size;
 
-/* -------------------------------------------------------------------- */
-/*      Read the BMPInfoHeader.                                         */
-/* -------------------------------------------------------------------- */
+                /* -------------------------------------------------------------------- */
+                /*      Read the BMPInfoHeader.                                         */
+                /* -------------------------------------------------------------------- */
 
-		lseek(fd, BFH_SIZE, SEEK_SET);
-		read(fd, &info_hdr.iSize, 4);
+		if (_TIFF_lseek_f(fd, BFH_SIZE, SEEK_SET) == (_TIFF_off_t)-1) {
+                        TIFFError(infilename, "Failed to seek to offset");
+                        goto bad;
+                }
+                if (read(fd, &info_hdr.iSize, 4) != 4) {
+                        TIFFError(infilename, "Failed to read from file (%s)",
+                                  strerror(errno));
+			goto bad;
+                }
 #ifdef WORDS_BIGENDIAN
 		TIFFSwabLong(&info_hdr.iSize);
 #endif
@@ -331,16 +356,20 @@ main(int argc, char* argv[])
 		if (bmp_type == BMPT_WIN4
 		    || bmp_type == BMPT_WIN5
 		    || bmp_type == BMPT_OS22) {
-			read(fd, &info_hdr.iWidth, 4);
-			read(fd, &info_hdr.iHeight, 4);
-			read(fd, &info_hdr.iPlanes, 2);
-			read(fd, &info_hdr.iBitCount, 2);
-			read(fd, &info_hdr.iCompression, 4);
-			read(fd, &info_hdr.iSizeImage, 4);
-			read(fd, &info_hdr.iXPelsPerMeter, 4);
-			read(fd, &info_hdr.iYPelsPerMeter, 4);
-			read(fd, &info_hdr.iClrUsed, 4);
-			read(fd, &info_hdr.iClrImportant, 4);
+			if ((read(fd, &info_hdr.iWidth, 4) != 4) ||
+                            (read(fd, &info_hdr.iHeight, 4) != 4) ||
+                            (read(fd, &info_hdr.iPlanes, 2) != 2) ||
+                            (read(fd, &info_hdr.iBitCount, 2) != 2) ||
+                            (read(fd, &info_hdr.iCompression, 4) != 4) ||
+                            (read(fd, &info_hdr.iSizeImage, 4) != 4) ||
+                            (read(fd, &info_hdr.iXPelsPerMeter, 4) != 4) ||
+                            (read(fd, &info_hdr.iYPelsPerMeter, 4) != 4) ||
+                            (read(fd, &info_hdr.iClrUsed, 4) != 4) ||
+                            (read(fd, &info_hdr.iClrImportant, 4) != 4)) {
+                                TIFFError(infilename, "Failed to read from file (%s)",
+                                          strerror(errno));
+                                goto bad;
+                        }
 #ifdef WORDS_BIGENDIAN
 			TIFFSwabLong((uint32*) &info_hdr.iWidth);
 			TIFFSwabLong((uint32*) &info_hdr.iHeight);
@@ -361,28 +390,44 @@ main(int argc, char* argv[])
 			 * FIXME: different info in different documents
 			 * regarding this!
 			 */
-			 n_clr_elems = 3;
+                        n_clr_elems = 3;
 		}
 
 		if (bmp_type == BMPT_OS21) {
 			int16  iShort;
 
-			read(fd, &iShort, 2);
+			if ( read(fd, &iShort, 2) != 2 ) {
+                                TIFFError(infilename, "Failed to read from file (%s)",
+                                          strerror(errno));
+                                goto bad;
+                        }
 #ifdef WORDS_BIGENDIAN
 			TIFFSwabShort((uint16*) &iShort);
 #endif
 			info_hdr.iWidth = iShort;
-			read(fd, &iShort, 2);
+			if ( read(fd, &iShort, 2) != 2 ) {
+                                TIFFError(infilename, "Failed to read from file (%s)",
+                                          strerror(errno));
+                                goto bad;
+                        }
 #ifdef WORDS_BIGENDIAN
 			TIFFSwabShort((uint16*) &iShort);
 #endif
 			info_hdr.iHeight = iShort;
-			read(fd, &iShort, 2);
+			if (read(fd, &iShort, 2) != 2 ) {
+                                TIFFError(infilename, "Failed to read from file (%s)",
+                                          strerror(errno));
+                                goto bad;
+                        }
 #ifdef WORDS_BIGENDIAN
 			TIFFSwabShort((uint16*) &iShort);
 #endif
 			info_hdr.iPlanes = iShort;
-			read(fd, &iShort, 2);
+			if ( read(fd, &iShort, 2) != 2 ) {
+                                TIFFError(infilename, "Failed to read from file (%s)",
+                                          strerror(errno));
+                                goto bad;
+                        }
 #ifdef WORDS_BIGENDIAN
 			TIFFSwabShort((uint16*) &iShort);
 #endif
@@ -394,18 +439,25 @@ main(int argc, char* argv[])
 		if (info_hdr.iBitCount != 1  && info_hdr.iBitCount != 4  &&
 		    info_hdr.iBitCount != 8  && info_hdr.iBitCount != 16 &&
 		    info_hdr.iBitCount != 24 && info_hdr.iBitCount != 32) {
-		    TIFFError(infilename,
-			      "Cannot process BMP file with bit count %d",
-			      info_hdr.iBitCount);
-		    close(fd);
-		    return 0;
+                        TIFFError(infilename,
+                                  "Cannot process BMP file with bit count %d",
+                                  info_hdr.iBitCount);
+                        close(fd);
+                        return 0;
 		}
 
 		width = info_hdr.iWidth;
 		length = (info_hdr.iHeight > 0) ? info_hdr.iHeight : -info_hdr.iHeight;
+                if( width <= 0 || length <= 0 )
+                        {
+                                TIFFError(infilename,
+                                          "Invalid dimensions of BMP file" );
+                                close(fd);
+                                return -1;
+                        }
 
 		switch (info_hdr.iBitCount)
-		{
+                        {
 			case 1:
 			case 4:
 			case 8:
@@ -414,28 +466,36 @@ main(int argc, char* argv[])
 				photometric = PHOTOMETRIC_PALETTE;
 				/* Allocate memory for colour table and read it. */
 				if (info_hdr.iClrUsed)
-				    clr_tbl_size =
-					    ((uint32)(1<<depth)<info_hdr.iClrUsed)
-					    ? (uint32) (1 << depth)
-					    : info_hdr.iClrUsed;
+                                        clr_tbl_size =
+                                                ((uint32)(1<<depth)<info_hdr.iClrUsed)
+                                                ? (uint32) (1 << depth)
+                                                : info_hdr.iClrUsed;
 				else
-				    clr_tbl_size = 1 << depth;
+                                        clr_tbl_size = 1 << depth;
 				clr_tbl = (unsigned char *)
 					_TIFFmalloc(n_clr_elems * clr_tbl_size);
 				if (!clr_tbl) {
 					TIFFError(infilename,
-					"Can't allocate space for color table");
+                                                  "Can't allocate space for color table");
 					goto bad;
 				}
 
-				lseek(fd, BFH_SIZE + info_hdr.iSize, SEEK_SET);
-				read(fd, clr_tbl, n_clr_elems * clr_tbl_size);
+				if (_TIFF_lseek_f(fd, BFH_SIZE + info_hdr.iSize, SEEK_SET) == (_TIFF_off_t)-1) {
+                                        TIFFError(infilename, "Failed to seek to offset");
+                                        goto bad;
+                                }
+				if ( read(fd, clr_tbl, n_clr_elems * clr_tbl_size)
+                                     != (long) (n_clr_elems * clr_tbl_size) ) {
+                                        TIFFError(infilename, "Failed to read from file (%s)",
+                                                  strerror(errno));
+                                        goto bad;
+                                }
 
 				red_tbl = (unsigned short*)
 					_TIFFmalloc(((tmsize_t)1)<<depth * sizeof(unsigned short));
 				if (!red_tbl) {
 					TIFFError(infilename,
-				"Can't allocate space for red component table");
+                                                  "Can't allocate space for red component table");
 					_TIFFfree(clr_tbl);
 					goto bad1;
 				}
@@ -443,7 +503,7 @@ main(int argc, char* argv[])
 					_TIFFmalloc(((tmsize_t)1)<<depth * sizeof(unsigned short));
 				if (!green_tbl) {
 					TIFFError(infilename,
-				"Can't allocate space for green component table");
+                                                  "Can't allocate space for green component table");
 					_TIFFfree(clr_tbl);
 					goto bad2;
 				}
@@ -451,15 +511,15 @@ main(int argc, char* argv[])
 					_TIFFmalloc(((tmsize_t)1)<<depth * sizeof(unsigned short));
 				if (!blue_tbl) {
 					TIFFError(infilename,
-				"Can't allocate space for blue component table");
+                                                  "Can't allocate space for blue component table");
 					_TIFFfree(clr_tbl);
 					goto bad3;
 				}
 
 				for(clr = 0; clr < clr_tbl_size; clr++) {
-				    red_tbl[clr] = 257*clr_tbl[clr*n_clr_elems+2];
-				    green_tbl[clr] = 257*clr_tbl[clr*n_clr_elems+1];
-				    blue_tbl[clr] = 257*clr_tbl[clr*n_clr_elems];
+                                        red_tbl[clr] = 257*clr_tbl[clr*n_clr_elems+2];
+                                        green_tbl[clr] = 257*clr_tbl[clr*n_clr_elems+1];
+                                        blue_tbl[clr] = 257*clr_tbl[clr*n_clr_elems];
 				}
 
 				_TIFFfree(clr_tbl);
@@ -477,11 +537,11 @@ main(int argc, char* argv[])
 				break;
 			default:
 				break;
-		}
+                        }
 
-/* -------------------------------------------------------------------- */
-/*  Create output file.                                                 */
-/* -------------------------------------------------------------------- */
+                /* -------------------------------------------------------------------- */
+                /*  Create output file.                                                 */
+                /* -------------------------------------------------------------------- */
 
 		TIFFSetField(out, TIFFTAG_IMAGEWIDTH, width);
 		TIFFSetField(out, TIFFTAG_IMAGELENGTH, length);
@@ -516,9 +576,9 @@ main(int argc, char* argv[])
 			break;
 		}
 
-/* -------------------------------------------------------------------- */
-/*  Read uncompressed image data.                                       */
-/* -------------------------------------------------------------------- */
+                /* -------------------------------------------------------------------- */
+                /*  Read uncompressed image data.                                       */
+                /* -------------------------------------------------------------------- */
 
 		if (info_hdr.iCompression == BMPC_RGB) {
 			uint32 offset, size;
@@ -545,7 +605,7 @@ main(int argc, char* argv[])
 			scanbuf = (char *) _TIFFmalloc(size);
 			if (!scanbuf) {
 				TIFFError(infilename,
-				"Can't allocate space for scanline buffer");
+                                          "Can't allocate space for scanline buffer");
 				goto bad3;
 			}
 
@@ -554,14 +614,14 @@ main(int argc, char* argv[])
 					offset = file_hdr.iOffBits+(length-row-1)*size;
 				else
 					offset = file_hdr.iOffBits + row * size;
-				if (lseek(fd, offset, SEEK_SET) == (off_t)-1) {
+				if (_TIFF_lseek_f(fd, offset, SEEK_SET) == (_TIFF_off_t)-1) {
 					TIFFError(infilename,
 						  "scanline %lu: Seek error",
 						  (unsigned long) row);
 					break;
 				}
 
-				if (read(fd, scanbuf, size) < 0) {
+				if (read(fd, scanbuf, size) != (long) size) {
 					TIFFError(infilename,
 						  "scanline %lu: Read error",
 						  (unsigned long) row);
@@ -580,9 +640,9 @@ main(int argc, char* argv[])
 
 			_TIFFfree(scanbuf);
 
-/* -------------------------------------------------------------------- */
-/*  Read compressed image data.                                         */
-/* -------------------------------------------------------------------- */
+                        /* -------------------------------------------------------------------- */
+                        /*  Read compressed image data.                                         */
+                        /* -------------------------------------------------------------------- */
 
 		} else if ( info_hdr.iCompression == BMPC_RLE8
 			    || info_hdr.iCompression == BMPC_RLE4 ) {
@@ -593,107 +653,130 @@ main(int argc, char* argv[])
 
 			compr_size = file_hdr.iSize - file_hdr.iOffBits;
 			uncompr_size = width * length;
+                        /* Detect int overflow */
+                        if( uncompr_size / width != length ) {
+                                TIFFError(infilename,
+                                          "Invalid dimensions of BMP file" );
+                                close(fd);
+                                return -1;
+                        }
+                        if ( (compr_size == 0) ||
+                             (compr_size > ((uint32) ~0) >> 1) ||
+                             (uncompr_size == 0) ||
+                             (uncompr_size > ((uint32) ~0) >> 1) ) {
+                                TIFFError(infilename,
+                                          "Invalid dimensions of BMP file" );
+                                close(fd);
+                                return -1;  
+                        }
 			comprbuf = (unsigned char *) _TIFFmalloc( compr_size );
 			if (!comprbuf) {
 				TIFFError(infilename,
-			"Can't allocate space for compressed scanline buffer");
+                                          "Can't allocate space for compressed scanline buffer");
 				goto bad3;
 			}
 			uncomprbuf = (unsigned char *)_TIFFmalloc(uncompr_size);
 			if (!uncomprbuf) {
 				TIFFError(infilename,
-			"Can't allocate space for uncompressed scanline buffer");
+                                          "Can't allocate space for uncompressed scanline buffer");
 				goto bad3;
 			}
 
-			lseek(fd, file_hdr.iOffBits, SEEK_SET);
-			read(fd, comprbuf, compr_size);
+			if (_TIFF_lseek_f(fd, file_hdr.iOffBits, SEEK_SET) == (_TIFF_off_t)-1) {
+                                TIFFError(infilename, "Failed to seek to offset");
+                                goto bad3;
+                        }
+			if ( read(fd, comprbuf, compr_size) != (long) compr_size ) {
+                                TIFFError(infilename, "Failed to read from file (%s)",
+                                          strerror(errno));
+                                goto bad;
+                        }
 			i = 0;
 			j = 0;
 			if (info_hdr.iBitCount == 8) {		/* RLE8 */
-			    while(j < uncompr_size && i < compr_size) {
-				if ( comprbuf[i] ) {
-				    runlength = comprbuf[i++];
-				    while( runlength > 0
-					   && j < uncompr_size
-					   && i < compr_size ) {
-					uncomprbuf[j++] = comprbuf[i];
-					runlength--;
-				    }
-				    i++;
-				} else {
-				    i++;
-				    if (comprbuf[i] == 0) /* Next scanline */
-					i++;
-				    else if (comprbuf[i] == 1) /* End of image */
-					break;
-				    else if (comprbuf[i] == 2) { /* Move to... */
-					i++;
-					if (i < compr_size - 1) {
-					    j+=comprbuf[i]+comprbuf[i+1]*width;
-					    i += 2;
-					}
-					else
-					    break;
-				    } else {            /* Absolute mode */
-					runlength = comprbuf[i++];
-					for (k = 0; k < runlength && j < uncompr_size && i < compr_size; k++)
-					    uncomprbuf[j++] = comprbuf[i++];
-					if ( k & 0x01 )
-					    i++;
-				    }
-				}
-			    }
+                                while(j < uncompr_size && i < compr_size) {
+                                        if ( comprbuf[i] ) {
+                                                runlength = comprbuf[i++];
+                                                while( runlength > 0
+                                                       && j < uncompr_size
+                                                       && i < compr_size ) {
+                                                        uncomprbuf[j++] = comprbuf[i];
+                                                        runlength--;
+                                                }
+                                                i++;
+                                        } else {
+                                                i++;
+                                                if (comprbuf[i] == 0) /* Next scanline */
+                                                        i++;
+                                                else if (comprbuf[i] == 1) /* End of image */
+                                                        break;
+                                                else if (comprbuf[i] == 2) { /* Move to... */
+                                                        i++;
+                                                        if (i < compr_size - 1) {
+                                                                j+=comprbuf[i]+comprbuf[i+1]*width;
+                                                                i += 2;
+                                                        }
+                                                        else
+                                                                break;
+                                                } else {            /* Absolute mode */
+                                                        runlength = comprbuf[i++];
+                                                        for (k = 0; k < runlength && j < uncompr_size && i < compr_size; k++)
+                                                                uncomprbuf[j++] = comprbuf[i++];
+                                                        if ( k & 0x01 )
+                                                                i++;
+                                                }
+                                        }
+                                }
 			}
 			else {				    /* RLE4 */
-			    while( j < uncompr_size && i < compr_size ) {
-				if ( comprbuf[i] ) {
-				    runlength = comprbuf[i++];
-				    while( runlength > 0 && j < uncompr_size && i < compr_size ) {
-					if ( runlength & 0x01 )
-					    uncomprbuf[j++] = (comprbuf[i] & 0xF0) >> 4;
-					else
-					    uncomprbuf[j++] = comprbuf[i] & 0x0F;
-					runlength--;
-				    }
-				    i++;
-				} else {
-				    i++;
-				    if (comprbuf[i] == 0) /* Next scanline */
-					i++;
-				    else if (comprbuf[i] == 1) /* End of image */
-					break;
-				    else if (comprbuf[i] == 2) { /* Move to... */
-					i++;
-					if (i < compr_size - 1) {
-					    j+=comprbuf[i]+comprbuf[i+1]*width;
-					    i += 2;
-					}
-					else
-					    break;
-				    } else {            /* Absolute mode */
-					runlength = comprbuf[i++];
-					for (k = 0; k < runlength && j < uncompr_size && i < compr_size; k++) {
-					    if (k & 0x01)
-						uncomprbuf[j++] = comprbuf[i++] & 0x0F;
-					    else
-						uncomprbuf[j++] = (comprbuf[i] & 0xF0) >> 4;
-					}
-					if (k & 0x01)
-					    i++;
-				    }
-				}
-			    }
+                                while( j < uncompr_size && i < compr_size ) {
+                                        if ( comprbuf[i] ) {
+                                                runlength = comprbuf[i++];
+                                                while( runlength > 0 && j < uncompr_size && i < compr_size ) {
+                                                        if ( runlength & 0x01 )
+                                                                uncomprbuf[j++] = (comprbuf[i] & 0xF0) >> 4;
+                                                        else
+                                                                uncomprbuf[j++] = comprbuf[i] & 0x0F;
+                                                        runlength--;
+                                                }
+                                                i++;
+                                        } else {
+                                                i++;
+                                                if (comprbuf[i] == 0) /* Next scanline */
+                                                        i++;
+                                                else if (comprbuf[i] == 1) /* End of image */
+                                                        break;
+                                                else if (comprbuf[i] == 2) { /* Move to... */
+                                                        i++;
+                                                        if (i < compr_size - 1) {
+                                                                j+=comprbuf[i]+comprbuf[i+1]*width;
+                                                                i += 2;
+                                                        }
+                                                        else
+                                                                break;
+                                                } else {            /* Absolute mode */
+                                                        runlength = comprbuf[i++];
+                                                        for (k = 0; k < runlength && j < uncompr_size && i < compr_size; k++) {
+                                                                if (k & 0x01)
+                                                                        uncomprbuf[j++] = comprbuf[i++] & 0x0F;
+                                                                else
+                                                                        uncomprbuf[j++] = (comprbuf[i] & 0xF0) >> 4;
+                                                        }
+                                                        if (k & 0x01)
+                                                                i++;
+                                                }
+                                        }
+                                }
 			}
 
 			_TIFFfree(comprbuf);
 
 			for (row = 0; row < length; row++) {
 				if (TIFFWriteScanline(out,
-					uncomprbuf + (length - row - 1) * width,
-					row, 0) < 0) {
+                                                      uncomprbuf + (length - row - 1) * width,
+                                                      row, 0) < 0) {
 					TIFFError(infilename,
-						"scanline %lu: Write error.\n",
+                                                  "scanline %lu: Write error.\n",
 						  (unsigned long) row);
 				}
 			}
@@ -702,29 +785,29 @@ main(int argc, char* argv[])
 		}
 		TIFFWriteDirectory(out);
 		if (blue_tbl) {
-		  _TIFFfree(blue_tbl);
-		  blue_tbl=NULL;
+                        _TIFFfree(blue_tbl);
+                        blue_tbl=NULL;
 		}
 		if (green_tbl) {
-		  _TIFFfree(green_tbl);
-		  green_tbl=NULL;
+                        _TIFFfree(green_tbl);
+                        green_tbl=NULL;
 		}
 		if (red_tbl) {
-		  _TIFFfree(red_tbl);
-		  red_tbl=NULL;
+                        _TIFFfree(red_tbl);
+                        red_tbl=NULL;
 		}
 	}
 
-bad3:
+ bad3:
 	if (blue_tbl)
 		_TIFFfree(blue_tbl);
-bad2:
+ bad2:
 	if (green_tbl)
 		_TIFFfree(green_tbl);
-bad1:
+ bad1:
 	if (red_tbl)
 		_TIFFfree(red_tbl);
-bad:
+ bad:
         close(fd);
 
 	if (out)

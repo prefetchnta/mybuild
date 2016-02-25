@@ -258,7 +258,7 @@ DGifGetScreenDesc(GifFileType *GifFile)
     SortFlag = (Buf[0] & 0x08) != 0;
     BitsPerPixel = (Buf[0] & 0x07) + 1;
     GifFile->SBackGroundColor = Buf[1];
-    GifFile->AspectByte = Buf[2];
+    GifFile->AspectByte = Buf[2]; 
     if (Buf[0] & 0x80) {    /* Do we have global color map? */
 	int i;
 
@@ -393,8 +393,8 @@ DGifGetImageDesc(GifFileType *GifFile)
 
     if (GifFile->SavedImages) {
         SavedImage* new_saved_images =
-            (SavedImage *)realloc(GifFile->SavedImages,
-                            sizeof(SavedImage) * (GifFile->ImageCount + 1));
+            (SavedImage *)reallocarray(GifFile->SavedImages,
+                            (GifFile->ImageCount + 1), sizeof(SavedImage));
         if (new_saved_images == NULL) {
             GifFile->Error = D_GIF_ERR_NOT_ENOUGH_MEM;
             return GIF_ERROR;
@@ -764,6 +764,12 @@ DGifSetupDecompress(GifFileType *GifFile)
     }
     BitsPerPixel = CodeSize;
 
+    /* this can only happen on a severely malformed GIF */
+    if (BitsPerPixel > 8 || Private->RunningBits > 32) {
+	GifFile->Error = D_GIF_ERR_READ_FAILED;	/* somewhat bogus error code */
+	return GIF_ERROR;    /* Failed to read Code size. */
+    }
+
     Private->Buf[0] = 0;    /* Input Buffer empty. */
     Private->BitsPerPixel = BitsPerPixel;
     Private->ClearCode = (1 << BitsPerPixel);
@@ -994,7 +1000,7 @@ DGifDecompressInput(GifFileType *GifFile, int *Code)
         GifFile->Error = D_GIF_ERR_IMAGE_DEFECT;
         return GIF_ERROR;
     }
-
+    
     while (Private->CrntShiftState < Private->RunningBits) {
         /* Needs to get more bytes from input stream for next code: */
         if (DGifBufferedInput(GifFile, Private->Buf, &NextByte) == GIF_ERROR) {
@@ -1099,7 +1105,7 @@ DGifSlurp(GifFileType *GifFile)
               if (ImageSize > (SIZE_MAX / sizeof(GifPixelType))) {
                   return GIF_ERROR;
               }
-              sp->RasterBits = (unsigned char *)malloc(ImageSize *
+              sp->RasterBits = (unsigned char *)reallocarray(NULL, ImageSize,
                       sizeof(GifPixelType));
 
               if (sp->RasterBits == NULL) {
@@ -1108,19 +1114,19 @@ DGifSlurp(GifFileType *GifFile)
 
 	      if (sp->ImageDesc.Interlace) {
 		  int i, j;
-		   /*
-		    * The way an interlaced image should be read -
+		   /* 
+		    * The way an interlaced image should be read - 
 		    * offsets and jumps...
 		    */
 		  int InterlacedOffset[] = { 0, 4, 2, 1 };
 		  int InterlacedJumps[] = { 8, 8, 4, 2 };
 		  /* Need to perform 4 passes on the image */
 		  for (i = 0; i < 4; i++)
-		      for (j = InterlacedOffset[i];
+		      for (j = InterlacedOffset[i]; 
 			   j < sp->ImageDesc.Height;
 			   j += InterlacedJumps[i]) {
-			  if (DGifGetLine(GifFile,
-					  sp->RasterBits+j*sp->ImageDesc.Width,
+			  if (DGifGetLine(GifFile, 
+					  sp->RasterBits+j*sp->ImageDesc.Width, 
 					  sp->ImageDesc.Width) == GIF_ERROR)
 			      return GIF_ERROR;
 		      }
@@ -1145,7 +1151,7 @@ DGifSlurp(GifFileType *GifFile)
 	      /* Create an extension block with our data */
               if (ExtData != NULL) {
 		  if (GifAddExtensionBlock(&GifFile->ExtensionBlockCount,
-					   &GifFile->ExtensionBlocks,
+					   &GifFile->ExtensionBlocks, 
 					   ExtFunction, ExtData[0], &ExtData[1])
 		      == GIF_ERROR)
 		      return (GIF_ERROR);
@@ -1157,7 +1163,7 @@ DGifSlurp(GifFileType *GifFile)
 		  if (ExtData != NULL)
 		      if (GifAddExtensionBlock(&GifFile->ExtensionBlockCount,
 					       &GifFile->ExtensionBlocks,
-					       CONTINUE_EXT_FUNC_CODE,
+					       CONTINUE_EXT_FUNC_CODE, 
 					       ExtData[0], &ExtData[1]) == GIF_ERROR)
                       return (GIF_ERROR);
               }
@@ -1170,6 +1176,12 @@ DGifSlurp(GifFileType *GifFile)
               break;
         }
     } while (RecordType != TERMINATE_RECORD_TYPE);
+
+    /* Sanity check for corrupted file */
+    if (GifFile->ImageCount == 0) {
+	GifFile->Error = D_GIF_ERR_NO_IMAG_DSCR;
+	return(GIF_ERROR);
+    }
 
     return (GIF_OK);
 }

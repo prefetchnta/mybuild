@@ -35,8 +35,8 @@ static const GifPixelType CodeMask[] = {
 static int EGifPutWord(int Word, GifFileType * GifFile);
 static int EGifSetupCompress(GifFileType * GifFile);
 static int EGifCompressLine(GifFileType * GifFile, GifPixelType * Line,
-                            int LineLen);
-static int EGifCompressOutput(GifFileType * GifFile, int Code);
+                            const int LineLen);
+static int EGifCompressOutput(GifFileType * GifFile, const int Code);
 static int EGifBufferedOutput(GifFileType * GifFile, GifByteType * Buf,
                               int c);
 
@@ -874,7 +874,7 @@ EGifSetupCompress(GifFileType *GifFile)
 static int
 EGifCompressLine(GifFileType *GifFile,
                  GifPixelType *Line,
-                 int LineLen)
+                 const int LineLen)
 {
     int i = 0, CrntCode, NewCode;
     unsigned long NewKey;
@@ -961,7 +961,8 @@ EGifCompressLine(GifFileType *GifFile,
  Returns GIF_OK if written successfully.
 ******************************************************************************/
 static int
-EGifCompressOutput(GifFileType *GifFile, int Code)
+EGifCompressOutput(GifFileType *GifFile,
+                   const int Code)
 {
     GifFilePrivateType *Private = (GifFilePrivateType *) GifFile->Private;
     int retval = GIF_OK;

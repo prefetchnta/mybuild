@@ -4,7 +4,7 @@ CC = cl /nologo
 CFLAGS = /c /O2 /Oi /Ot /GS /MD /D_WIN32
 
 OBJS = egif_lib.obj dgif_lib.obj gifalloc.obj gif_font.obj gif_hash.obj \
-	gif_err.obj quantize.obj
+	gif_err.obj quantize.obj openbsd-reallocarray.obj
 
 .c.obj:
 	$(CC) $(INCS) $(CFLAGS) $<

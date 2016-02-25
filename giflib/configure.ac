@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(giflib, [5.1.1], [esr@thyrsus.com], giflib)
+AC_INIT(giflib, [5.1.2], [esr@thyrsus.com], giflib)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([lib/dgif_lib.c])
 AM_INIT_AUTOMAKE([gnu dist-bzip2 -Wall])
@@ -11,6 +11,7 @@ dnl We leave this in place only to suppress an error message at autogen time
 AM_CONFIG_HEADER(config.h)
 
 dnl Checks for programs.
+AM_PROG_AR
 AC_PROG_LIBTOOL
 AC_PROG_CC
 AC_PROG_CPP

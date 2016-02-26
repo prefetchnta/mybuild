@@ -75,7 +75,7 @@ L_BMF   *bmf;
     GenCleans("cavalerie.11.jpg", &index, 40, bmf);
 
         /* Write the nup files in /tmp/adapt2 */
-    convertToNUpFiles("/tmp/lept", "adapt_", 2, 1, 500, 6, 2, NULL, "adapt2");
+    convertToNUpFiles("/tmp/lept", "adapt_", 2, 1, 500, 6, 2, 0, "adapt2");
 
         /* Gather up into a pdf */
     L_INFO("Writing to /tmp/lept/adapt_cleaning.pdf\n", procName);
@@ -107,7 +107,7 @@ PIX     *pix1, *pix2, *pix3, *pix4, *pix5;
     pix2 = pixBackgroundNorm(pix1, NULL, NULL, 10, 15, thresh, 25, 200, 2, 1);
     snprintf(buf, sizeof(buf), "Norm color: fg thresh = %d", thresh);
     fprintf(stderr, "%s\n", buf);
-    pix3 = pixAddSingleTextline(pix2, bmf, buf, 0x00ff0000, L_ADD_BELOW);
+    pix3 = pixAddTextlines(pix2, bmf, buf, 0x00ff0000, L_ADD_BELOW);
     snprintf(buf, sizeof(buf), "/tmp/lept/adapt_%03d.jpg", index++);
     pixWrite(buf, pix3, IFF_JFIF_JPEG);
     pixDestroy(&pix3);

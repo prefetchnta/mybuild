@@ -36,8 +36,8 @@
 
 
     /* Set match method */
-static const l_int32 match_method = L_USE_AVERAGE;
-/* static const l_int32 match_method = L_USE_ALL; */
+/* static const l_int32 match_method = L_USE_AVERAGE; */
+static const l_int32 match_method = L_USE_ALL;
 
 static const l_int32 scaledw = 20;
 static const l_int32 scaledh = 32;
@@ -45,7 +45,7 @@ static const l_int32 scaledh = 32;
 l_int32 main(int    argc,
              char **argv)
 {
-l_int32    i, j, n, val, index, w, h, ignore;
+l_int32    i, j, n, index, w, h, ignore;
 l_float32  score;
 char      *fname, *strchar;
 char       buf[256];
@@ -56,7 +56,7 @@ PIX       *pixs, *pixd, *pixt, *pixdb;
 PIXA      *pixa, *pixat;
 L_RECOG   *recog, *recog2;
 L_RECOGA  *recoga;
-SARRAY    *sa, *satext, *satextt;
+SARRAY    *sa, *satext;
 
     if (argc != 1) {
         fprintf(stderr, " Syntax: recogtest1\n");
@@ -66,9 +66,11 @@ SARRAY    *sa, *satext, *satextt;
     recog = NULL;
     recog2 = NULL;
 
+    lept_mkdir("lept/digits");
+
 #if 0  /* Generate a simple bootstrap pixa (bootnum1.pa) for
           number images in directory 'recog/bootnums' */
-    recog = recogCreate(scaledw, scaledh, match_method, 100, 1, "fonts");
+    recog = recogCreate(scaledw, scaledh, match_method, 100, 1);
     sa = getSortedPathnamesInDirectory("recog/bootnums", "png", 0, 0);
     n = sarrayGetCount(sa);
     for (i = 0; i < n; i++) {
@@ -89,19 +91,26 @@ SARRAY    *sa, *satext, *satextt;
              "displaypixa /tmp/bootnum1.pa 1.0 2 1 0 /tmp/bootnum1.png fonts");
     ignore = system(buf);
     sarrayDestroy(&sa);
-#else
+#elif 0
     pixa = pixaRead("recog/digits/bootnum1.pa");
-    recog = recogCreateFromPixa(pixa, scaledw, scaledh, match_method,
-                                120, 1, "fonts");
+    recog = recogCreateFromPixa(pixa, scaledw, scaledh, match_method, 120, 1);
     snprintf(buf, sizeof(buf),
         "displaypixa recog/digits/bootnum1.pa 1.0 2 1 0 "
-        "/tmp/bootnum1.png fonts");
+        "/tmp/lept/digits/bootnum1.png fonts");
+    ignore = system(buf);
+    pixaDestroy(&pixa);
+#else
+    pixa = pixaRead("recog/digits/bootnum2.pa");
+    recog = recogCreateFromPixa(pixa, scaledw, scaledh, match_method, 120, 1);
+    snprintf(buf, sizeof(buf),
+        "displaypixa recog/digits/bootnum2.pa 1.0 2 1 0 "
+        "/tmp/lept/digits/bootnum2.png fonts");
     ignore = system(buf);
     pixaDestroy(&pixa);
 #endif
 
 #if 0  /* roman, one per image */
-    recog = recogCreate(20, 32, match_method, 100, 1, "fonts");
+    recog = recogCreate(20, 32, match_method, 100, 1);
     sa = getSortedPathnamesInDirectory("charset", "png", 0, 0);
     n = sarrayGetCount(sa);
     for (i = 0; i < n; i++) {
@@ -129,13 +138,12 @@ SARRAY    *sa, *satext, *satextt;
     fprintf(stderr, "AverageSamples\n");
     recogAverageSamples(recog, 1);
     pixt = pixaGetPix(recog->pixadb_ave, 0, L_CLONE);
-    pixWrite("/tmp/unscaled_ave.png", pixt, IFF_PNG);
+    pixWrite("/tmp/lept/digits/unscaled_ave.png", pixt, IFF_PNG);
     pixDestroy(&pixt);
     pixt = pixaGetPix(recog->pixadb_ave, 1, L_CLONE);
-    pixWrite("/tmp/scaled_ave.png", pixt, IFF_PNG);
+    pixWrite("/tmp/lept/digits/scaled_ave.png", pixt, IFF_PNG);
     pixDestroy(&pixt);
 #endif
-
 
 #if 1
         /* Split touching characters */
@@ -154,13 +162,12 @@ SARRAY    *sa, *satext, *satextt;
     boxaDestroy(&boxat);
 #endif
 
-
 #if 1
     recogDebugAverages(recog, 0);
     recogShowMatchesInRange(recog, recog->pixa_tr, 0.65, 1.0, 0);
-    pixWrite("/tmp/match_ave1.png", recog->pixdb_range, IFF_PNG);
+    pixWrite("/tmp/lept/digits/match_ave1.png", recog->pixdb_range, IFF_PNG);
     recogShowMatchesInRange(recog, recog->pixa_tr, 0.0, 1.0, 0);
-    pixWrite("/tmp/match_ave2.png", recog->pixdb_range, IFF_PNG);
+    pixWrite("/tmp/lept/digits/match_ave2.png", recog->pixdb_range, IFF_PNG);
 #endif
 
 #if 0
@@ -192,21 +199,21 @@ SARRAY    *sa, *satext, *satextt;
 #if 1
     fprintf(stderr, "Debug averages\n");
     recogDebugAverages(recog, 0);
-    pixWrite("/tmp/averages.png", recog->pixdb_ave, IFF_PNG);
+    pixWrite("/tmp/lept/digits/averages.png", recog->pixdb_ave, IFF_PNG);
 #endif
 
 #if 1
     fprintf(stderr, "Print stats 2\n");
     recogShowContent(stderr, recog, 1);
-    recogWrite("/tmp/rec1.rec", recog);
-    recog2 = recogRead("/tmp/rec1.rec");
-    recogMakeBmf(recog2, "fonts", 0);
-    recogWrite("/tmp/rec2.rec", recog2);
+    recogWrite("/tmp/lept/digits/rec1.rec", recog);
+    recog2 = recogRead("/tmp/lept/digits/rec1.rec");
+    recogResetBmf(recog2, 0);
+    recogWrite("/tmp/lept/digits/rec2.rec", recog2);
 
     fprintf(stderr, "Debug averages 2\n");
     recogDebugAverages(recog2, 1);
     recogShowMatchesInRange(recog2, recog->pixa_tr, 0.0, 1.0, 1);
-    pixWrite("/tmp/match_ave3.png", recog2->pixdb_range, IFF_PNG);
+    pixWrite("/tmp/lept/digits/match_ave3.png", recog2->pixdb_range, IFF_PNG);
     recogDestroy(&recog2);
 #endif
 

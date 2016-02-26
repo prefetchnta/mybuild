@@ -37,6 +37,7 @@
  *           NUMA       *pixGetGrayHistogram()
  *           NUMA       *pixGetGrayHistogramMasked()
  *           NUMA       *pixGetGrayHistogramInRect()
+ *           NUMAA      *pixGetGrayHistogramTiled()
  *           l_int32     pixGetColorHistogram()
  *           l_int32     pixGetColorHistogramMasked()
  *           NUMA       *pixGetCmapHistogram()
@@ -115,7 +116,7 @@ PIX        *pixg;
     if (d > 16)
         return (NUMA *)ERROR_PTR("depth not in {1,2,4,8,16}", procName, NULL);
     if (factor < 1)
-        return (NUMA *)ERROR_PTR("sampling factor < 1", procName, NULL);
+        return (NUMA *)ERROR_PTR("sampling must be >= 1", procName, NULL);
 
     if (pixGetColormap(pixs))
         pixg = pixRemoveColormap(pixs, REMOVE_CMAP_TO_GRAYSCALE);
@@ -215,7 +216,6 @@ PIX        *pixg;
 
     if (!pixm)
         return pixGetGrayHistogram(pixs, factor);
-
     if (!pixs)
         return (NUMA *)ERROR_PTR("pixs not defined", procName, NULL);
     if (pixGetDepth(pixs) != 8 && !pixGetColormap(pixs))
@@ -225,7 +225,7 @@ PIX        *pixg;
     if (dm != 1)
         return (NUMA *)ERROR_PTR("pixm not 1 bpp", procName, NULL);
     if (factor < 1)
-        return (NUMA *)ERROR_PTR("sampling factor < 1", procName, NULL);
+        return (NUMA *)ERROR_PTR("sampling must be >= 1", procName, NULL);
 
     if ((na = numaCreate(256)) == NULL)
         return (NUMA *)ERROR_PTR("na not made", procName, NULL);
@@ -292,14 +292,13 @@ PIX        *pixg;
 
     if (!box)
         return pixGetGrayHistogram(pixs, factor);
-
     if (!pixs)
         return (NUMA *)ERROR_PTR("pixs not defined", procName, NULL);
     if (pixGetDepth(pixs) != 8 && !pixGetColormap(pixs))
         return (NUMA *)ERROR_PTR("pixs neither 8 bpp nor colormapped",
                                  procName, NULL);
     if (factor < 1)
-        return (NUMA *)ERROR_PTR("sampling factor < 1", procName, NULL);
+        return (NUMA *)ERROR_PTR("sampling must be >= 1", procName, NULL);
 
     if ((na = numaCreate(256)) == NULL)
         return (NUMA *)ERROR_PTR("na not made", procName, NULL);
@@ -328,6 +327,59 @@ PIX        *pixg;
 
     pixDestroy(&pixg);
     return na;
+}
+
+
+/*!
+ *  pixGetGrayHistogramTiled()
+ *
+ *      Input:  pixs (any depth, colormap OK)
+ *              factor (subsampling factor; integer >= 1)
+ *              nx, ny (tiling; >= 1; typically small)
+ *      Return: naa (set of histograms), or null on error
+ *
+ *  Notes:
+ *      (1) If pixs is cmapped, it is converted to 8 bpp gray.
+ *      (2) This returns a set of 256-value histograms of pixel values.
+ *      (3) Set the subsampling factor > 1 to reduce the amount of computation.
+ */
+NUMAA *
+pixGetGrayHistogramTiled(PIX     *pixs,
+                         l_int32  factor,
+                         l_int32  nx,
+                         l_int32  ny)
+{
+l_int32  i, n;
+NUMA    *na;
+NUMAA   *naa;
+PIX     *pix1, *pix2;
+PIXA    *pixa;
+
+    PROCNAME("pixGetGrayHistogramTiled");
+
+    if (!pixs)
+        return (NUMAA *)ERROR_PTR("pixs not defined", procName, NULL);
+    if (factor < 1)
+        return (NUMAA *)ERROR_PTR("sampling must be >= 1", procName, NULL);
+    if (nx < 1 || ny < 1)
+        return (NUMAA *)ERROR_PTR("nx and ny must both be > 0", procName, NULL);
+
+    n = nx * ny;
+    if ((naa = numaaCreate(n)) == NULL)
+        return (NUMAA *)ERROR_PTR("naa not made", procName, NULL);
+
+    pix1 = pixConvertTo8(pixs, FALSE);
+    pixa = pixaSplitPix(pix1, nx, ny, 0, 0);
+    for (i = 0; i < n; i++) {
+        pix2 = pixaGetPix(pixa, i, L_CLONE);
+        na = pixGetGrayHistogram(pix2, factor);
+        numaaAddNuma(naa, na, L_INSERT);
+        pixDestroy(&pix2);
+    }
+
+    pixDestroy(&pix1);
+    pixaDestroy(&pixa);
+    return naa;
 }
 
 
@@ -375,7 +427,7 @@ PIXCMAP    *cmap;
     if (!cmap && d != 32)
         return ERROR_INT("no colormap and not rgb", procName, 1);
     if (factor < 1)
-        return ERROR_INT("sampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
 
         /* Set up the histogram arrays */
     nar = numaCreate(256);
@@ -484,7 +536,7 @@ PIXCMAP    *cmap;
     if (dm != 1)
         return ERROR_INT("pixm not 1 bpp", procName, 1);
     if (factor < 1)
-        return ERROR_INT("sampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
 
         /* Set up the histogram arrays */
     nar = numaCreate(256);
@@ -575,7 +627,7 @@ NUMA       *na;
     if (pixGetColormap(pixs) == NULL)
         return (NUMA *)ERROR_PTR("pixs not cmapped", procName, NULL);
     if (factor < 1)
-        return (NUMA *)ERROR_PTR("sampling factor < 1", procName, NULL);
+        return (NUMA *)ERROR_PTR("sampling must be >= 1", procName, NULL);
     pixGetDimensions(pixs, &w, &h, &d);
     if (d != 2 && d != 4 && d != 8)
         return (NUMA *)ERROR_PTR("d not 2, 4 or 8", procName, NULL);
@@ -647,7 +699,7 @@ NUMA       *na;
     if (dm != 1)
         return (NUMA *)ERROR_PTR("pixm not 1 bpp", procName, NULL);
     if (factor < 1)
-        return (NUMA *)ERROR_PTR("sampling factor < 1", procName, NULL);
+        return (NUMA *)ERROR_PTR("sampling must be >= 1", procName, NULL);
     pixGetDimensions(pixs, &w, &h, &d);
     if (d != 2 && d != 4 && d != 8)
         return (NUMA *)ERROR_PTR("d not 2, 4 or 8", procName, NULL);
@@ -714,13 +766,12 @@ NUMA       *na;
 
     if (!box)
         return pixGetCmapHistogram(pixs, factor);
-
     if (!pixs)
         return (NUMA *)ERROR_PTR("pixs not defined", procName, NULL);
     if (pixGetColormap(pixs) == NULL)
         return (NUMA *)ERROR_PTR("pixs not cmapped", procName, NULL);
     if (factor < 1)
-        return (NUMA *)ERROR_PTR("sampling factor < 1", procName, NULL);
+        return (NUMA *)ERROR_PTR("sampling must be >= 1", procName, NULL);
     pixGetDimensions(pixs, &w, &h, &d);
     if (d != 2 && d != 4 && d != 8)
         return (NUMA *)ERROR_PTR("d not 2, 4 or 8", procName, NULL);
@@ -822,9 +873,9 @@ PIXCMAP   *cmap;
  *                    can be < 0; these values are ignored if pixm is null)
  *              factor (subsampling factor; integer >= 1)
  *              rank (between 0.0 and 1.0; 1.0 is brightest, 0.0 is darkest)
- *              &rval (<optional return> red component val for to input rank)
- *              &gval (<optional return> green component val for to input rank)
- *              &bval (<optional return> blue component val for to input rank)
+ *              &rval (<optional return> red component val for input rank)
+ *              &gval (<optional return> green component val for input rank)
+ *              &bval (<optional return> blue component val for input rank)
  *      Return: 0 if OK, 1 on error
  *
  *  Notes:
@@ -856,6 +907,8 @@ PIX       *pixmt, *pixt;
     if (prval) *prval = 0.0;
     if (pgval) *pgval = 0.0;
     if (pbval) *pbval = 0.0;
+    if (!prval && !pgval && !pbval)
+        return ERROR_INT("no results requested", procName, 1);
     if (!pixs)
         return ERROR_INT("pixs not defined", procName, 1);
     if (pixGetDepth(pixs) != 32)
@@ -863,11 +916,9 @@ PIX       *pixmt, *pixt;
     if (pixm && pixGetDepth(pixm) != 1)
         return ERROR_INT("pixm not 1 bpp", procName, 1);
     if (factor < 1)
-        return ERROR_INT("sampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
     if (rank < 0.0 || rank > 1.0)
         return ERROR_INT("rank not in [0.0 ... 1.0]", procName, 1);
-    if (!prval && !pgval && !pbval)
-        return ERROR_INT("no results requested", procName, 1);
 
     pixmt = NULL;
     if (pixm) {
@@ -952,7 +1003,7 @@ NUMA  *na;
     if (pixm && pixGetDepth(pixm) != 1)
         return ERROR_INT("pixm not 1 bpp", procName, 1);
     if (factor < 1)
-        return ERROR_INT("sampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
     if (rank < 0.0 || rank > 1.0)
         return ERROR_INT("rank not in [0.0 ... 1.0]", procName, 1);
 
@@ -975,7 +1026,7 @@ NUMA  *na;
  *              factor (subsampling factor; integer >= 1)
  *              type (L_MEAN_ABSVAL, L_ROOT_MEAN_SQUARE,
  *                    L_STANDARD_DEVIATION, L_VARIANCE)
- *              &value (<return> pixel value corresponding to input rank)
+ *              &value (<return> pixel value corresponding to input type)
  *      Return: 0 if OK, 1 on error
  *
  *  Notes:
@@ -1064,6 +1115,8 @@ PIXCMAP  *cmap;
     if (prval) *prval = 0.0;
     if (pgval) *pgval = 0.0;
     if (pbval) *pbval = 0.0;
+    if (!prval && !pgval && !pbval)
+        return ERROR_INT("no values requested", procName, 1);
     if (!pixs)
         return ERROR_INT("pixs not defined", procName, 1);
     cmap = pixGetColormap(pixs);
@@ -1072,12 +1125,10 @@ PIXCMAP  *cmap;
     if (pixm && pixGetDepth(pixm) != 1)
         return ERROR_INT("pixm not 1 bpp", procName, 1);
     if (factor < 1)
-        return ERROR_INT("subsampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
     if (type != L_MEAN_ABSVAL && type != L_ROOT_MEAN_SQUARE &&
         type != L_STANDARD_DEVIATION && type != L_VARIANCE)
         return ERROR_INT("invalid measure type", procName, 1);
-    if (!prval && !pgval && !pbval)
-        return ERROR_INT("no values requested", procName, 1);
 
     if (prval) {
         if (cmap)
@@ -1165,7 +1216,7 @@ PIX       *pixg;
     if (pixm && pixGetDepth(pixm) != 1)
         return ERROR_INT("pixm not 1 bpp", procName, 1);
     if (factor < 1)
-        return ERROR_INT("subsampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
     if (type != L_MEAN_ABSVAL && type != L_ROOT_MEAN_SQUARE &&
         type != L_STANDARD_DEVIATION && type != L_VARIANCE)
         return ERROR_INT("invalid measure type", procName, 1);
@@ -1272,6 +1323,8 @@ PIXCMAP  *cmap;
     if (ppixr) *ppixr = NULL;
     if (ppixg) *ppixg = NULL;
     if (ppixb) *ppixb = NULL;
+    if (!ppixr && !ppixg && !ppixb)
+        return ERROR_INT("no data requested", procName, 1);
     if (!pixs)
         return ERROR_INT("pixs not defined", procName, 1);
     cmap = pixGetColormap(pixs);
@@ -1282,8 +1335,6 @@ PIXCMAP  *cmap;
     if (type != L_MEAN_ABSVAL && type != L_ROOT_MEAN_SQUARE &&
         type != L_STANDARD_DEVIATION)
         return ERROR_INT("invalid measure type", procName, 1);
-    if (!ppixr && !ppixg && !ppixb)
-        return ERROR_INT("no returned data requested", procName, 1);
 
     if (ppixr) {
         if (cmap)
@@ -1472,12 +1523,12 @@ l_float32  *famedian, *famode, *famodecount;
     wpls = pixGetWpl(pixs);
     if (pnamean || pnavar || pnarootvar) {
         norm = 1. / (l_float32)bw;
-        famean = (l_float32 *)CALLOC(bh, sizeof(l_float32));
-        fameansq = (l_float32 *)CALLOC(bh, sizeof(l_float32));
+        famean = (l_float32 *)LEPT_CALLOC(bh, sizeof(l_float32));
+        fameansq = (l_float32 *)LEPT_CALLOC(bh, sizeof(l_float32));
         if (pnavar || pnarootvar) {
-            favar = (l_float32 *)CALLOC(bh, sizeof(l_float32));
+            favar = (l_float32 *)LEPT_CALLOC(bh, sizeof(l_float32));
             if (pnarootvar)
-                farootvar = (l_float32 *)CALLOC(bh, sizeof(l_float32));
+                farootvar = (l_float32 *)LEPT_CALLOC(bh, sizeof(l_float32));
         }
         for (i = ystart; i < yend; i++) {
             sum = sumsq = 0;
@@ -1492,25 +1543,25 @@ l_float32  *famedian, *famode, *famodecount;
             if (pnavar || pnarootvar) {
                 favar[i] = fameansq[i] - famean[i] * famean[i];
                 if (pnarootvar)
-                    farootvar[i] = sqrt(favar[i]);
+                    farootvar[i] = sqrtf(favar[i]);
             }
         }
-        FREE(fameansq);
+        LEPT_FREE(fameansq);
         if (pnamean)
             *pnamean = numaCreateFromFArray(famean, bh, L_INSERT);
         else
-            FREE(famean);
+            LEPT_FREE(famean);
         if (pnavar)
             *pnavar = numaCreateFromFArray(favar, bh, L_INSERT);
         else
-            FREE(favar);
+            LEPT_FREE(favar);
         if (pnarootvar)
             *pnarootvar = numaCreateFromFArray(farootvar, bh, L_INSERT);
     }
 
         /* We need a histogram to find the median and/or mode values */
     if (pnamedian || pnamode || pnamodecount) {
-        histo = (l_int32 *)CALLOC(256, sizeof(l_int32));
+        histo = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
         if (pnamedian) {
             *pnamedian = numaMakeConstant(0, bh);
             famedian = numaGetFArray(*pnamedian, L_NOCOPY);
@@ -1558,7 +1609,7 @@ l_float32  *famedian, *famode, *famodecount;
                     famodecount[i] = max;
             }
         }
-        FREE(histo);
+        LEPT_FREE(histo);
     }
 
     return 0;
@@ -1630,12 +1681,12 @@ l_float32  *famedian, *famode, *famodecount;
     wpls = pixGetWpl(pixs);
     if (pnamean || pnavar || pnarootvar) {
         norm = 1. / (l_float32)bh;
-        famean = (l_float32 *)CALLOC(bw, sizeof(l_float32));
-        fameansq = (l_float32 *)CALLOC(bw, sizeof(l_float32));
+        famean = (l_float32 *)LEPT_CALLOC(bw, sizeof(l_float32));
+        fameansq = (l_float32 *)LEPT_CALLOC(bw, sizeof(l_float32));
         if (pnavar || pnarootvar) {
-            favar = (l_float32 *)CALLOC(bw, sizeof(l_float32));
+            favar = (l_float32 *)LEPT_CALLOC(bw, sizeof(l_float32));
             if (pnarootvar)
-                farootvar = (l_float32 *)CALLOC(bw, sizeof(l_float32));
+                farootvar = (l_float32 *)LEPT_CALLOC(bw, sizeof(l_float32));
         }
         for (j = xstart; j < xend; j++) {
             sum = sumsq = 0;
@@ -1649,25 +1700,25 @@ l_float32  *famedian, *famode, *famodecount;
             if (pnavar || pnarootvar) {
                 favar[j] = fameansq[j] - famean[j] * famean[j];
                 if (pnarootvar)
-                    farootvar[j] = sqrt(favar[j]);
+                    farootvar[j] = sqrtf(favar[j]);
             }
         }
-        FREE(fameansq);
+        LEPT_FREE(fameansq);
         if (pnamean)
             *pnamean = numaCreateFromFArray(famean, bw, L_INSERT);
         else
-            FREE(famean);
+            LEPT_FREE(famean);
         if (pnavar)
             *pnavar = numaCreateFromFArray(favar, bw, L_INSERT);
         else
-            FREE(favar);
+            LEPT_FREE(favar);
         if (pnarootvar)
             *pnarootvar = numaCreateFromFArray(farootvar, bw, L_INSERT);
     }
 
         /* We need a histogram to find the median and/or mode values */
     if (pnamedian || pnamode || pnamodecount) {
-        histo = (l_int32 *)CALLOC(256, sizeof(l_int32));
+        histo = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
         if (pnamedian) {
             *pnamedian = numaMakeConstant(0, bw);
             famedian = numaGetFArray(*pnamedian, L_NOCOPY);
@@ -1714,7 +1765,7 @@ l_float32  *famedian, *famode, *famodecount;
                     famodecount[j] = max;
             }
         }
-        FREE(histo);
+        LEPT_FREE(histo);
     }
 
     return 0;
@@ -1758,7 +1809,7 @@ PIXCMAP  *cmap;
         return pixcmapGetComponentRange(cmap, color, pminval, pmaxval);
 
     if (factor < 1)
-        return ERROR_INT("subsampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
     d = pixGetDepth(pixs);
     if (d != 8 && d != 32)
         return ERROR_INT("pixs not 8 or 32 bpp", procName, 1);
@@ -1839,7 +1890,7 @@ PIXCMAP   *cmap;
     if (type != L_SELECT_MIN && type != L_SELECT_MAX)
         return ERROR_INT("invalid type", procName, 1);
     if (factor < 1)
-        return ERROR_INT("subsampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
     if (d != 8 && d != 32)
         return ERROR_INT("pixs not 8 or 32 bpp", procName, 1);
     if (d == 8 && !pgrayval)
@@ -1912,7 +1963,7 @@ PIXCMAP   *cmap;
 /*!
  *  pixGetMaxValueInRect()
  *
- *      Input:  pixs (8 bpp or 32 bpp grayscale; no color space components)
+ *      Input:  pixs (8, 16 or 32 bpp grayscale; no color space components)
  *              box (<optional> region; set box = NULL to use entire pixs)
  *              &maxval (<optional return> max value in region)
  *              &xmax (<optional return> x location of max value)
@@ -1944,14 +1995,14 @@ l_uint32  *data, *line;
     if (pxmax) *pxmax = 0;
     if (pymax) *pymax = 0;
     if (!pmaxval && !pxmax && !pymax)
-        return ERROR_INT("nothing to do", procName, 1);
+        return ERROR_INT("no data requested", procName, 1);
     if (!pixs)
         return ERROR_INT("pixs not defined", procName, 1);
     if (pixGetColormap(pixs) != NULL)
         return ERROR_INT("pixs has colormap", procName, 1);
     pixGetDimensions(pixs, &w, &h, &d);
-    if (d != 8 && d != 32)
-        return ERROR_INT("pixs not 8 or 32 bpp", procName, 1);
+    if (d != 8 && d != 16 && d != 32)
+        return ERROR_INT("pixs not 8, 16 or 32 bpp", procName, 1);
 
     xstart = ystart = 0;
     xend = w - 1;
@@ -1971,6 +2022,8 @@ l_uint32  *data, *line;
         for (j = xstart; j <= xend; j++) {
             if (d == 8)
                 val = GET_DATA_BYTE(line, j);
+            else if (d == 16)
+                val = GET_DATA_TWO_BYTES(line, j);
             else  /* d == 32 */
                 val = line[j];
             if (val > maxval) {
@@ -2002,7 +2055,8 @@ l_uint32  *data, *line;
  *              &minval (<optional return> minimum value of component)
  *              &maxval (<optional return> maximum value of component)
  *              &carray (<optional return> color array of bins)
- *              fontdir (<optional> for debug output)
+ *              fontsize (<optional> 0 for no debug; for debug, valid set
+ *                        is {4,6,8,10,12,14,16,18,20}.)
  *      Return: 0 if OK, 1 on error
  *
  *  Notes:
@@ -2011,14 +2065,14 @@ l_uint32  *data, *line;
  *          where the ranking is done using the specified component.
  */
 l_int32
-pixGetBinnedComponentRange(PIX         *pixs,
-                           l_int32      nbins,
-                           l_int32      factor,
-                           l_int32      color,
-                           l_int32     *pminval,
-                           l_int32     *pmaxval,
-                           l_uint32   **pcarray,
-                           const char  *fontdir)
+pixGetBinnedComponentRange(PIX        *pixs,
+                           l_int32     nbins,
+                           l_int32     factor,
+                           l_int32     color,
+                           l_int32    *pminval,
+                           l_int32    *pmaxval,
+                           l_uint32  **pcarray,
+                           l_int32     fontsize)
 {
 l_int32    i, minval, maxval, rval, gval, bval;
 l_uint32  *carray;
@@ -2034,16 +2088,18 @@ PIX       *pixt;
     if (!pixs || pixGetDepth(pixs) != 32)
         return ERROR_INT("pixs not defined or not 32 bpp", procName, 1);
     if (factor < 1)
-        return ERROR_INT("subsampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
     if (color != L_SELECT_RED && color != L_SELECT_GREEN &&
         color != L_SELECT_BLUE)
         return ERROR_INT("invalid color", procName, 1);
+    if (fontsize < 0 || fontsize > 20 || fontsize & 1 || fontsize == 2)
+        return ERROR_INT("invalid fontsize", procName, 1);
 
-    pixGetRankColorArray(pixs, nbins, color, factor, &carray, 0, NULL);
-    if (fontdir) {
+    pixGetRankColorArray(pixs, nbins, color, factor, &carray, 0, 0);
+    if (fontsize > 0) {
         for (i = 0; i < nbins; i++)
             L_INFO("c[%d] = %x\n", procName, i, carray[i]);
-        pixt = pixDisplayColorArray(carray, nbins, 200, 5, fontdir);
+        pixt = pixDisplayColorArray(carray, nbins, 200, 5, fontsize);
         pixDisplay(pixt, 100, 100);
         pixDestroy(&pixt);
     }
@@ -2066,7 +2122,7 @@ PIX       *pixt;
     if (pcarray)
         *pcarray = carray;
     else
-        FREE(carray);
+        LEPT_FREE(carray);
     return 0;
 }
 
@@ -2081,7 +2137,9 @@ PIX       *pixt;
  *              &carray (<return> array of colors, ranked by intensity)
  *              debugflag (1 to display color squares and plots of color
  *                         components; 2 to write them as png to file)
- *              fontdir (<optional> for text fonts; ignored if debugflag == 0)
+ *              fontsize (<optional> 0 for no debug; for debug, valid set
+ *                        is {4,6,8,10,12,14,16,18,20}.  Ignored if
+ *                        debugflag == 0.  fontsize == 6 is typical.)
  *      Return: 0 if OK, 1 on error
  *
  *  Notes:
@@ -2104,13 +2162,13 @@ PIX       *pixt;
  *          width intensity bins and finds the average color in each bin.
  */
 l_int32
-pixGetRankColorArray(PIX         *pixs,
-                     l_int32      nbins,
-                     l_int32      type,
-                     l_int32      factor,
-                     l_uint32   **pcarray,
-                     l_int32      debugflag,
-                     const char  *fontdir)
+pixGetRankColorArray(PIX        *pixs,
+                     l_int32     nbins,
+                     l_int32     type,
+                     l_int32     factor,
+                     l_uint32  **pcarray,
+                     l_int32     debugflag,
+                     l_int32     fontsize)
 {
 l_int32    ret;
 l_uint32  *array;
@@ -2124,7 +2182,7 @@ PIXCMAP   *cmap;
         return ERROR_INT("&carray not defined", procName, 1);
     *pcarray = NULL;
     if (factor < 1)
-        return ERROR_INT("sampling factor < 1", procName, 1);
+        return ERROR_INT("sampling factor must be >= 1", procName, 1);
     if (nbins < 2)
         return ERROR_INT("nbins must be at least 2", procName, 1);
     if (!pixs)
@@ -2136,6 +2194,10 @@ PIXCMAP   *cmap;
         type != L_SELECT_BLUE && type != L_SELECT_MIN &&
         type != L_SELECT_MAX && type != L_SELECT_AVERAGE)
         return ERROR_INT("invalid type", procName, 1);
+    if (debugflag > 0) {
+        if (fontsize < 0 || fontsize > 20 || fontsize & 1 || fontsize == 2)
+            return ERROR_INT("invalid fontsize", procName, 1);
+    }
 
         /* Downscale by factor and remove colormap if it exists */
     pixt = pixScaleByIntSampling(pixs, factor);
@@ -2181,13 +2243,16 @@ PIXCMAP   *cmap;
         NUMA    *nai, *nar, *nabb;
         numaDiscretizeRankAndIntensity(nan, nbins, &narbin, &nai, &nar, &nabb);
         type = (debugflag == 1) ? GPLOT_X11 : GPLOT_PNG;
-        lept_mkdir("regout");
-        gplotSimple1(nan, type, "/tmp/regout/rtnan", "Normalized Histogram");
-        gplotSimple1(nar, type, "/tmp/regout/rtnar", "Cumulative Histogram");
-        gplotSimple1(nai, type, "/tmp/regout/rtnai", "Intensity vs. rank bin");
-        gplotSimple1(narbin, type, "/tmp/regout/rtnarbin",
+        lept_mkdir("lept/regout");
+        gplotSimple1(nan, type, "/tmp/lept/regout/rtnan",
+                     "Normalized Histogram");
+        gplotSimple1(nar, type, "/tmp/lept/regout/rtnar",
+                     "Cumulative Histogram");
+        gplotSimple1(nai, type, "/tmp/lept/regout/rtnai",
+                     "Intensity vs. rank bin");
+        gplotSimple1(narbin, type, "/tmp/lept/regout/rtnarbin",
                      "LUT: rank bin vs. Intensity");
-        gplotSimple1(nabb, type, "/tmp/regout/rtnabb",
+        gplotSimple1(nabb, type, "/tmp/lept/regout/rtnabb",
                      "Intensity of right edge vs. rank bin");
         numaDestroy(&nai);
         numaDestroy(&nar);
@@ -2210,11 +2275,11 @@ PIXCMAP   *cmap;
         debugflag = 0;  /* make sure to skip the following */
     }
     if (debugflag) {
-        pixd = pixDisplayColorArray(array, nbins, 200, 5, fontdir);
+        pixd = pixDisplayColorArray(array, nbins, 200, 5, fontsize);
         if (debugflag == 1)
             pixDisplayWithTitle(pixd, 0, 500, "binned colors", 1);
         else  /* debugflag == 2 */
-            pixWrite("/tmp/regout/rankhisto.png", pixd, IFF_PNG);
+            pixWrite("/tmp/lept/regout/rankhisto.png", pixd, IFF_PNG);
         pixDestroy(&pixd);
     }
 
@@ -2298,10 +2363,10 @@ l_float64  *rarray, *garray, *barray, *narray;
     wpls = pixGetWpl(pixs);
     datag = pixGetData(pixg);
     wplg = pixGetWpl(pixg);
-    rarray = (l_float64 *)CALLOC(nbins, sizeof(l_float64));
-    garray = (l_float64 *)CALLOC(nbins, sizeof(l_float64));
-    barray = (l_float64 *)CALLOC(nbins, sizeof(l_float64));
-    narray = (l_float64 *)CALLOC(nbins, sizeof(l_float64));
+    rarray = (l_float64 *)LEPT_CALLOC(nbins, sizeof(l_float64));
+    garray = (l_float64 *)LEPT_CALLOC(nbins, sizeof(l_float64));
+    barray = (l_float64 *)LEPT_CALLOC(nbins, sizeof(l_float64));
+    narray = (l_float64 *)LEPT_CALLOC(nbins, sizeof(l_float64));
     for (i = 0; i < h; i += factor) {
         lines = datas + i * wpls;
         lineg = datag + i * wplg;
@@ -2338,12 +2403,12 @@ l_float64  *rarray, *garray, *barray, *narray;
             numaAddNumber(nablue, barray[i]);
         }
         type = (debugflag == 1) ? GPLOT_X11 : GPLOT_PNG;
-        lept_mkdir("regout");
-        gplotSimple1(nared, type, "/tmp/regout/rtnared",
+        lept_mkdir("lept/regout");
+        gplotSimple1(nared, type, "/tmp/lept/regout/rtnared",
                      "Average red val vs. rank bin");
-        gplotSimple1(nagreen, type, "/tmp/regout/rtnagreen",
+        gplotSimple1(nagreen, type, "/tmp/lept/regout/rtnagreen",
                      "Average green val vs. rank bin");
-        gplotSimple1(nablue, type, "/tmp/regout/rtnablue",
+        gplotSimple1(nablue, type, "/tmp/lept/regout/rtnablue",
                      "Average blue val vs. rank bin");
         numaDestroy(&nared);
         numaDestroy(&nagreen);
@@ -2351,7 +2416,7 @@ l_float64  *rarray, *garray, *barray, *narray;
     }
 
         /* Save colors for all bins  in a single array */
-    if ((carray = (l_uint32 *)CALLOC(nbins, sizeof(l_uint32))) == NULL)
+    if ((carray = (l_uint32 *)LEPT_CALLOC(nbins, sizeof(l_uint32))) == NULL)
         return ERROR_INT("rankcolor not made", procName, 1);
     *pcarray = carray;
     for (i = 0; i < nbins; i++) {
@@ -2361,10 +2426,10 @@ l_float64  *rarray, *garray, *barray, *narray;
         composeRGBPixel(rval, gval, bval, carray + i);
     }
 
-    FREE(rarray);
-    FREE(garray);
-    FREE(barray);
-    FREE(narray);
+    LEPT_FREE(rarray);
+    LEPT_FREE(garray);
+    LEPT_FREE(barray);
+    LEPT_FREE(narray);
     return 0;
 }
 
@@ -2376,19 +2441,20 @@ l_float64  *rarray, *garray, *barray, *narray;
  *              ncolors (size of array)
  *              side (size of each color square; suggest 200)
  *              ncols (number of columns in output color matrix)
- *              fontdir (<optional> to label each square with text)
+ *              fontsize (to label each square with text.  Valid set is
+ *                        {4,6,8,10,12,14,16,18,20}.  Use 0 to disable.)
  *      Return: pixd (color array), or null on error
  */
 PIX *
-pixDisplayColorArray(l_uint32    *carray,
-                     l_int32      ncolors,
-                     l_int32      side,
-                     l_int32      ncols,
-                     const char  *fontdir)
+pixDisplayColorArray(l_uint32  *carray,
+                     l_int32    ncolors,
+                     l_int32    side,
+                     l_int32    ncols,
+                     l_int32    fontsize)
 {
 char     textstr[256];
 l_int32  i, rval, gval, bval;
-L_BMF   *bmf6;
+L_BMF   *bmf;
 PIX     *pixt, *pixd;
 PIXA    *pixa;
 
@@ -2396,18 +2462,20 @@ PIXA    *pixa;
 
     if (!carray)
         return (PIX *)ERROR_PTR("carray not defined", procName, NULL);
+    if (fontsize < 0 || fontsize > 20 || fontsize & 1 || fontsize == 2)
+        return (PIX *)ERROR_PTR("invalid fontsize", procName, NULL);
 
-    bmf6 = (fontdir) ? bmfCreate(fontdir, 6) : NULL;
+    bmf = (fontsize == 0) ? NULL : bmfCreate(NULL, fontsize);
     pixa = pixaCreate(ncolors);
     for (i = 0; i < ncolors; i++) {
         pixt = pixCreate(side, side, 32);
         pixSetAllArbitrary(pixt, carray[i]);
-        if (fontdir) {
+        if (bmf) {
             extractRGBValues(carray[i], &rval, &gval, &bval);
             snprintf(textstr, sizeof(textstr),
                      "%d: (%d %d %d)", i, rval, gval, bval);
             pixSaveTiledWithText(pixt, pixa, side, (i % ncols == 0) ? 1 : 0,
-                                 20, 2, bmf6, textstr, 0xff000000, L_ADD_BELOW);
+                                 20, 2, bmf, textstr, 0xff000000, L_ADD_BELOW);
         } else {
             pixSaveTiled(pixt, pixa, 1.0, (i % ncols == 0) ? 1 : 0, 20, 32);
         }
@@ -2416,7 +2484,7 @@ PIXA    *pixa;
     pixd = pixaDisplay(pixa, 0, 0);
 
     pixaDestroy(&pixa);
-    bmfDestroy(&bmf6);
+    bmfDestroy(&bmf);
     return pixd;
 }
 
@@ -2495,20 +2563,20 @@ PIXCMAP   *cmap;
         pixd = pixCreate(nstrips, nbins, 32);
         for (i = 0; i < nstrips; i++) {
             pix2 = pixaGetPix(pixa, i, L_CLONE);
-            pixGetRankColorArray(pix2, nbins, type, 1, &array, 0, NULL);
+            pixGetRankColorArray(pix2, nbins, type, 1, &array, 0, 0);
             for (j = 0; j < nbins; j++)
                 pixSetPixel(pixd, i, j, array[j]);
-            FREE(array);
+            LEPT_FREE(array);
             pixDestroy(&pix2);
         }
     } else {  /* L_SCAN_VERTICAL */
         pixd = pixCreate(nbins, nstrips, 32);
         for (i = 0; i < nstrips; i++) {
             pix2 = pixaGetPix(pixa, i, L_CLONE);
-            pixGetRankColorArray(pix2, nbins, type, 1, &array, 0, NULL);
+            pixGetRankColorArray(pix2, nbins, type, 1, &array, 0, 0);
             for (j = 0; j < nbins; j++)
                 pixSetPixel(pixd, j, i, array[j]);
-            FREE(array);
+            LEPT_FREE(array);
             pixDestroy(&pix2);
         }
     }
@@ -2568,14 +2636,14 @@ PIX        *pixt, *pixd;
 
     pixd = pixCreate(w, h, 8);
     pixt = pixCreate(n, h, 8);
-    colvect = (l_float32 *)CALLOC(h, sizeof(l_float32));
+    colvect = (l_float32 *)LEPT_CALLOC(h, sizeof(l_float32));
     for (j = 0; j < w; j++) {
         pixaExtractColumnFromEachPix(pixa, j, pixt);
         pixGetRowStats(pixt, type, nbins, thresh, colvect);
         pixSetPixelColumn(pixd, j, colvect);
     }
 
-    FREE(colvect);
+    LEPT_FREE(colvect);
     pixDestroy(&pixt);
     return pixd;
 }
@@ -2603,7 +2671,7 @@ PIX       *pixt;
     if (!pixa)
         return ERROR_INT("pixa not defined", procName, 1);
     if (!pixd || pixGetDepth(pixd) != 8)
-        return ERROR_INT("pixa not defined or not 8 bpp", procName, 1);
+        return ERROR_INT("pixd not defined or not 8 bpp", procName, 1);
     n = pixaGetCount(pixa);
     pixGetDimensions(pixd, &w, &h, NULL);
     if (n != w)
@@ -2700,9 +2768,9 @@ l_uint32  *lines, *datas;
     }
 
         /* We need a histogram; binwidth ~ 256 / nbins */
-    histo = (l_int32 *)CALLOC(nbins, sizeof(l_int32));
-    gray2bin = (l_int32 *)CALLOC(256, sizeof(l_int32));
-    bin2gray = (l_int32 *)CALLOC(nbins, sizeof(l_int32));
+    histo = (l_int32 *)LEPT_CALLOC(nbins, sizeof(l_int32));
+    gray2bin = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
+    bin2gray = (l_int32 *)LEPT_CALLOC(nbins, sizeof(l_int32));
     for (i = 0; i < 256; i++)  /* gray value --> histo bin */
         gray2bin[i] = (i * nbins) / 256;
     for (i = 0; i < nbins; i++)  /* histo bin --> gray value */
@@ -2753,9 +2821,9 @@ l_uint32  *lines, *datas;
         }
     }
 
-    FREE(histo);
-    FREE(gray2bin);
-    FREE(bin2gray);
+    LEPT_FREE(histo);
+    LEPT_FREE(gray2bin);
+    LEPT_FREE(bin2gray);
     return 0;
 }
 
@@ -2822,9 +2890,9 @@ l_uint32  *datas;
     }
 
         /* We need a histogram; binwidth ~ 256 / nbins */
-    histo = (l_int32 *)CALLOC(nbins, sizeof(l_int32));
-    gray2bin = (l_int32 *)CALLOC(256, sizeof(l_int32));
-    bin2gray = (l_int32 *)CALLOC(nbins, sizeof(l_int32));
+    histo = (l_int32 *)LEPT_CALLOC(nbins, sizeof(l_int32));
+    gray2bin = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
+    bin2gray = (l_int32 *)LEPT_CALLOC(nbins, sizeof(l_int32));
     for (i = 0; i < 256; i++)  /* gray value --> histo bin */
         gray2bin[i] = (i * nbins) / 256;
     for (i = 0; i < nbins; i++)  /* histo bin --> gray value */
@@ -2874,9 +2942,9 @@ l_uint32  *datas;
             histo[k] = 0;
     }
 
-    FREE(histo);
-    FREE(gray2bin);
-    FREE(bin2gray);
+    LEPT_FREE(histo);
+    LEPT_FREE(gray2bin);
+    LEPT_FREE(bin2gray);
     return 0;
 }
 
@@ -2943,6 +3011,8 @@ PIX       *pixg, *pixm;
 
     if (pfgval) *pfgval = 0;
     if (pbgval) *pbgval = 0;
+    if (!pfgval && !pbgval)
+        return ERROR_INT("no data requested", procName, 1);
     if (!pixs)
         return ERROR_INT("pixs not defined", procName, 1);
 
@@ -3005,6 +3075,8 @@ PIX       *pixg;
     if (pthresh) *pthresh = 0;
     if (pfgval) *pfgval = 0;
     if (pbgval) *pbgval = 0;
+    if (!pthresh && !pfgval && !pbgval)
+        return ERROR_INT("no data requested", procName, 1);
     if (!pixs)
         return ERROR_INT("pixs not defined", procName, 1);
 

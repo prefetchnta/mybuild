@@ -54,7 +54,7 @@
 #include <math.h>
 #include "allheaders.h"
 
-extern "C" l_float32  AlphaMaskBorderVals[2];
+extern l_float32  AlphaMaskBorderVals[2];
 static const l_float32  MIN_ANGLE_TO_ROTATE = 0.001;  /* radians; ~0.06 deg */
 static const l_float32  MAX_1BPP_SHEAR_ANGLE = 0.06;  /* radians; ~3 deg    */
 static const l_float32  LIMIT_SHEAR_ANGLE = 0.35;     /* radians; ~20 deg   */
@@ -371,7 +371,7 @@ PIX       *pixd;
                 }
             }
         }
-        FREE(lines);
+        LEPT_FREE(lines);
         return pixd;
     }
 
@@ -412,7 +412,7 @@ PIX       *pixd;
         }
     }
 
-    FREE(lines);
+    LEPT_FREE(lines);
     return pixd;
 }
 

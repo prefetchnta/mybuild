@@ -37,6 +37,8 @@
  *          static PTA        *dewarpGetMeanVerticals()
  *          PTAA              *dewarpRemoveShortLines()
  *          static l_int32     dewarpGetLineEndpoints()
+ *          static l_int32     dewarpFindLongLines()
+ *          static l_int32     dewarpIsLineCoverageValid()
  *          static l_int32     dewarpQuadraticLSF()
  *
  *      Build the line disparity model
@@ -58,6 +60,8 @@ static l_int32 dewarpGetLineEndpoints(l_int32 h, PTAA *ptaa, PTA **pptal,
                                       PTA **pptar);
 static l_int32 dewarpFindLongLines(PTA *ptal, PTA *ptar, l_float32 minfract,
                                    PTA **pptald, PTA **pptard);
+static l_int32 dewarpIsLineCoverageValid(PTAA *ptaa2, l_int32 h,
+                                         l_int32 *ptopline, l_int32 *pbotline);
 static l_int32 dewarpQuadraticLSF(PTA *ptad, l_float32 *pa, l_float32 *pb,
                                   l_float32 *pc, l_float32 *pmederr);
 static l_int32 pixRenderMidYs(PIX *pixs, NUMA *namidys, l_int32 linew);
@@ -132,7 +136,7 @@ l_int32
 dewarpBuildPageModel(L_DEWARP    *dew,
                      const char  *debugfile)
 {
-l_int32  ret;
+l_int32  linecount, topline, botline, ret;
 PIX     *pixs, *pix1, *pix2, *pix3;
 PTA     *pta;
 PTAA    *ptaa1, *ptaa2;
@@ -146,11 +150,10 @@ PTAA    *ptaa1, *ptaa2;
     dew->vsuccess = dew->hsuccess = 0;
     pixs = dew->pixs;
     if (debugfile) {
-        lept_mkdir("lept");
-        lept_rmdir("dewmod");  /* erase previous images */
-        lept_mkdir("dewmod");
+        lept_rmdir("lept/dewmod");  /* erase previous images */
+        lept_mkdir("lept/dewmod");
         pixDisplayWithTitle(pixs, 0, 0, "pixs", 1);
-        pixWrite("/tmp/dewmod/0010.png", pixs, IFF_PNG);
+        pixWrite("/tmp/lept/dewmod/0010.png", pixs, IFF_PNG);
     }
 
         /* Make initial estimate of centers of textlines */
@@ -164,7 +167,7 @@ PTAA    *ptaa1, *ptaa2;
         pta = generatePtaFilledCircle(1);
         pix2 = pixGenerateFromPta(pta, 5, 5);
         pix3 = pixDisplayPtaaPattern(NULL, pix1, ptaa1, pix2, 2, 2);
-        pixWrite("/tmp/dewmod/0020.png", pix3, IFF_PNG);
+        pixWrite("/tmp/lept/dewmod/0020.png", pix3, IFF_PNG);
         pixDestroy(&pix1);
         pixDestroy(&pix2);
         pixDestroy(&pix3);
@@ -180,16 +183,30 @@ PTAA    *ptaa1, *ptaa2;
         pta = generatePtaFilledCircle(1);
         pix2 = pixGenerateFromPta(pta, 5, 5);
         pix3 = pixDisplayPtaaPattern(NULL, pix1, ptaa2, pix2, 2, 2);
-        pixWrite("/tmp/dewmod/0030.png", pix3, IFF_PNG);
+        pixWrite("/tmp/lept/dewmod/0030.png", pix3, IFF_PNG);
         pixDestroy(&pix1);
         pixDestroy(&pix2);
         pixDestroy(&pix3);
         ptaDestroy(&pta);
     }
     ptaaDestroy(&ptaa1);
-    if (ptaaGetCount(ptaa2) < dew->minlines) {
+
+        /* Verify that there are sufficient "long" lines */
+    linecount = ptaaGetCount(ptaa2);
+    if (linecount < dew->minlines) {
         ptaaDestroy(&ptaa2);
-        L_WARNING("insufficient lines to build model\n", procName);
+        L_WARNING("linecount %d < min req'd number of lines (%d) for model\n",
+                  procName, linecount, dew->minlines);
+        return 1;
+    }
+
+        /* Verify that the lines have a reasonable coverage of the
+         * vertical extent of the image foreground. */
+    if (dewarpIsLineCoverageValid(ptaa2, pixGetHeight(pixs),
+                                  &topline, &botline) == FALSE) {
+        ptaaDestroy(&ptaa2);
+        L_WARNING("invalid line coverage: [%d ... %d] in height %d\n",
+                  procName, topline, botline, pixGetHeight(pixs));
         return 1;
     }
 
@@ -214,18 +231,18 @@ PTAA    *ptaa1, *ptaa2;
     if (debugfile) {
         dewarpPopulateFullRes(dew, NULL, 0, 0);
         pix1 = fpixRenderContours(dew->fullvdispar, 3.0, 0.15);
-        pixWrite("/tmp/dewmod/0060.png", pix1, IFF_PNG);
+        pixWrite("/tmp/lept/dewmod/0060.png", pix1, IFF_PNG);
         pixDisplay(pix1, 1000, 0);
         pixDestroy(&pix1);
         if (ret == 0) {
             pix1 = fpixRenderContours(dew->fullhdispar, 3.0, 0.15);
-            pixWrite("/tmp/dewmod/0070.png", pix1, IFF_PNG);
+            pixWrite("/tmp/lept/dewmod/0070.png", pix1, IFF_PNG);
             pixDisplay(pix1, 1000, 0);
             pixDestroy(&pix1);
         }
-        convertFilesToPdf("/tmp/dewmod", NULL, 135, 1.0, 0, 0,
+        convertFilesToPdf("/tmp/lept/dewmod", NULL, 135, 1.0, 0, 0,
                           "Dewarp Build Model", debugfile);
-        fprintf(stderr, "pdf file made: %s\n", debugfile);
+        fprintf(stderr, "pdf file: %s\n", debugfile);
     }
 
     ptaaDestroy(&ptaa2);
@@ -279,8 +296,8 @@ FPIX       *fpix;
     if (!ptaa)
         return ERROR_INT("ptaa not defined", procName, 1);
 
-    lept_mkdir("dewdebug");
-    lept_mkdir("dewarp");
+    lept_mkdir("lept/dewdebug");
+    lept_mkdir("lept/dewarp");
     if (dew->debug) L_INFO("finding vertical disparity\n", procName);
 
         /* Do quadratic fit to smooth each line.  A single quadratic
@@ -326,7 +343,7 @@ FPIX       *fpix;
         pta = generatePtaFilledCircle(1);
         pixcirc = pixGenerateFromPta(pta, 5, 5);
         pix2 = pixDisplayPtaaPattern(NULL, pix1, ptaat, pixcirc, 2, 2);
-        pixWrite("/tmp/dewmod/0041.png", pix2, IFF_PNG);
+        pixWrite("/tmp/lept/dewmod/0041.png", pix2, IFF_PNG);
         pixDestroy(&pix1);
         pixDestroy(&pix2);
         pixDestroy(&pixcirc);
@@ -387,8 +404,8 @@ FPIX       *fpix;
     numaDestroy(&nacurve1);
     numaDestroy(&namidysi);
     if (dew->debug) {
-        numaWrite("/tmp/dewdebug/midys.na", namidys);
-        numaWrite("/tmp/dewdebug/curves.na", nacurves);
+        numaWrite("/tmp/lept/dewdebug/midys.na", namidys);
+        numaWrite("/tmp/lept/dewdebug/curves.na", nacurves);
         pix1 = pixConvertTo32(pixdb);
         ptacirc = generatePtaFilledCircle(5);
         pixcirc = pixGenerateFromPta(ptacirc, 11, 11);
@@ -397,7 +414,7 @@ FPIX       *fpix;
         srand(3);  /* use the same colors for text and reference lines */
         pixRenderMidYs(pix1, namidys, 2);
         pix2 = (rotflag) ? pixRotateOrth(pix1, 3) : pixClone(pix1);
-        pixWrite("/tmp/dewmod/0042.png", pix2, IFF_PNG);
+        pixWrite("/tmp/lept/dewmod/0042.png", pix2, IFF_PNG);
         pixDisplay(pix2, 0, 0);
         ptaDestroy(&ptacirc);
         pixDestroy(&pixcirc);
@@ -423,7 +440,7 @@ FPIX       *fpix;
         ptaDestroy(&pta);
     }
     if (dew->debug) {
-        ptaaWrite("/tmp/dewdebug/ptaa3.ptaa", ptaa3, 0);
+        ptaaWrite("/tmp/lept/dewdebug/ptaa3.ptaa", ptaa3, 0);
     }
 
         /* Generate ptaa4 by taking vertical 'columns' from ptaa3.
@@ -444,7 +461,7 @@ FPIX       *fpix;
         ptaaAddPta(ptaa4, pta, L_INSERT);
     }
     if (dew->debug) {
-        ptaaWrite("/tmp/dewdebug/ptaa4.ptaa", ptaa4, 0);
+        ptaaWrite("/tmp/lept/dewdebug/ptaa4.ptaa", ptaa4, 0);
     }
 
         /* Do quadratic fit vertically on each of the pixel columns
@@ -469,11 +486,11 @@ FPIX       *fpix;
         ptaDestroy(&pta);
     }
     if (dew->debug) {
-        ptaaWrite("/tmp/dewdebug/ptaa5.ptaa", ptaa5, 0);
-        convertFilesToPdf("/tmp/dewmod", "004", 135, 1.0, 0, 0,
+        ptaaWrite("/tmp/lept/dewdebug/ptaa5.ptaa", ptaa5, 0);
+        convertFilesToPdf("/tmp/lept/dewmod", "004", 135, 1.0, 0, 0,
                           "Dewarp Vert Disparity",
-                          "/tmp/lept/vert_disparity.pdf");
-        fprintf(stderr, "pdf file made: /tmp/lept/vert_disparity.pdf\n");
+                          "/tmp/lept/dewarp/vert_disparity.pdf");
+        fprintf(stderr, "pdf file: /tmp/lept/dewarp/vert_disparity.pdf\n");
     }
 
         /* Save the result in a fpix at the specified subsampling  */
@@ -507,7 +524,7 @@ FPIX       *fpix;
  *      (1) This is not required for a successful model; only the vertical
  *          disparity is required.  This will not be called if the
  *          function to build the vertical disparity fails.
- *      (2) Debug output goes to /tmp/dewmod/ for collection into a pdf.
+ *      (2) Debug output goes to /tmp/lept/dewmod/ for collection into a pdf.
  */
 l_int32
 dewarpFindHorizDisparity(L_DEWARP  *dew,
@@ -533,8 +550,8 @@ FPIX      *fpix;
     if (!ptaa)
         return ERROR_INT("ptaa not defined", procName, 1);
 
-    lept_mkdir("dewdebug");
-    lept_mkdir("dewarp");
+    lept_mkdir("lept/dewdebug");
+    lept_mkdir("lept/dewarp");
     if (dew->debug) L_INFO("finding horizontal disparity\n", procName);
 
         /* Get the endpoints of the lines */
@@ -545,8 +562,8 @@ FPIX      *fpix;
         return 1;
     }
     if (dew->debug) {
-        ptaWrite("/tmp/dewdebug/endpts_left.pta", ptal, 1);
-        ptaWrite("/tmp/dewdebug/endpts_right.pta", ptar, 1);
+        ptaWrite("/tmp/lept/dewdebug/endpts_left.pta", ptal, 1);
+        ptaWrite("/tmp/lept/dewdebug/endpts_right.pta", ptar, 1);
     }
 
         /* Do a quadratic fit to the left and right endpoints of the
@@ -618,7 +635,7 @@ FPIX      *fpix;
         pixDisplayPta(pix1, pix1, pta2);
         pixRenderHorizEndPoints(pix1, ptald, ptard, 0xff000000);
         pixDisplay(pix1, 600, 800);
-        pixWrite("/tmp/dewmod/0051.png", pix1, IFF_PNG);
+        pixWrite("/tmp/lept/dewmod/0051.png", pix1, IFF_PNG);
         pixDestroy(&pix1);
 
         pix1 = pixDisplayPta(NULL, dew->pixs, pta1);
@@ -627,11 +644,11 @@ FPIX      *fpix;
         ptarft = ptaTranspose(ptarf);
         pixRenderHorizEndPoints(pix1, ptalft, ptarft, 0x0000ff00);
         pixDisplay(pix1, 800, 800);
-        pixWrite("/tmp/dewmod/0052.png", pix1, IFF_PNG);
-        convertFilesToPdf("/tmp/dewmod", "005", 135, 1.0, 0, 0,
+        pixWrite("/tmp/lept/dewmod/0052.png", pix1, IFF_PNG);
+        convertFilesToPdf("/tmp/lept/dewmod", "005", 135, 1.0, 0, 0,
                           "Dewarp Horiz Disparity",
-                          "/tmp/lept/horiz_disparity.pdf");
-        fprintf(stderr, "pdf file made: /tmp/lept/horiz_disparity.pdf\n");
+                          "/tmp/lept/dewarp/horiz_disparity.pdf");
+        fprintf(stderr, "pdf file: /tmp/lept/dewarp/horiz_disparity.pdf\n");
         pixDestroy(&pix1);
         ptaDestroy(&pta1);
         ptaDestroy(&pta2);
@@ -733,7 +750,7 @@ PTAA     *ptaa;
         return (PTAA *)ERROR_PTR("pixs undefined or not 1 bpp", procName, NULL);
     pixGetDimensions(pixs, &w, &h, NULL);
 
-    lept_mkdir("dewmod");
+    lept_mkdir("lept/dewmod");
     if (debugflag) L_INFO("finding text line centers\n", procName);
 
         /* Filter to solidify the text lines within the x-height region,
@@ -744,25 +761,39 @@ PTAA     *ptaa;
          * letters.  The large closing (csize2) bridges the gaps between
          * words; using 1/30 of the page width usually suffices. */
     csize1 = L_MAX(15, w / 80);
-    csize2 = L_MAX(30, w / 30);
+    csize2 = L_MAX(40, w / 30);
     snprintf(buf, sizeof(buf), "o1.3 + c%d.1 + o%d.1 + c%d.1",
              csize1, csize1, csize2);
     pix1 = pixMorphSequence(pixs, buf, 0);
-    pixWrite("/tmp/dewmod/0011.tif", pix1, IFF_TIFF_G4);
-    pixDisplayWithTitle(pix1, 0, 800, "pix1", debugflag);
+
+        /* Remove the components (e.g., embedded images) that have
+         * long vertical runs (>= 50 pixels).  You can't use bounding
+         * boxes because connected component b.b. of lines can be quite
+         * tall due to slope and curvature.  */
+    pix2 = pixMorphSequence(pix1, "e1.50", 0);  /* seed */
+    pixSeedfillBinary(pix2, pix2, pix1, 8);  /* tall components */
+    pixXor(pix2, pix2, pix1);  /* remove tall */
+
+    if (debugflag) {
+        pixWrite("/tmp/lept/dewmod/0011.tif", pix1, IFF_TIFF_G4);
+        pixDisplayWithTitle(pix1, 0, 600, "pix1", 1);
+        pixWrite("/tmp/lept/dewmod/0012.tif", pix2, IFF_TIFF_G4);
+        pixDisplayWithTitle(pix2, 0, 800, "pix2", 1);
+    }
+    pixDestroy(&pix1);
 
         /* Get the 8-connected components ... */
-    boxa = pixConnComp(pix1, &pixa1, 8);
-    pixDestroy(&pix1);
+    boxa = pixConnComp(pix2, &pixa1, 8);
+    pixDestroy(&pix2);
     boxaDestroy(&boxa);
     if (pixaGetCount(pixa1) == 0) {
         pixaDestroy(&pixa1);
         return NULL;
     }
 
-        /* ... and remove the short and thin c.c */
+        /* ... and remove the short width and very short height c.c */
     pixa2 = pixaSelectBySize(pixa1, 100, 4, L_SELECT_IF_BOTH,
-                                   L_SELECT_IF_GT, 0);
+                                   L_SELECT_IF_GT, NULL);
     if ((nsegs = pixaGetCount(pixa2)) == 0) {
         pixaDestroy(&pixa1);
         pixaDestroy(&pixa2);
@@ -770,8 +801,8 @@ PTAA     *ptaa;
     }
     if (debugflag) {
         pix2 = pixaDisplay(pixa2, w, h);
-        pixWrite("/tmp/dewmod/0012.tif", pix2, IFF_TIFF_G4);
-        pixDisplayWithTitle(pix2, 800, 800, "pix2", 1);
+        pixWrite("/tmp/lept/dewmod/0013.tif", pix2, IFF_TIFF_G4);
+        pixDisplayWithTitle(pix2, 0, 1000, "pix2", 1);
         pixDestroy(&pix2);
     }
 
@@ -789,8 +820,8 @@ PTAA     *ptaa;
     if (debugflag) {
         pix1 = pixCreateTemplate(pixs);
         pix2 = pixDisplayPtaa(pix1, ptaa);
-        pixWrite("/tmp/dewmod/0013.tif", pix2, IFF_PNG);
-        pixDisplayWithTitle(pix2, 0, 1400, "pix3", 1);
+        pixWrite("/tmp/lept/dewmod/0014.tif", pix2, IFF_PNG);
+        pixDisplayWithTitle(pix2, 0, 1200, "pix3", 1);
         pixDestroy(&pix1);
         pixDestroy(&pix2);
     }
@@ -875,7 +906,7 @@ PTAA      *ptaad;
     if (!ptaas)
         return (PTAA *)ERROR_PTR("ptaas undefined", procName, NULL);
 
-    lept_mkdir("dewmod");
+    lept_mkdir("lept/dewmod");
 
     pixGetDimensions(pixs, &w, NULL, NULL);
     n = ptaaGetCount(ptaas);
@@ -979,65 +1010,6 @@ PTA       *pta, *ptal, *ptar;
 
     *pptal = ptal;
     *pptar = ptar;
-    return 0;
-}
-
-
-/*!
- *  dewarpQuadraticLSF()
- *
- *      Input:  ptad (left or right end points of longest lines)
- *              &a  (<return> coeff a of LSF: y = ax^2 + bx + c)
- *              &b  (<return> coeff b of LSF: y = ax^2 + bx + c)
- *              &c  (<return> coeff c of LSF: y = ax^2 + bx + c)
- *              &mederr (<optional return> median error)
- *      Return: 0 if OK, 1 on error.
- *
- *  Notes:
- *      (1) This is used for finding the left or right sides of
- *          the text block, computed as a quadratic curve.
- *          Only the longest lines are input, so there are
- *          no outliers.
- *      (2) The ptas for the end points all have x and y swapped.
- */
-static l_int32
-dewarpQuadraticLSF(PTA        *ptad,
-                   l_float32  *pa,
-                   l_float32  *pb,
-                   l_float32  *pc,
-                   l_float32  *pmederr)
-{
-l_int32    i, n;
-l_float32  x, y, xp, c0, c1, c2;
-NUMA      *naerr;
-
-    PROCNAME("dewarpQuadraticLSF");
-
-    if (pmederr) *pmederr = 0.0;
-    if (!pa || !pb || !pc)
-        return ERROR_INT("not all ptrs are defined", procName, 1);
-    *pa = *pb = *pc = 0.0;
-    if (!ptad)
-        return ERROR_INT("ptad not defined", procName, 1);
-
-        /* Fit to the longest lines */
-    ptaGetQuadraticLSF(ptad, &c2, &c1, &c0, NULL);
-    *pa = c2;
-    *pb = c1;
-    *pc = c0;
-
-        /* Optionally, find the median error */
-    if (pmederr) {
-        n = ptaGetCount(ptad);
-        naerr = numaCreate(n);
-        for (i = 0; i < n; i++) {
-            ptaGetPt(ptad, i, &y, &xp);
-            applyQuadraticFit(c2, c1, c0, y, &x);
-            numaAddNumber(naerr, L_ABS(x - xp));
-        }
-        numaGetMedian(naerr, pmederr);
-        numaDestroy(&naerr);
-    }
     return 0;
 }
 
@@ -1169,6 +1141,117 @@ PTA       *ptals, *ptars, *ptald, *ptard;
 }
 
 
+/*!
+ *  dewarpIsLineCoverageValid()
+ *
+ *      Input:  ptaa (of validated lines)
+ *              h (height of pix)
+ *              &topline (<return> location of top line)
+ *              &botline (<return> location of bottom line)
+ *      Return: 1 if coverage is valid, 0 if not or on error.
+ *
+ *  Notes:
+ *      (1) The criterion for valid coverage is:
+ *          (a) there must be lines in both halves (top and bottom)
+ *              of the image.
+ *          (b) the coverage must be at least 40% of the image height
+ */
+static l_int32
+dewarpIsLineCoverageValid(PTAA     *ptaa,
+                          l_int32   h,
+                          l_int32  *ptopline,
+                          l_int32  *pbotline)
+{
+l_int32    i, n, both_halves;
+l_float32  top, bot, y, fraction;
+
+    PROCNAME("dewarpIsLineCoverageValid");
+
+    if (!ptaa)
+        return ERROR_INT("ptaa not defined", procName, 0);
+    if ((n = ptaaGetCount(ptaa)) == 0)
+        return ERROR_INT("ptaa empty", procName, 0);
+    if (h <= 0)
+        return ERROR_INT("invalid h", procName, 0);
+    if (!ptopline || !pbotline)
+        return ERROR_INT("&topline and &botline not defined", procName, 0);
+
+    top = 100000.0;
+    bot = 0.0;
+    for (i = 0; i < n; i++) {
+        ptaaGetPt(ptaa, i, 0, NULL, &y);
+        if (y < top) top = y;
+        if (y > bot) bot = y;
+    }
+    *ptopline = (l_int32)top;
+    *pbotline = (l_int32)bot;
+    both_halves = top < 0.5 * h && bot > 0.5 * h;
+    fraction = (bot - top) / h;
+    if (both_halves && fraction > 0.40)
+        return 1;
+    return 0;
+}
+
+
+/*!
+ *  dewarpQuadraticLSF()
+ *
+ *      Input:  ptad (left or right end points of longest lines)
+ *              &a  (<return> coeff a of LSF: y = ax^2 + bx + c)
+ *              &b  (<return> coeff b of LSF: y = ax^2 + bx + c)
+ *              &c  (<return> coeff c of LSF: y = ax^2 + bx + c)
+ *              &mederr (<optional return> median error)
+ *      Return: 0 if OK, 1 on error.
+ *
+ *  Notes:
+ *      (1) This is used for finding the left or right sides of
+ *          the text block, computed as a quadratic curve.
+ *          Only the longest lines are input, so there are
+ *          no outliers.
+ *      (2) The ptas for the end points all have x and y swapped.
+ */
+static l_int32
+dewarpQuadraticLSF(PTA        *ptad,
+                   l_float32  *pa,
+                   l_float32  *pb,
+                   l_float32  *pc,
+                   l_float32  *pmederr)
+{
+l_int32    i, n;
+l_float32  x, y, xp, c0, c1, c2;
+NUMA      *naerr;
+
+    PROCNAME("dewarpQuadraticLSF");
+
+    if (pmederr) *pmederr = 0.0;
+    if (!pa || !pb || !pc)
+        return ERROR_INT("not all ptrs are defined", procName, 1);
+    *pa = *pb = *pc = 0.0;
+    if (!ptad)
+        return ERROR_INT("ptad not defined", procName, 1);
+
+        /* Fit to the longest lines */
+    ptaGetQuadraticLSF(ptad, &c2, &c1, &c0, NULL);
+    *pa = c2;
+    *pb = c1;
+    *pc = c0;
+
+        /* Optionally, find the median error */
+    if (pmederr) {
+        n = ptaGetCount(ptad);
+        naerr = numaCreate(n);
+        for (i = 0; i < n; i++) {
+            ptaGetPt(ptad, i, &y, &xp);
+            applyQuadraticFit(c2, c1, c0, y, &x);
+            numaAddNumber(naerr, L_ABS(x - xp));
+        }
+        numaGetMedian(naerr, pmederr);
+        numaDestroy(&naerr);
+    }
+    return 0;
+}
+
+
 /*----------------------------------------------------------------------*
  *                      Build line disparity model                     *
  *----------------------------------------------------------------------*/
@@ -1224,13 +1307,13 @@ PTAA    *ptaa1, *ptaa2;
     dew->vsuccess = dew->hsuccess = 0;
     pixs = dew->pixs;
     if (debugfile) {
-        lept_rmdir("dewline");  /* erase previous images */
-        lept_mkdir("dewline");
-        lept_rmdir("dewmod");  /* erase previous images */
-        lept_mkdir("dewmod");
-        lept_mkdir("dewarp");
+        lept_rmdir("lept/dewline");  /* erase previous images */
+        lept_mkdir("lept/dewline");
+        lept_rmdir("lept/dewmod");  /* erase previous images */
+        lept_mkdir("lept/dewmod");
+        lept_mkdir("lept/dewarp");
         pixDisplayWithTitle(pixs, 0, 0, "pixs", 1);
-        pixWrite("/tmp/dewline/001.png", pixs, IFF_PNG);
+        pixWrite("/tmp/lept/dewline/001.png", pixs, IFF_PNG);
     }
 
         /* Extract and solidify the horizontal and vertical lines.  We use
@@ -1283,7 +1366,7 @@ PTAA    *ptaa1, *ptaa2;
         if (debugfile) {
             pix1 = pixConvertTo32(pix);
             pix2 = pixDisplayPtaa(pix1, ptaa1);
-            snprintf(buf, sizeof(buf), "/tmp/dewline/%03d.png", 2 + 2 * i);
+            snprintf(buf, sizeof(buf), "/tmp/lept/dewline/%03d.png", 2 + 2 * i);
             pixWrite(buf, pix2, IFF_PNG);
             pixDestroy(&pix1);
             pixDestroy(&pix2);
@@ -1295,7 +1378,7 @@ PTAA    *ptaa1, *ptaa2;
         if (debugfile) {
             pix1 = pixConvertTo32(pix);
             pix2 = pixDisplayPtaa(pix1, ptaa2);
-            snprintf(buf, sizeof(buf), "/tmp/dewline/%03d.png", 3 + 2 * i);
+            snprintf(buf, sizeof(buf), "/tmp/lept/dewline/%03d.png", 3 + 2 * i);
             pixWrite(buf, pix2, IFF_PNG);
             pixDestroy(&pix1);
             pixDestroy(&pix2);
@@ -1325,9 +1408,8 @@ PTAA    *ptaa1, *ptaa2;
                 dew->samphdispar = fpixRotateOrth(dew->sampvdispar, 3);
                 fpixDestroy(&dew->sampvdispar);
                 if (debugfile)
-                    lept_mv("/tmp/lept/vert_disparity.pdf", NULL,
-                            "lept/horiz_disparity.pdf",
-                            NULL);
+                    lept_mv("/tmp/lept/dewarp/vert_disparity.pdf",
+                            "lept/dewarp", "horiz_disparity.pdf", NULL);
             }
             dew->hsuccess = dew->vsuccess;
             dew->vsuccess = 0;
@@ -1347,19 +1429,19 @@ PTAA    *ptaa1, *ptaa2;
         if (dew->vsuccess == 1) {
             dewarpPopulateFullRes(dew, NULL, 0, 0);
             pix1 = fpixRenderContours(dew->fullvdispar, 3.0, 0.15);
-            pixWrite("/tmp/dewline/006.png", pix1, IFF_PNG);
+            pixWrite("/tmp/lept/dewline/006.png", pix1, IFF_PNG);
             pixDisplay(pix1, 1000, 0);
             pixDestroy(&pix1);
         }
         if (dew->hsuccess == 1) {
             pix1 = fpixRenderContours(dew->fullhdispar, 3.0, 0.15);
-            pixWrite("/tmp/dewline/007.png", pix1, IFF_PNG);
+            pixWrite("/tmp/lept/dewline/007.png", pix1, IFF_PNG);
             pixDisplay(pix1, 1000, 0);
             pixDestroy(&pix1);
         }
-        convertFilesToPdf("/tmp/dewline", NULL, 135, 1.0, 0, 0,
+        convertFilesToPdf("/tmp/lept/dewline", NULL, 135, 1.0, 0, 0,
                           "Dewarp Build Line Model", debugfile);
-        fprintf(stderr, "pdf file made: %s\n", debugfile);
+        fprintf(stderr, "pdf file: %s\n", debugfile);
     }
 
     return 0;

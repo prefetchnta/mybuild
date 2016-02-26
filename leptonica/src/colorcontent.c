@@ -40,6 +40,9 @@
  *      are not too close to gray pixels.
  *         PIX       *pixMaskOverColorPixels()
  *
+ *      Generates mask over pixels within a prescribed cube in RGB space
+ *         PIX       *pixMaskOverColorRange()
+ *
  *      Finds the fraction of pixels with "color" that are not close to black
  *         l_int32    pixColorFraction()
  *
@@ -186,13 +189,13 @@ PIXCMAP   *cmap;
 
     PROCNAME("pixColorContent");
 
+    if (!ppixr && !ppixg && !ppixb)
+        return ERROR_INT("no return val requested", procName, 1);
     if (ppixr) *ppixr = NULL;
     if (ppixg) *ppixg = NULL;
     if (ppixb) *ppixb = NULL;
     if (!pixs)
         return ERROR_INT("pixs not defined", procName, 1);
-    if (!ppixr && !ppixg && !ppixb)
-        return ERROR_INT("nothing to compute", procName, 1);
     if (mingray < 0) mingray = 0;
     pixGetDimensions(pixs, &w, &h, &d);
     if (mingray > 255)
@@ -285,9 +288,9 @@ PIXCMAP   *cmap;
         numaDestroy(&nar);
         numaDestroy(&nag);
         numaDestroy(&nab);
-        FREE(rtab);
-        FREE(gtab);
-        FREE(btab);
+        LEPT_FREE(rtab);
+        LEPT_FREE(gtab);
+        LEPT_FREE(btab);
     }
     pixDestroy(&pixc);
     return 0;
@@ -311,40 +314,40 @@ PIXCMAP   *cmap;
  *
  *  Notes:
  *      (1) For an RGB image, a gray pixel is one where all three components
- *          are equal.  We define the amount of color in an RGB pixel by
- *          considering the absolute value of the differences between the
- *          three color components.  Consider the two largest
+ *          are equal.  We define the amount of color in an RGB pixel as
+ *          a function depending on the absolute value of the differences
+ *          between the three color components.  Consider the two largest
  *          of these differences.  The pixel component in common to these
  *          two differences is the color farthest from the other two.
- *          The color magnitude in an RGB pixel can be taken as:
- *              * the average of these two differences; i.e., the
+ *          The color magnitude in an RGB pixel can be taken as one
+ *          of these three definitions:
+ *            (a) The average of these two differences.  This is the
  *                average distance from the two components that are
- *                nearest to each other to the third component, or
- *              * the minimum value of these two differences; i.e., the
+ *                nearest to each other to the third component.
+ *            (b) The minimum value of these two differences.  This is
+ *                the intermediate value of the three distances between
+ *                component values.  Stated otherwise, it is the
  *                maximum over all components of the minimum distance
  *                from that component to the other two components.
- *          Even more simply, the color magnitude can be taken as
- *              * the maximum difference between component values
+ *            (c) The maximum difference between component values.
  *      (2) As an example, suppose that R and G are the closest in
- *          magnitude.  Then the color is determined as:
- *              * the average distance of B from these two; namely,
- *                (|B - R| + |B - G|) / 2, which can also be found
- *                from |B - (R + G) / 2|, or
- *              * the minimum distance of B from these two; namely,
- *                min(|B - R|, |B - G|).
- *              * the max(|B - R|, |B - G|)
- *      (3) The three numbers (rwhite, gwhite and bwhite) can be thought
+ *          magnitude.  Then the color is determined as either:
+ *            (a) The average distance of B from these two:
+ *                   (|B - R| + |B - G|) / 2
+ *            (b) The minimum distance of B from these two:
+ *                   min(|B - R|, |B - G|).
+ *            (c) The maximum distance of B from these two:
+ *                   max(|B - R|, |B - G|)
+ *      (3) The three methods for choosing the color magnitude from
+ *          the components are selected with these flags:
+ *            (a) L_MAX_DIFF_FROM_AVERAGE_2
+ *            (b) L_MAX_MIN_DIFF_FROM_2
+ *            (c) L_MAX_DIFF
+ *      (4) The three numbers (rwhite, gwhite and bwhite) can be thought
  *          of as the values in the image corresponding to white.
  *          They are used to compensate for an unbalanced color white point.
  *          They must either be all 0 or all non-zero.  To turn this
  *          off, set them all to 0.
- *      (4) We allow the following methods for choosing the color
- *          magnitude from the three components:
- *              * L_MAX_DIFF_FROM_AVERAGE_2
- *              * L_MAX_MIN_DIFF_FROM_2
- *              * L_MAX_DIFF
- *          These are described above in (1) and (2), as well as at
- *          the top of this file.
  */
 PIX *
 pixColorMagnitude(PIX     *pixs,
@@ -444,9 +447,9 @@ PIXCMAP   *cmap;
         numaDestroy(&nar);
         numaDestroy(&nag);
         numaDestroy(&nab);
-        FREE(rtab);
-        FREE(gtab);
-        FREE(btab);
+        LEPT_FREE(rtab);
+        LEPT_FREE(gtab);
+        LEPT_FREE(btab);
     }
     pixDestroy(&pixc);
     return pixd;
@@ -530,6 +533,70 @@ PIXCMAP   *cmap;
     if (mindist > 1) {
         size = 2 * (mindist - 1) + 1;
         pixErodeBrick(pixd, pixd, size, size);
+    }
+
+    pixDestroy(&pixc);
+    return pixd;
+}
+
+
+/* ----------------------------------------------------------------------- *
+ *      Generates a mask over pixels that have RGB color components        *
+ *      within the prescribed range (a cube in RGB color space)            *
+ * ----------------------------------------------------------------------- */
+/*!
+ *  pixMaskOverColorRange()
+ *
+ *      Input:  pixs  (32 bpp rgb or 8 bpp colormapped)
+ *              rmin, rmax (min and max allowed values for red component)
+ *              gmin, gmax
+ *              bmin, bmax
+ *      Return: pixd (1 bpp, mask over color pixels), or null on error
+ */
+PIX *
+pixMaskOverColorRange(PIX     *pixs,
+                      l_int32  rmin,
+                      l_int32  rmax,
+                      l_int32  gmin,
+                      l_int32  gmax,
+                      l_int32  bmin,
+                      l_int32  bmax)
+{
+l_int32    w, h, d, i, j, wpls, wpld;
+l_int32    rval, gval, bval;
+l_uint32  *datas, *datad, *lines, *lined;
+PIX       *pixc, *pixd;
+PIXCMAP   *cmap;
+
+    PROCNAME("pixMaskOverColorRange");
+
+    if (!pixs)
+        return (PIX *)ERROR_PTR("pixs not defined", procName, NULL);
+    pixGetDimensions(pixs, &w, &h, &d);
+
+    cmap = pixGetColormap(pixs);
+    if (!cmap && d != 32)
+        return (PIX *)ERROR_PTR("pixs not cmapped or 32 bpp", procName, NULL);
+    if (cmap)
+        pixc = pixRemoveColormap(pixs, REMOVE_CMAP_TO_FULL_COLOR);
+    else
+        pixc = pixClone(pixs);
+
+    pixd = pixCreate(w, h, 1);
+    datad = pixGetData(pixd);
+    wpld = pixGetWpl(pixd);
+    datas = pixGetData(pixc);
+    wpls = pixGetWpl(pixc);
+    for (i = 0; i < h; i++) {
+        lines = datas + i * wpls;
+        lined = datad + i * wpld;
+        for (j = 0; j < w; j++) {
+            extractRGBValues(lines[j], &rval, &gval, &bval);
+            if (rval < rmin || rval > rmax) continue;
+            if (gval < gmin || gval > gmax) continue;
+            if (bval < bmin || bval > bmax) continue;
+            SET_DATA_BIT(lined, j);
+        }
     }
 
     pixDestroy(&pixc);
@@ -974,7 +1041,7 @@ PIXCMAP   *cmap;
     wpl = pixGetWpl(pixs);
     sum = 0;
     if (d != 32) {  /* grayscale */
-        inta = (l_int32 *)CALLOC(256, sizeof(l_int32));
+        inta = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
         for (i = 0; i < h; i += factor) {
             line = data + i * wpl;
             for (j = 0; j < w; j += factor) {
@@ -990,9 +1057,10 @@ PIXCMAP   *cmap;
         for (i = 0; i < 256; i++)
             if (inta[i]) sum++;
         *pncolors = sum;
-        FREE(inta);
+        LEPT_FREE(inta);
 
-        if (factor == 1 && ((cmap = pixGetColormap(pixs)) != NULL)) {
+        cmap = pixGetColormap(pixs);
+        if (cmap && factor == 1) {
             count = pixcmapGetCount(cmap);
             if (sum != count)
                 L_WARNING("colormap size %d differs from actual colors\n",
@@ -1003,7 +1071,7 @@ PIXCMAP   *cmap;
 
         /* 32 bpp rgb; quit if we get above 256 colors */
     hashsize = 5507;  /* big and prime; collisions are not likely */
-    inta = (l_int32 *)CALLOC(hashsize, sizeof(l_int32));
+    inta = (l_int32 *)LEPT_CALLOC(hashsize, sizeof(l_int32));
     for (i = 0; i < h; i += factor) {
         line = data + i * wpl;
         for (j = 0; j < w; j += factor) {
@@ -1014,7 +1082,7 @@ PIXCMAP   *cmap;
                 inta[val] = 1;
                 sum++;
                 if (sum > 256) {
-                    FREE(inta);
+                    LEPT_FREE(inta);
                     return 0;
                 }
             }
@@ -1022,7 +1090,7 @@ PIXCMAP   *cmap;
     }
 
     *pncolors = sum;
-    FREE(inta);
+    LEPT_FREE(inta);
     return 0;
 }
 
@@ -1062,10 +1130,10 @@ NUMA    *nahisto, *naindex;
 
     PROCNAME("pixGetMostPopulatedColors");
 
+    if (!parray && !pcmap)
+        return ERROR_INT("no return val requested", procName, 1);
     if (parray) *parray = NULL;
     if (pcmap) *pcmap = NULL;
-    if (!parray && !pcmap)
-        return ERROR_INT("no output requested", procName, 1);
     if (!pixs || pixGetDepth(pixs) != 32)
         return ERROR_INT("pixs not defined", procName, 1);
     if (sigbits < 2 || sigbits > 6)
@@ -1084,7 +1152,7 @@ NUMA    *nahisto, *naindex;
 
     n = numaGetCount(naindex);
     ncolors = L_MIN(n, ncolors);
-    if (parray) *parray = (l_uint32 *)CALLOC(ncolors, sizeof(l_uint32));
+    if (parray) *parray = (l_uint32 *)LEPT_CALLOC(ncolors, sizeof(l_uint32));
     if (pcmap) *pcmap = pixcmapCreate(8);
     for (i = 0; i < ncolors; i++) {
         numaGetIValue(naindex, i, &rgbindex);  /* rgb index */
@@ -1210,9 +1278,9 @@ NUMA       *na;
         }
     }
 
-    FREE(rtab);
-    FREE(gtab);
-    FREE(btab);
+    LEPT_FREE(rtab);
+    LEPT_FREE(gtab);
+    LEPT_FREE(btab);
     return na;
 }
 
@@ -1251,9 +1319,9 @@ l_uint32  *rtab, *gtab, *btab;
     if (sigbits < 2 || sigbits > 6)
         return ERROR_INT("sigbits not in [2 ... 6]", procName, 1);
 
-    rtab = (l_uint32 *)CALLOC(256, sizeof(l_uint32));
-    gtab = (l_uint32 *)CALLOC(256, sizeof(l_uint32));
-    btab = (l_uint32 *)CALLOC(256, sizeof(l_uint32));
+    rtab = (l_uint32 *)LEPT_CALLOC(256, sizeof(l_uint32));
+    gtab = (l_uint32 *)LEPT_CALLOC(256, sizeof(l_uint32));
+    btab = (l_uint32 *)LEPT_CALLOC(256, sizeof(l_uint32));
     *prtab = rtab;
     *pgtab = gtab;
     *pbtab = btab;
@@ -1417,9 +1485,11 @@ FPIX      *fpix;
 
     if (pratio) *pratio = 0.0;
     if (ppixdb) *ppixdb = NULL;
+    if (phasred) *phasred = 0;
+    if (!pratio && !ppixdb)
+        return ERROR_INT("no return val requested", procName, 1);
     if (!phasred)
         return ERROR_INT("&hasred not defined", procName, 1);
-    *phasred = 0;
     if (!pixs || pixGetDepth(pixs) != 32)
         return ERROR_INT("pixs not defined or not 32 bpp", procName, 1);
     if (fthresh < 1.5 || fthresh > 3.5)

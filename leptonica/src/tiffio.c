@@ -27,6 +27,13 @@
 /*
  *  tiffio.c
  *
+ *     TIFFClientOpen() wrappers for FILE*:
+ *      static tsize_t    lept_read_proc()
+ *      static tsize_t    lept_write_proc()
+ *      static toff_t     lept_seek_proc()
+ *      static int        lept_close_proc()
+ *      static toff_t     lept_size_proc()
+ *
  *     Reading tiff:
  *             PIX       *pixReadTiff()    [ special top level ]
  *             PIX       *pixReadStreamTiff()
@@ -71,9 +78,13 @@
  *             l_int32    pixWriteMemTiff();
  *             l_int32    pixWriteMemTiffCustom();
  *
- *   Note:  You should be using version 3.7.4 of libtiff to be certain
- *          that all the necessary functions are included.
+ *  Note:  To include all necessary functions, use libtiff version 3.7.4
+ *         (or later)
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config_auto.h"
+#endif  /* HAVE_CONFIG_H */
 
 #include <string.h>
 #include <sys/types.h>
@@ -81,14 +92,9 @@
 #include <unistd.h>
 #else  /* _MSC_VER */
 #include <io.h>
-#define seek _seek;
 #endif  /* _MSC_VER */
 #include <fcntl.h>
 #include "allheaders.h"
-
-#ifdef HAVE_CONFIG_H
-#include "config_auto.h"
-#endif  /* HAVE_CONFIG_H */
 
 /* --------------------------------------------*/
 #if  HAVE_LIBTIFF   /* defined in environ.h */
@@ -139,7 +145,8 @@ struct tiff_transform {
 
     /* This describes the transformations needed for a given orientation
      * tag.  The tag values start at 1, so you need to subtract 1 to get a
-     * valid index into this array. */
+     * valid index into this array.  It is only valid when not using
+     * TIFFReadRGBAImageOriented(). */
 static struct tiff_transform tiff_orientation_transforms[] = {
     {0, 0, 0},
     {0, 1, 0},
@@ -151,6 +158,177 @@ static struct tiff_transform tiff_orientation_transforms[] = {
     {0, 0, -1}
 };
 
+    /* Same as above, except that test transformations are only valid
+     * when using TIFFReadRGBAImageOriented().  Transformations
+     * were determined empirically.  See the libtiff mailing list for
+     * more discussion: http://www.asmail.be/msg0054683875.html  */
+static struct tiff_transform tiff_partial_orientation_transforms[] = {
+    {0, 0, 0},
+    {0, 0, 0},
+    {0, 0, 0},
+    {0, 0, 0},
+    {0, 1, -1},
+    {0, 1, 1},
+    {1, 0, 1},
+    {0, 1, -1}
+};
+
+
+/*-----------------------------------------------------------------------*
+ *             TIFFClientOpen() wrappers for FILE*                       *
+ *             Provided by Jürgen Buchmüller                             *
+ *                                                                       *
+ *  We previously used TIFFFdOpen(), which used low-level file           *
+ *  descriptors.  It had portability issues with Windows, along          *
+ *  with other limitations from lack of stream control operations.       *
+ *  These callbacks to TIFFClientOpen() avoid the problems.              *
+ *                                                                       *
+ *  Jürgen made the functions use 64 bit file operations where possible  *
+ *  or required, namely for seek and size. On Windows there are specific *
+ *  _fseeki64() and _ftelli64() functions, whereas on unix it is         *
+ *  common to look for a macro _LARGEFILE_SOURCE being defined and       *
+ *  use fseeko() and ftello() in this case.                              *
+ *-----------------------------------------------------------------------*/
+static tsize_t
+lept_read_proc(thandle_t  cookie,
+               tdata_t    buff,
+               tsize_t    size)
+{
+    FILE* fp = (FILE *)cookie;
+    tsize_t done;
+    if (!buff || !cookie || !fp)
+        return (tsize_t)-1;
+    done = fread(buff, 1, size, fp);
+    return done;
+}
+
+static tsize_t
+lept_write_proc(thandle_t  cookie,
+                tdata_t    buff,
+                tsize_t    size)
+{
+    FILE* fp = (FILE *)cookie;
+    tsize_t done;
+    if (!buff || !cookie || !fp)
+        return (tsize_t)-1;
+    done = fwrite(buff, 1, size, fp);
+    return done;
+}
+
+static toff_t
+lept_seek_proc(thandle_t  cookie,
+               toff_t     offs,
+               int        whence)
+{
+    FILE* fp = (FILE *)cookie;
+#if defined(_MSC_VER)
+    __int64 pos = 0;
+    if (!cookie || !fp)
+        return (tsize_t)-1;
+    switch (whence) {
+    case SEEK_SET:
+        pos = 0;
+        break;
+    case SEEK_CUR:
+        pos = ftell(fp);
+        break;
+    case SEEK_END:
+        _fseeki64(fp, 0, SEEK_END);
+        pos = _ftelli64(fp);
+        break;
+    }
+    pos = (__int64)(pos + offs);
+    _fseeki64(fp, pos, SEEK_SET);
+    if (pos == _ftelli64(fp))
+        return (tsize_t)pos;
+#elif defined(_LARGEFILE_SOURCE)
+    off64_t pos = 0;
+    if (!cookie || !fp)
+        return (tsize_t)-1;
+    switch (whence) {
+    case SEEK_SET:
+        pos = 0;
+        break;
+    case SEEK_CUR:
+        pos = ftello(fp);
+        break;
+    case SEEK_END:
+        fseeko(fp, 0, SEEK_END);
+        pos = ftello(fp);
+        break;
+    }
+    pos = (off64_t)(pos + offs);
+    fseeko(fp, pos, SEEK_SET);
+    if (pos == ftello(fp))
+        return (tsize_t)pos;
+#else
+    off_t pos = 0;
+    if (!cookie || !fp)
+        return (tsize_t)-1;
+    switch (whence) {
+    case SEEK_SET:
+        pos = 0;
+        break;
+    case SEEK_CUR:
+        pos = ftell(fp);
+        break;
+    case SEEK_END:
+        fseek(fp, 0, SEEK_END);
+        pos = ftell(fp);
+        break;
+    }
+    pos = (off_t)(pos + offs);
+    fseek(fp, pos, SEEK_SET);
+    if (pos == ftell(fp))
+        return (tsize_t)pos;
+#endif
+    return (tsize_t)-1;
+}
+
+static int
+lept_close_proc(thandle_t  cookie)
+{
+    FILE* fp = (FILE *)cookie;
+    if (!cookie || !fp)
+        return 0;
+    fseek(fp, 0, SEEK_SET);
+    return 0;
+}
+
+static toff_t
+lept_size_proc(thandle_t  cookie)
+{
+    FILE* fp = (FILE *)cookie;
+#if defined(_MSC_VER)
+    __int64 pos;
+    __int64 size;
+    if (!cookie || !fp)
+        return (tsize_t)-1;
+    pos = _ftelli64(fp);
+    _fseeki64(fp, 0, SEEK_END);
+    size = _ftelli64(fp);
+    _fseeki64(fp, pos, SEEK_SET);
+#elif defined(_LARGEFILE_SOURCE)
+    off64_t pos;
+    off64_t size;
+    if (!fp)
+        return (tsize_t)-1;
+    pos = ftello(fp);
+    fseeko(fp, 0, SEEK_END);
+    size = ftello(fp);
+    fseeko(fp, pos, SEEK_SET);
+#else
+    off_t pos;
+    off_t size;
+    if (!cookie || !fp)
+        return (tsize_t)-1;
+    pos = ftell(fp);
+    fseek(fp, 0, SEEK_END);
+    size = ftell(fp);
+    fseek(fp, pos, SEEK_SET);
+#endif
+    return (toff_t)size;
+}
 
 
 /*--------------------------------------------------------------*
@@ -166,6 +344,9 @@ static struct tiff_transform tiff_orientation_transforms[] = {
  *  Notes:
  *      (1) This is a version of pixRead(), specialized for tiff
  *          files, that allows specification of the page to be returned
+ *      (2) No warning messages on failure, because of how multi-page
+ *          TIFF reading works. You are supposed to keep trying until
+ *          it stops working.
  */
 PIX *
 pixReadTiff(const char  *filename,
@@ -181,12 +362,8 @@ PIX   *pix;
 
     if ((fp = fopenReadStream(filename)) == NULL)
         return (PIX *)ERROR_PTR("image file not found", procName, NULL);
-    if ((pix = pixReadStreamTiff(fp, n)) == NULL) {
-        fclose(fp);
-        return (PIX *)ERROR_PTR("pix not read", procName, NULL);
-    }
+    pix = pixReadStreamTiff(fp, n);
     fclose(fp);
-
     return pix;
 }
 
@@ -200,12 +377,17 @@ PIX   *pix;
  *      Input:  stream
  *              n (page number: 0 based)
  *      Return: pix, or null on error (e.g., if the page number is invalid)
+ *
+ *  Notes:
+ *      (1) No warning messages on failure, because of how multi-page
+ *          TIFF reading works. You are supposed to keep trying until
+ *          it stops working.
  */
 PIX *
 pixReadStreamTiff(FILE    *fp,
                   l_int32  n)
 {
-l_int32  i, pagefound;
+l_int32  i;
 PIX     *pix;
 TIFF    *tif;
 
@@ -214,28 +396,21 @@ TIFF    *tif;
     if (!fp)
         return (PIX *)ERROR_PTR("stream not defined", procName, NULL);
 
-    if ((tif = fopenTiff(fp, "rb")) == NULL)
+    if ((tif = fopenTiff(fp, "r")) == NULL)
         return (PIX *)ERROR_PTR("tif not opened", procName, NULL);
 
-    pagefound = FALSE;
     pix = NULL;
     for (i = 0; i < MAX_PAGES_IN_TIFF_FILE; i++) {
+        TIFFSetDirectory(tif, i);
         if (i == n) {
-            pagefound = TRUE;
             if ((pix = pixReadFromTiffStream(tif)) == NULL) {
                 TIFFCleanup(tif);
-                return (PIX *)ERROR_PTR("pix not read", procName, NULL);
+                return NULL;
             }
             break;
         }
         if (TIFFReadDirectory(tif) == 0)
             break;
-    }
-
-    if (pagefound == FALSE) {
-        L_ERROR("tiff page %d not found\n", procName, n);
-        TIFFCleanup(tif);
-        return NULL;
     }
 
     TIFFCleanup(tif);
@@ -278,12 +453,13 @@ static PIX *
 pixReadFromTiffStream(TIFF  *tif)
 {
 l_uint8   *linebuf, *data;
-l_uint16   spp, bps, bpp, tiffbpl, photometry, tiffcomp, orientation;
+l_uint16   spp, bps, bpp, photometry, tiffcomp, orientation;
 l_uint16  *redmap, *greenmap, *bluemap;
 l_int32    d, wpl, bpl, comptype, i, j, ncolors, rval, gval, bval;
 l_int32    xres, yres;
-l_uint32   w, h, tiffword;
+l_uint32   w, h, tiffbpl, tiffword;
 l_uint32  *line, *ppixel, *tiffdata;
+l_uint32   read_oriented;
 PIX       *pix;
 PIXCMAP   *cmap;
 
@@ -292,12 +468,15 @@ PIXCMAP   *cmap;
     if (!tif)
         return (PIX *)ERROR_PTR("tif not defined", procName, NULL);
 
+    read_oriented = 0;
+
         /* Use default fields for bps and spp */
     TIFFGetFieldDefaulted(tif, TIFFTAG_BITSPERSAMPLE, &bps);
     TIFFGetFieldDefaulted(tif, TIFFTAG_SAMPLESPERPIXEL, &spp);
     bpp = bps * spp;
     if (bpp > 32)
-        return (PIX *)ERROR_PTR("can't handle bpp > 32", procName, NULL);
+        L_WARNING("bpp = %d; stripping 16 bit rgb samples down to 8\n",
+                  procName, bpp);
     if (spp == 1)
         d = bps;
     else if (spp == 3 || spp == 4)
@@ -311,18 +490,20 @@ PIXCMAP   *cmap;
 
     if ((pix = pixCreate(w, h, d)) == NULL)
         return (PIX *)ERROR_PTR("pix not made", procName, NULL);
+    pixSetInputFormat(pix, IFF_TIFF);
     data = (l_uint8 *)pixGetData(pix);
     wpl = pixGetWpl(pix);
     bpl = 4 * wpl;
 
         /* Read the data */
     if (spp == 1) {
-        if ((linebuf = (l_uint8 *)CALLOC(tiffbpl + 1, sizeof(l_uint8))) == NULL)
+        if ((linebuf = (l_uint8 *)LEPT_CALLOC(tiffbpl + 1, sizeof(l_uint8)))
+            == NULL)
             return (PIX *)ERROR_PTR("calloc fail for linebuf", procName, NULL);
 
         for (i = 0 ; i < h ; i++) {
             if (TIFFReadScanline(tif, linebuf, i, 0) < 0) {
-                FREE(linebuf);
+                LEPT_FREE(linebuf);
                 pixDestroy(&pix);
                 return (PIX *)ERROR_PTR("line read fail", procName, NULL);
             }
@@ -333,18 +514,22 @@ PIXCMAP   *cmap;
             pixEndianByteSwap(pix);
         else   /* bps == 16 */
             pixEndianTwoByteSwap(pix);
-        FREE(linebuf);
+        LEPT_FREE(linebuf);
     }
     else {  /* rgb */
-        if ((tiffdata = (l_uint32 *)CALLOC(w * h, sizeof(l_uint32))) == NULL) {
+        if ((tiffdata = (l_uint32 *)LEPT_CALLOC(w * h, sizeof(l_uint32)))
+            == NULL) {
             pixDestroy(&pix);
             return (PIX *)ERROR_PTR("calloc fail for tiffdata", procName, NULL);
         }
+            /* TIFFReadRGBAImageOriented() converts to 8 bps */
         if (!TIFFReadRGBAImageOriented(tif, w, h, (uint32 *)tiffdata,
                                        ORIENTATION_TOPLEFT, 0)) {
-            FREE(tiffdata);
+            LEPT_FREE(tiffdata);
             pixDestroy(&pix);
             return (PIX *)ERROR_PTR("failed to read tiffdata", procName, NULL);
+        } else {
+            read_oriented = 1;
         }
 
         line = pixGetData(pix);
@@ -359,7 +544,7 @@ PIXCMAP   *cmap;
                 ppixel++;
             }
         }
-        FREE(tiffdata);
+        LEPT_FREE(tiffdata);
     }
 
     if (getTiffStreamResolution(tif, &xres, &yres) == 0) {
@@ -410,8 +595,9 @@ PIXCMAP   *cmap;
 
     if (TIFFGetField(tif, TIFFTAG_ORIENTATION, &orientation)) {
         if (orientation >= 1 && orientation <= 8) {
-            struct tiff_transform *transform =
-              &tiff_orientation_transforms[orientation - 1];
+            struct tiff_transform *transform = (read_oriented) ?
+                &tiff_partial_orientation_transforms[orientation - 1] :
+                &tiff_orientation_transforms[orientation - 1];
             if (transform->vflip) pixFlipTB(pix, pix);
             if (transform->hflip) pixFlipLR(pix, pix);
             if (transform->rotate) {
@@ -577,7 +763,7 @@ TIFF  *tif;
         comptype = IFF_TIFF_ZIP;
     }
 
-    if ((tif = fopenTiff(fp, "wb")) == NULL)
+    if ((tif = fopenTiff(fp, "w")) == NULL)
         return ERROR_INT("tif not opened", procName, 1);
 
     if (pixWriteToTiffStream(tif, pix, comptype, NULL, NULL, NULL, NULL)) {
@@ -693,9 +879,9 @@ char      *text;
         }
         for (i = ncolors; i < cmapsize; i++)  /* init, even though not used */
             redmap[i] = greenmap[i] = bluemap[i] = 0;
-        FREE(rmap);
-        FREE(gmap);
-        FREE(bmap);
+        LEPT_FREE(rmap);
+        LEPT_FREE(gmap);
+        LEPT_FREE(bmap);
 
         TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_PALETTE);
         TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, (l_uint16)1);
@@ -737,7 +923,7 @@ char      *text;
     bpl = 4 * wpl;
     if (tiffbpl > bpl)
         fprintf(stderr, "Big trouble: tiffbpl = %d, bpl = %d\n", tiffbpl, bpl);
-    if ((linebuf = (l_uint8 *)CALLOC(1, bpl)) == NULL)
+    if ((linebuf = (l_uint8 *)LEPT_CALLOC(1, bpl)) == NULL)
         return ERROR_INT("calloc fail for linebuf", procName, 1);
 
         /* Use single strip for image */
@@ -776,7 +962,7 @@ char      *text;
     }
 
 /*    TIFFWriteDirectory(tif); */
-    FREE(linebuf);
+    LEPT_FREE(linebuf);
 
     return 0;
 }
@@ -840,8 +1026,8 @@ l_uint32   uval, uval2;
             return ERROR_INT("too many 4-arg tag calls", procName, 1);
         for (i = 0; i < ns; i++) {
             numaGetIValue(natags, i, &tagval);
-            sval = sarrayGetString(savals, i, 0);
-            type = sarrayGetString(satypes, i, 0);
+            sval = sarrayGetString(savals, i, L_NOCOPY);
+            type = sarrayGetString(satypes, i, L_NOCOPY);
             numaGetIValue(nasizes, i, &size);
             if (strcmp(type, "char*") && strcmp(type, "l_uint8*"))
                 L_WARNING("array type not char* or l_uint8*; ignore\n",
@@ -855,8 +1041,8 @@ l_uint32   uval, uval2;
         /* The typical tags (3 args to TIFFSetField) are now written */
     for (i = ns; i < n; i++) {
         numaGetIValue(natags, i, &tagval);
-        sval = sarrayGetString(savals, i, 0);
-        type = sarrayGetString(satypes, i, 0);
+        sval = sarrayGetString(savals, i, L_NOCOPY);
+        type = sarrayGetString(satypes, i, L_NOCOPY);
         if (!strcmp(type, "char*")) {
             TIFFSetField(tif, tagval, sval);
         } else if (!strcmp(type, "l_uint16")) {
@@ -1109,7 +1295,7 @@ TIFF    *tif;
         return ERROR_INT("&n not defined", procName, 1);
     *pn = 0;
 
-    if ((tif = fopenTiff(fp, "rb")) == NULL)
+    if ((tif = fopenTiff(fp, "r")) == NULL)
         return ERROR_INT("tif not open for read", procName, 1);
 
     for (i = 1; i < MAX_PAGES_IN_TIFF_FILE; i++) {
@@ -1151,7 +1337,7 @@ TIFF  *tif;
     if (!fp)
         return ERROR_INT("stream not opened", procName, 1);
 
-    if ((tif = fopenTiff(fp, "rb")) == NULL)
+    if ((tif = fopenTiff(fp, "r")) == NULL)
         return ERROR_INT("tif not open for read", procName, 1);
     getTiffStreamResolution(tif, pxres, pyres);
     TIFFCleanup(tif);
@@ -1314,7 +1500,7 @@ TIFF    *tif;
         format != IFF_TIFF_LZW && format != IFF_TIFF_ZIP)
         return ERROR_INT("file not tiff format", procName, 1);
 
-    if ((tif = fopenTiff(fp, "rb")) == NULL)
+    if ((tif = fopenTiff(fp, "r")) == NULL)
         return ERROR_INT("tif not open for read", procName, 1);
 
     for (i = 0; i < n; i++) {
@@ -1488,7 +1674,7 @@ TIFF     *tif;
     if (!fp)
         return ERROR_INT("stream not defined", procName, 1);
 
-    if ((tif = fopenTiff(fp, "rb")) == NULL)
+    if ((tif = fopenTiff(fp, "r")) == NULL)
         return ERROR_INT("tif not opened", procName, 1);
     TIFFGetFieldDefaulted(tif, TIFFTAG_COMPRESSION, &tiffcomp);
     *pcomptype = getTiffCompressedFormat(tiffcomp);
@@ -1599,7 +1785,7 @@ TIFF     *tif;
         return ERROR_INT("tif not open for read", procName, 1);
     TIFFGetField(tif, TIFFTAG_COMPRESSION, &comptype);
     if (comptype != COMPRESSION_CCITTFAX4) {
-        FREE(inarray);
+        LEPT_FREE(inarray);
         TIFFClose(tif);
         return ERROR_INT("filein is not g4 compressed", procName, 1);
     }
@@ -1634,13 +1820,13 @@ TIFF     *tif;
          * up to the beginning of the directory (at diroff)  */
     nbytes = diroff - 8;
     *pnbytes = nbytes;
-    if ((data = (l_uint8 *)CALLOC(nbytes, sizeof(l_uint8))) == NULL) {
-        FREE(inarray);
+    if ((data = (l_uint8 *)LEPT_CALLOC(nbytes, sizeof(l_uint8))) == NULL) {
+        LEPT_FREE(inarray);
         return ERROR_INT("data not allocated", procName, 1);
     }
     *pdata = data;
     memcpy(data, inarray + 8, nbytes);
-    FREE(inarray);
+    LEPT_FREE(inarray);
 
     return 0;
 }
@@ -1662,19 +1848,15 @@ TIFF     *tif;
  *          generates a TIFF starting with a file descriptor.  So we
  *          need to make it here, because it is useful to have functions
  *          that take a stream as input.
- *      (2) Requires lseek to rewind to BOF; fseek won't hack it.
- *      (3) When linking with windows, suggest you use tif_unix.c
- *          instead of tif_win32.c, because it has been reported that
- *          the file descriptor returned from fileno() does not work
- *          with TIFFFdOpen() in tif_win32.c.  (win32 requires a
- *          "handle", which is an integer returned by _get_osfhandle(fd).)
+ *      (2) We use TIFFClientOpen() together with a set of static wrapper
+ *          functions which map TIFF read, write, seek, close and size.
+ *          to functions expecting a cookie of type stream (i.e. FILE *).
+ *          This implementation was contributed by Jürgen Buchmüller.
  */
 static TIFF *
 fopenTiff(FILE        *fp,
           const char  *modestring)
 {
-l_int32  fd;
-
     PROCNAME("fopenTiff");
 
     if (!fp)
@@ -1682,11 +1864,10 @@ l_int32  fd;
     if (!modestring)
         return (TIFF *)ERROR_PTR("modestring not defined", procName, NULL);
 
-    if ((fd = fileno(fp)) < 0)
-        return (TIFF *)ERROR_PTR("invalid file descriptor", procName, NULL);
-    lseek(fd, 0, SEEK_SET);
-
-    return TIFFFdOpen(fd, "TIFFstream", modestring);
+    fseek(fp, 0, SEEK_SET);
+    return TIFFClientOpen("TIFFstream", modestring, (thandle_t)fp,
+                          lept_read_proc, lept_write_proc, lept_seek_proc,
+                          lept_close_proc, lept_size_proc, NULL, NULL);
 }
 
 
@@ -1719,7 +1900,7 @@ TIFF  *tif;
 
     fname = genPathname(filename, NULL);
     tif = TIFFOpen(fname, modestring);
-    FREE(fname);
+    LEPT_FREE(fname);
     return tif;
 }
 
@@ -1790,7 +1971,7 @@ memstreamCreateForRead(l_uint8  *indata,
 {
 L_MEMSTREAM  *mstream;
 
-    mstream = (L_MEMSTREAM *)CALLOC(1, sizeof(L_MEMSTREAM));
+    mstream = (L_MEMSTREAM *)LEPT_CALLOC(1, sizeof(L_MEMSTREAM));
     mstream->buffer = indata;   /* handle to input data array */
     mstream->bufsize = insize;  /* amount of input data */
     mstream->hw = insize;       /* high-water mark fixed at input data size */
@@ -1805,8 +1986,8 @@ memstreamCreateForWrite(l_uint8  **poutdata,
 {
 L_MEMSTREAM  *mstream;
 
-    mstream = (L_MEMSTREAM *)CALLOC(1, sizeof(L_MEMSTREAM));
-    mstream->buffer = (l_uint8 *)CALLOC(8 * 1024, 1);
+    mstream = (L_MEMSTREAM *)LEPT_CALLOC(1, sizeof(L_MEMSTREAM));
+    mstream->buffer = (l_uint8 *)LEPT_CALLOC(8 * 1024, 1);
     mstream->bufsize = 8 * 1024;
     mstream->poutdata = poutdata;  /* used only at end of write */
     mstream->poutsize = poutsize;  /* ditto  */
@@ -1825,6 +2006,14 @@ size_t        amount;
 
     mstream = (L_MEMSTREAM *)handle;
     amount = L_MIN((size_t)length, mstream->hw - mstream->offset);
+
+        /* Fuzzed files can create this condition! */
+    if (mstream->offset + amount > mstream->hw) {
+        fprintf(stderr, "Bad file: amount too big: %lu\n",
+                (unsigned long)amount);
+        return 0;
+    }
+
     memcpy(data, mstream->buffer + mstream->offset, amount);
     mstream->offset += amount;
     return amount;
@@ -1900,7 +2089,7 @@ L_MEMSTREAM  *mstream;
         *mstream->poutdata = mstream->buffer;
         *mstream->poutsize = mstream->hw;
     }
-    FREE(mstream);  /* never free the buffer! */
+    LEPT_FREE(mstream);  /* never free the buffer! */
     return 0;
 }
 
@@ -2000,6 +2189,9 @@ L_MEMSTREAM  *mstream;
  *      (1) This is a version of pixReadTiff(), where the data is read
  *          from a memory buffer and uncompressed.
  *      (2) Use TIFFClose(); TIFFCleanup() doesn't free internal memstream.
+ *      (3) No warning messages on failure, because of how multi-page
+ *          TIFF reading works. You are supposed to keep trying until
+ *          it stops working.
  */
 PIX *
 pixReadMemTiff(const l_uint8  *cdata,
@@ -2007,7 +2199,7 @@ pixReadMemTiff(const l_uint8  *cdata,
                l_int32         n)
 {
 l_uint8  *data;
-l_int32   i, pagefound;
+l_int32   i;
 PIX      *pix;
 TIFF     *tif;
 
@@ -2020,14 +2212,12 @@ TIFF     *tif;
     if ((tif = fopenTiffMemstream("tifferror", "r", &data, &size)) == NULL)
         return (PIX *)ERROR_PTR("tiff stream not opened", procName, NULL);
 
-    pagefound = FALSE;
     pix = NULL;
     for (i = 0; i < MAX_PAGES_IN_TIFF_FILE; i++) {
         if (i == n) {
-            pagefound = TRUE;
             if ((pix = pixReadFromTiffStream(tif)) == NULL) {
                 TIFFClose(tif);
-                return (PIX *)ERROR_PTR("pix not read", procName, NULL);
+                return NULL;
             }
             pixSetInputFormat(pix, IFF_TIFF);
             break;
@@ -2035,9 +2225,6 @@ TIFF     *tif;
         if (TIFFReadDirectory(tif) == 0)
             break;
     }
-
-    if (pagefound == FALSE)
-        L_WARNING("tiff page %d not found\n", procName, n);
 
     TIFFClose(tif);
     return pix;

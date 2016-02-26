@@ -60,6 +60,12 @@
  *           PIX        *pixCropToSize()
  *           PIX        *pixResizeToMatch()
  *
+ *    Make a frame mask
+ *           PIX        *pixMakeFrameMask()
+ *
+ *    Fraction of Fg pixels under a mask
+ *           l_int32     pixFractionFgInMask()
+ *
  *    Clip to foreground
  *           PIX        *pixClipToForeground()
  *           l_int32     pixTestClipToForeground()
@@ -125,10 +131,12 @@ PIX     *pixt;
 
     PROCNAME("pixaFindDimensions");
 
+    if (pnaw) *pnaw = NULL;
+    if (pnah) *pnah = NULL;
+    if (!pnaw && !pnah)
+        return ERROR_INT("no output requested", procName, 1);
     if (!pixa)
         return ERROR_INT("pixa not defined", procName, 1);
-    if (!pnaw && !pnah)
-        return 0;
 
     n = pixaGetCount(pixa);
     if (pnaw) *pnaw = numaCreate(n);
@@ -187,7 +195,7 @@ PIX      *pixt;
     pixCountPixels(pixt, &nfg, tab8);
     if (nfg == 0) {
         pixDestroy(&pixt);
-        if (!tab) FREE(tab8);
+        if (!tab) LEPT_FREE(tab8);
         return 0;
     }
     pixXor(pixt, pixt, pixs);
@@ -195,7 +203,7 @@ PIX      *pixt;
     *pfract = (l_float32)nfg / (l_float32)nbound;
     pixDestroy(&pixt);
 
-    if (!tab) FREE(tab8);
+    if (!tab) LEPT_FREE(tab8);
     return 0;
 }
 
@@ -233,7 +241,7 @@ PIX       *pixt;
         numaAddNumber(na, fract);
         pixDestroy(&pixt);
     }
-    FREE(tab);
+    LEPT_FREE(tab);
     return na;
 }
 
@@ -282,7 +290,7 @@ PIX      *pixt;
 
     pixCountPixels(pixs, &nfg, tab8);
     if (nfg == 0) {
-        if (!tab) FREE(tab8);
+        if (!tab) LEPT_FREE(tab8);
         return 0;
     }
     pixt = pixErodeBrick(NULL, pixs, 3, 3);
@@ -291,7 +299,7 @@ PIX      *pixt;
     *pfract = (l_float32)nbound / (l_float32)nfg;
     pixDestroy(&pixt);
 
-    if (!tab) FREE(tab8);
+    if (!tab) LEPT_FREE(tab8);
     return 0;
 }
 
@@ -333,7 +341,7 @@ PIX       *pixt;
         numaAddNumber(na, ratio);
         pixDestroy(&pixt);
     }
-    FREE(tab);
+    LEPT_FREE(tab);
     return na;
 }
 
@@ -387,7 +395,7 @@ PIX      *pixt;
     *pratio = (0.5 * nbound) / (l_float32)(w + h);
     pixDestroy(&pixt);
 
-    if (!tab) FREE(tab8);
+    if (!tab) LEPT_FREE(tab8);
     return 0;
 }
 
@@ -425,7 +433,7 @@ PIX       *pixt;
         numaAddNumber(na, fract);
         pixDestroy(&pixt);
     }
-    FREE(tab);
+    LEPT_FREE(tab);
     return na;
 }
 
@@ -467,7 +475,7 @@ l_int32  *tab8;
     pixCountPixels(pixs, &sum, tab8);
     *pfract = (l_float32)sum / (l_float32)(w * h);
 
-    if (!tab) FREE(tab8);
+    if (!tab) LEPT_FREE(tab8);
     return 0;
 }
 
@@ -522,7 +530,7 @@ PIX       *pix;
         boxDestroy(&box);
         pixDestroy(&pix);
     }
-    FREE(tab);
+    LEPT_FREE(tab);
 
     if (debug) {
         l_int32  w, h;
@@ -601,13 +609,13 @@ PIX      *pix1;
     pixCountPixels(pixs, &sum, tab8);
     if (sum == 0) {
         pixDestroy(&pix1);
-        if (!tab) FREE(tab8);
+        if (!tab) LEPT_FREE(tab8);
         return 0;
     }
     pixCountPixels(pix1, &masksum, tab8);
     *pfract = (l_float32)masksum / (l_float32)sum;
 
-    if (!tab) FREE(tab8);
+    if (!tab) LEPT_FREE(tab8);
     pixDestroy(&pix1);
     return 0;
 }
@@ -710,6 +718,7 @@ PIX      *pixt;
 
     PROCNAME("pixFindOverlapFraction");
 
+    if (pnoverlap) *pnoverlap = 0;
     if (!pratio)
         return ERROR_INT("&ratio not defined", procName, 1);
     *pratio = 0.0;
@@ -732,7 +741,7 @@ PIX      *pixt;
     pixCopy(pixt, pixs1);
     pixRasterop(pixt, x2, y2, w, h, PIX_PAINT, pixs2, 0, 0);  /* OR */
     pixCountPixels(pixt, &nunion, tab8);
-    if (!tab) FREE(tab8);
+    if (!tab) LEPT_FREE(tab8);
     pixDestroy(&pixt);
 
     if (nunion > 0)
@@ -977,8 +986,7 @@ PIX     *pixd;
 
     PROCNAME("pixClipRectangle");
 
-    if (pboxc)
-        *pboxc = NULL;
+    if (pboxc) *pboxc = NULL;
     if (!pixs)
         return (PIX *)ERROR_PTR("pixs not defined", procName, NULL);
     if (!box)
@@ -1235,6 +1243,140 @@ PIX     *pixd;
 
 
 /*---------------------------------------------------------------------*
+ *                          Make a frame mask                          *
+ *---------------------------------------------------------------------*/
+/*!
+ *  pixMakeFrameMask()
+ *
+ *      Input:  w, h (dimensions of output 1 bpp pix)
+ *              hf1 (horizontal fraction of half-width at outer frame bdry)
+ *              hf2 (horizontal fraction of half-width at inner frame bdry)
+ *              vf1 (vertical fraction of half-width at outer frame bdry)
+ *              vf2 (vertical fraction of half-width at inner frame bdry)
+ *      Return: pixd (1 bpp), or null on error.
+ *
+ *  Notes:
+ *      (1) This makes an arbitrary 1-component mask with a centered frame.
+ *          Input fractions are in [0.0 ... 1.0]; hf1 <= hf2 and vf1 <= vf2.
+ *          Horizontal and vertical frame widths are independently specified.
+ *      (2) Special case: to get a full fg mask, set all input values to 0.0.
+ *          An empty fg mask has hf1 = vf1 = 1.0.
+ *          A fg rectangle with no hole has hf2 == 1.0 or hv2 == 1.0.
+ *      (3) The vertical thickness of the horizontal mask parts
+ *          is 0.5 * (vf2 - vf1) * h.  The horizontal thickness of the
+ *          vertical mask parts is 0.5 * (hf2 - hf1) * w.
+ */
+PIX *
+pixMakeFrameMask(l_int32    w,
+                 l_int32    h,
+                 l_float32  hf1,
+                 l_float32  hf2,
+                 l_float32  vf1,
+                 l_float32  vf2)
+{
+l_int32  h1, h2, v1, v2;
+PIX     *pixd;
+
+    PROCNAME("pixMakeFrameMask");
+
+    if (w <= 0 || h <= 0)
+        return (PIX *)ERROR_PTR("mask size 0", procName, NULL);
+    if (hf1 < 0.0 || hf1 > 1.0 || hf2 < 0.0 || hf2 > 1.0)
+        return (PIX *)ERROR_PTR("invalid horiz fractions", procName, NULL);
+    if (vf1 < 0.0 || vf1 > 1.0 || vf2 < 0.0 || vf2 > 1.0)
+        return (PIX *)ERROR_PTR("invalid vert fractions", procName, NULL);
+    if (hf1 > hf2 || vf1 > vf2)
+        return (PIX *)ERROR_PTR("invalid relative sizes", procName, NULL);
+
+    pixd = pixCreate(w, h, 1);
+
+        /* Special cases */
+    if (hf1 == 0.0 && hf2 == 0.0 && vf1 == 0.0 && vf2 == 0.0) {  /* full */
+        pixSetAll(pixd);
+        return pixd;
+    }
+    if (hf1 == 1.0 && vf1 == 1.0) {  /* empty */
+        return pixd;
+    }
+
+        /* General case */
+    h1 = 0.5 * hf1 * w;
+    h2 = 0.5 * hf2 * w;
+    v1 = 0.5 * vf1 * h;
+    v2 = 0.5 * vf2 * h;
+    pixRasterop(pixd, h1, v1, w - 2 * h1, h - 2 * v1, PIX_SET, NULL, 0, 0);
+    if (hf2 < 1.0 && vf2 < 1.0)
+        pixRasterop(pixd, h2, v2, w - 2 * h2, h - 2 * v2, PIX_CLR, NULL, 0, 0);
+    return pixd;
+}
+
+
+/*---------------------------------------------------------------------*
+ *                 Fraction of Fg pixels under a mask                  *
+ *---------------------------------------------------------------------*/
+/*!
+ *  pixFractionFgInMask()
+ *
+ *      Input:  pix1 (1 bpp)
+ *              pix2 (1 bpp)
+ *              &fract (<return> fraction of fg pixels in 1 that are
+ *                      aligned with the fg of 2)
+ *      Return: 0 if OK, 1 on error.
+ *
+ *  Notes:
+ *      (1) This gives the fraction of fg pixels in pix1 that are in
+ *          the intersection (i.e., under the fg) of pix2:
+ *          |1 & 2|/|1|, where |...| means the number of fg pixels.
+ *          Note that this is different from the situation where
+ *          pix1 and pix2 are reversed.
+ *      (2) Both pix1 and pix2 are registered to the UL corners.  A warning
+ *          is issued if pix1 and pix2 have different sizes.
+ *      (3) This can also be used to find the fraction of fg pixels in pix1
+ *          that are NOT under the fg of pix2: 1.0 - |1 & 2|/|1|
+ *      (4) If pix1 or pix2 are empty, this returns @fract = 0.0.
+ *      (5) For example, pix2 could be a frame around the outside of the
+ *          image, made from pixMakeFrameMask().
+ */
+l_int32
+pixFractionFgInMask(PIX        *pix1,
+                    PIX        *pix2,
+                    l_float32  *pfract)
+{
+l_int32  w1, h1, w2, h2, empty, count1, count3;
+PIX     *pix3;
+
+    PROCNAME("pixFractionFgInMask");
+
+    if (!pfract)
+        return ERROR_INT("&fract not defined", procName, 1);
+    *pfract = 0.0;
+    if (!pix1 || pixGetDepth(pix1) != 1)
+        return ERROR_INT("pix1 not defined or not 1 bpp", procName, 1);
+    if (!pix2 || pixGetDepth(pix2) != 1)
+        return ERROR_INT("pix2 not defined or not 1 bpp", procName, 1);
+
+    pixGetDimensions(pix1, &w1, &h1, NULL);
+    pixGetDimensions(pix2, &w2, &h2, NULL);
+    if (w1 != w2 || h1 != h2) {
+        L_INFO("sizes unequal: (w1,w2) = (%d,%d), (h1,h2) = (%d,%d)\n",
+               procName, w1, w2, h1, h2);
+    }
+    pixZero(pix1, &empty);
+    if (empty) return 0;
+    pixZero(pix2, &empty);
+    if (empty) return 0;
+
+    pix3 = pixCopy(NULL, pix1);
+    pixAnd(pix3, pix3, pix2);
+    pixCountPixels(pix1, &count1, NULL);  /* |1| */
+    pixCountPixels(pix3, &count3, NULL);  /* |1 & 2| */
+    *pfract = (l_float32)count3 / (l_float32)count1;
+    pixDestroy(&pix3);
+    return 0;
+}
+
+
+/*---------------------------------------------------------------------*
  *                           Clip to Foreground                        *
  *---------------------------------------------------------------------*/
 /*!
@@ -1262,12 +1404,10 @@ BOX       *box;
 
     PROCNAME("pixClipToForeground");
 
+    if (ppixd) *ppixd = NULL;
+    if (pbox) *pbox = NULL;
     if (!ppixd && !pbox)
-        return ERROR_INT("neither &pixd nor &box defined", procName, 1);
-    if (ppixd)
-        *ppixd = NULL;
-    if (pbox)
-        *pbox = NULL;
+        return ERROR_INT("no output requested", procName, 1);
     if (!pixs || (pixGetDepth(pixs) != 1))
         return ERROR_INT("pixs not defined or not 1 bpp", procName, 1);
 
@@ -1345,6 +1485,9 @@ maxx_found:
  *      (1) This is a lightweight test to determine if a 1 bpp image
  *          can be further cropped without loss of fg pixels.
  *          If it cannot, canclip is set to 0.
+ *      (2) It does not test for the existence of any fg pixels.
+ *          If there are no fg pixels, it will return @canclip = 1.
+ *          Check the output of the subsequent call to pixClipToForeground().
  */
 l_int32
 pixTestClipToForeground(PIX      *pixs,
@@ -1427,10 +1570,10 @@ BOX     *boxt, *boxd;
 
     PROCNAME("pixClipBoxToForeground");
 
-    if (!ppixd && !pboxd)
-        return ERROR_INT("neither &pixd nor &boxd defined", procName, 1);
     if (ppixd) *ppixd = NULL;
     if (pboxd) *pboxd = NULL;
+    if (!ppixd && !pboxd)
+        return ERROR_INT("no output requested", procName, 1);
     if (!pixs || (pixGetDepth(pixs) != 1))
         return ERROR_INT("pixs not defined or not 1 bpp", procName, 1);
 
@@ -1610,10 +1753,10 @@ BOX     *boxt, *boxd;
 
     PROCNAME("pixClipBoxToEdges");
 
-    if (!ppixd && !pboxd)
-        return ERROR_INT("neither &pixd nor &boxd defined", procName, 1);
     if (ppixd) *ppixd = NULL;
     if (pboxd) *pboxd = NULL;
+    if (!ppixd && !pboxd)
+        return ERROR_INT("no output requested", procName, 1);
     if (!pixs || (pixGetDepth(pixs) != 1))
         return ERROR_INT("pixs not defined or not 1 bpp", procName, 1);
     if (lowthresh < 1 || highthresh < 1 ||
@@ -1705,7 +1848,7 @@ BOX     *boxt, *boxd;
  *              maxwidth (max allowed width between low and high thresh locs)
  *              factor (sampling factor along pixel counting direction)
  *              scanflag (direction of scan; e.g., L_FROM_LEFT)
- *              &loc (location in scan direction of first black pixel)
+ *              &loc (<return> location in scan direction of first black pixel)
  *      Return: 0 if OK; 1 on error or if the edge is not found
  *
  *  Notes:
@@ -2654,7 +2797,7 @@ PIX       *pixd;
         }
     }
 
-    FREE(lines8);
-    FREE(lined8);
+    LEPT_FREE(lines8);
+    LEPT_FREE(lined8);
     return pixd;
 }

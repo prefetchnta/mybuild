@@ -30,6 +30,7 @@
  *      Coloring "gray" pixels
  *           PIX             *pixColorGrayRegions()
  *           l_int32          pixColorGray()
+ *           PIX             *pixColorGrayMasked()
  *
  *      Adjusting one or more colors to a target color
  *           PIX             *pixSnapColor()
@@ -55,7 +56,7 @@
  *  They fall into the following categories:
  *
  *  (1) Moving either the light or dark pixels toward a
- *      specified color. (pixColorGray)
+ *      specified color. (pixColorGray, pixColorGrayMasked)
  *  (2) Forcing all pixels whose color is within some delta of a
  *      specified color to move to that color. (pixSnapColor)
  *  (3) Doing a piecewise linear color shift specified by a source
@@ -313,6 +314,133 @@ PIXCMAP   *cmap;
 }
 
 
+/*!
+ *  pixColorGrayMasked()
+ *
+ *      Input:  pixs (8 bpp gray, rgb or colormapped image)
+ *              pixm (1 bpp mask, through which to apply color)
+ *              type (L_PAINT_LIGHT, L_PAINT_DARK)
+ *              thresh (average value below/above which pixel is unchanged)
+ *              rval, gval, bval (new color to paint)
+ *      Return: pixd (colorized), or null on error
+ *
+ *  Notes:
+ *      (1) This generates a new image, where some of the pixels under
+ *          FG in the mask are colorized.
+ *      (2) See pixColorGray() for usage with @type and @thresh.  Note
+ *          that @thresh is only used for rgb; it is ignored for
+ *          colormapped images.  In most cases, the mask will be over
+ *          the darker parts and @type == L_PAINT_DARK.
+ *      (3) If pixs is colormapped this calls pixColorMaskedCmap(),
+ *          which adds colors to the colormap for pixd; it only adds
+ *          colors corresponding to strictly gray colors in the colormap.
+ *          Otherwise, if pixs is 8 bpp gray, pixd will be 32 bpp rgb.
+ *      (4) If pixs is 32 bpp rgb, for each pixel a "gray" value is
+ *          found by averaging.  This average is then used with the
+ *          input rgb target to generate the output pixel values.
+ *      (5) This can be used in conjunction with pixFindColorRegions() to
+ *          add highlight color to a grayscale image.
+ */
+PIX *
+pixColorGrayMasked(PIX     *pixs,
+                   PIX     *pixm,
+                   l_int32  type,
+                   l_int32  thresh,
+                   l_int32  rval,
+                   l_int32  gval,
+                   l_int32  bval)
+{
+l_int32    i, j, w, h, d, wm, hm, wmin, hmin, wpl, wplm;
+l_int32    nrval, ngval, nbval, aveval;
+l_float32  factor;
+l_uint32   val32;
+l_uint32  *line, *data, *linem, *datam;
+PIX       *pixd;
+PIXCMAP   *cmap;
+
+    PROCNAME("pixColorGrayMasked");
+
+    if (!pixs)
+        return (PIX *)ERROR_PTR("pixs not defined", procName, NULL);
+    if (!pixm || pixGetDepth(pixm) != 1)
+        return (PIX *)ERROR_PTR("pixm undefined or not 1 bpp", procName, NULL);
+    if (type != L_PAINT_LIGHT && type != L_PAINT_DARK)
+        return (PIX *)ERROR_PTR("invalid type", procName, NULL);
+
+    cmap = pixGetColormap(pixs);
+    pixGetDimensions(pixs, &w, &h, &d);
+    if (!cmap && d != 8 && d != 32)
+        return (PIX *)ERROR_PTR("pixs not cmapped, 8 bpp gray or 32 bpp",
+                                procName, NULL);
+    if (cmap) {
+        pixd = pixCopy(NULL, pixs);
+        pixColorGrayMaskedCmap(pixd, pixm, type, rval, gval, bval);
+        return pixd;
+    }
+
+        /* rgb or 8 bpp gray image; check the thresh */
+    if (type == L_PAINT_LIGHT) {  /* thresh should be low */
+        if (thresh >= 255)
+            return (PIX *)ERROR_PTR(
+                "thresh must be < 255; else this is a no-op", procName, NULL);
+        if (thresh > 127)
+            L_WARNING("threshold set very high\n", procName);
+    } else {  /* type == L_PAINT_DARK; thresh should be high */
+        if (thresh <= 0)
+            return (PIX *)ERROR_PTR(
+                "thresh must be > 0; else this is a no-op", procName, NULL);
+        if (thresh < 128)
+            L_WARNING("threshold set very low\n", procName);
+    }
+
+    pixGetDimensions(pixm, &wm, &hm, NULL);
+    if (wm != w)
+        L_WARNING("wm = %d differs from w = %d\n", procName, wm, w);
+    if (hm != h)
+        L_WARNING("hm = %d differs from h = %d\n", procName, hm, h);
+    wmin = L_MIN(w, wm);
+    hmin = L_MIN(h, hm);
+    if (d == 8)
+        pixd = pixConvertTo32(pixs);
+    else
+        pixd = pixCopy(NULL, pixs);
+
+    data = pixGetData(pixd);
+    wpl = pixGetWpl(pixd);
+    datam = pixGetData(pixm);
+    wplm = pixGetWpl(pixm);
+    factor = 1. / 255.;
+    for (i = 0; i < hmin; i++) {
+        line = data + i * wpl;
+        linem = datam + i * wplm;
+        for (j = 0; j < wmin; j++) {
+            if (GET_DATA_BIT(linem, j) == 0)
+                continue;
+            val32 = *(line + j);
+            aveval = ((val32 >> 24) + ((val32 >> 16) & 0xff) +
+                      ((val32 >> 8) & 0xff)) / 3;
+            if (type == L_PAINT_LIGHT) {
+                if (aveval < thresh)  /* skip sufficiently dark pixels */
+                    continue;
+                nrval = (l_int32)(rval * aveval * factor);
+                ngval = (l_int32)(gval * aveval * factor);
+                nbval = (l_int32)(bval * aveval * factor);
+            } else {  /* type == L_PAINT_DARK */
+                if (aveval > thresh)  /* skip sufficiently light pixels */
+                    continue;
+                nrval = rval + (l_int32)((255. - rval) * aveval * factor);
+                ngval = gval + (l_int32)((255. - gval) * aveval * factor);
+                nbval = bval + (l_int32)((255. - bval) * aveval * factor);
+            }
+            composeRGBPixel(nrval, ngval, nbval, &val32);
+            *(line + j) = val32;
+        }
+    }
+
+    return pixd;
+}
+
+
 /*------------------------------------------------------------------*
  *            Adjusting one or more colors to a target color        *
  *------------------------------------------------------------------*/
@@ -481,7 +609,7 @@ PIXCMAP   *cmap;
          * set the tab value to 1.  Then generate a 1 bpp mask with
          * fg pixels for every pixel in pixd that is close enough
          * to srcval (i.e., has value 1 in tab). */
-    if ((tab = (l_int32 *)CALLOC(256, sizeof(l_int32))) == NULL)
+    if ((tab = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32))) == NULL)
         return (PIX *)ERROR_PTR("tab not made", procName, pixd);
     for (i = 0; i < ncolors; i++) {
         pixcmapGetColor(cmap, i, &rval, &gval, &bval);
@@ -491,7 +619,7 @@ PIXCMAP   *cmap;
             tab[i] = 1;
     }
     pixm = pixMakeMaskFromLUT(pixd, tab);
-    FREE(tab);
+    LEPT_FREE(tab);
 
         /* Use the binary mask to set all selected pixels to
          * the dest color index. */
@@ -565,9 +693,9 @@ l_uint32  *line, *data;
     rsval = L_MIN(254, L_MAX(1, rsval));
     gsval = L_MIN(254, L_MAX(1, gsval));
     bsval = L_MIN(254, L_MAX(1, bsval));
-    rtab = (l_int32 *)CALLOC(256, sizeof(l_int32));
-    gtab = (l_int32 *)CALLOC(256, sizeof(l_int32));
-    btab = (l_int32 *)CALLOC(256, sizeof(l_int32));
+    rtab = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
+    gtab = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
+    btab = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
     for (i = 0; i < 256; i++) {
         if (i <= rsval)
             rtab[i] = (i * rdval) / rsval;
@@ -595,9 +723,9 @@ l_uint32  *line, *data;
         }
     }
 
-    FREE(rtab);
-    FREE(gtab);
-    FREE(btab);
+    LEPT_FREE(rtab);
+    LEPT_FREE(gtab);
+    LEPT_FREE(btab);
     return pixd;
 }
 
@@ -745,9 +873,9 @@ PIXCMAP   *cmap;
 
     extractRGBValues(srcval, &rsval, &gsval, &bsval);
     extractRGBValues(dstval, &rdval, &gdval, &bdval);
-    rtab = (l_int32 *)CALLOC(256, sizeof(l_int32));
-    gtab = (l_int32 *)CALLOC(256, sizeof(l_int32));
-    btab = (l_int32 *)CALLOC(256, sizeof(l_int32));
+    rtab = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
+    gtab = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
+    btab = (l_int32 *)LEPT_CALLOC(256, sizeof(l_int32));
     for (i = 0; i < 256; i++) {
         if (rdval == rsval)
             rtab[i] = i;
@@ -781,9 +909,9 @@ PIXCMAP   *cmap;
         }
     }
 
-    FREE(rtab);
-    FREE(gtab);
-    FREE(btab);
+    LEPT_FREE(rtab);
+    LEPT_FREE(gtab);
+    LEPT_FREE(btab);
     return pixd;
 }
 

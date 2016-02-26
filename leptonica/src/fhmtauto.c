@@ -73,11 +73,11 @@
  *    (4) In an application, you now use this interface.  Again
  *        for the example files generated, using integer "1":
  *
- *           PIX   *pixHMTDwa_1(PIX *pixd, PIX *pixs, char *selname);
+ *           PIX   *pixHMTDwa_1(PIX *pixd, PIX *pixs, const char *selname);
  *
  *              or
  *
- *           PIX   *pixFHMTGen_1(PIX *pixd, PIX *pixs, char *selname);
+ *           PIX   *pixFHMTGen_1(PIX *pixd, PIX *pixs, const char *selname);
  *
  *        where the selname is one of the set that were defined
  *        as the name field of sels.  This set is listed at the
@@ -95,9 +95,9 @@
 #define   TEMPLATE1       "hmttemplate1.txt"
 #define   TEMPLATE2       "hmttemplate2.txt"
 
-#define   BUFFER_SIZE     512
-
 #define   PROTOARGS   "(l_uint32 *, l_int32, l_int32, l_int32, l_uint32 *, l_int32);"
+
+static const l_int32  L_BUF_SIZE = 512;
 
 static char * makeBarrelshiftString(l_int32 delx, l_int32 dely, l_int32 type);
 static SARRAY * sarrayMakeInnerLoopDWACode(SEL *sel, l_int32 nhits, l_int32 nmisses);
@@ -249,7 +249,7 @@ char    *str_proto1, *str_proto2, *str_proto3;
 char    *str_doc1, *str_doc2, *str_doc3, *str_doc4;
 char    *str_def1, *str_def2, *str_proc1, *str_proc2;
 char    *str_dwa1, *str_low_dt, *str_low_ds;
-char     bigbuf[BUFFER_SIZE];
+char     bigbuf[L_BUF_SIZE];
 l_int32  i, nsels, nbytes, actstart, end, newstart;
 size_t   size;
 SARRAY  *sa1, *sa2, *sa3;
@@ -271,14 +271,14 @@ SARRAY  *sa1, *sa2, *sa3;
         return ERROR_INT("filestr not made", procName, 1);
     if ((sa2 = sarrayCreateLinesFromString(filestr, 1)) == NULL)
         return ERROR_INT("sa2 not made", procName, 1);
-    FREE(filestr);
+    LEPT_FREE(filestr);
 
         /* Make strings containing function call names */
     sprintf(bigbuf, "PIX *pixHMTDwa_%d(PIX *pixd, PIX *pixs, "
-                    "char *selname);", fileindex);
+                    "const char *selname);", fileindex);
     str_proto1 = stringNew(bigbuf);
     sprintf(bigbuf, "PIX *pixFHMTGen_%d(PIX *pixd, PIX *pixs, "
-                    "char *selname);", fileindex);
+                    "const char *selname);", fileindex);
     str_proto2 = stringNew(bigbuf);
     sprintf(bigbuf, "l_int32 fhmtgen_low_%d(l_uint32 *datad, l_int32 w,\n"
             "                      l_int32 h, l_int32 wpld,\n"
@@ -293,9 +293,9 @@ SARRAY  *sa1, *sa2, *sa3;
     str_doc3 = stringNew(bigbuf);
     sprintf(bigbuf, " *  pixFHMTGen_%d()", fileindex);
     str_doc4 = stringNew(bigbuf);
-    sprintf(bigbuf, "pixHMTDwa_%d(PIX   *pixd,", fileindex);
+    sprintf(bigbuf, "pixHMTDwa_%d(PIX         *pixd,", fileindex);
     str_def1 = stringNew(bigbuf);
-    sprintf(bigbuf, "pixFHMTGen_%d(PIX   *pixd,", fileindex);
+    sprintf(bigbuf, "pixFHMTGen_%d(PIX         *pixd,", fileindex);
     str_def2 = stringNew(bigbuf);
     sprintf(bigbuf, "    PROCNAME(\"pixHMTDwa_%d\");", fileindex);
     str_proc1 = stringNew(bigbuf);
@@ -305,11 +305,11 @@ SARRAY  *sa1, *sa2, *sa3;
             fileindex);
     str_dwa1 = stringNew(bigbuf);
     sprintf(bigbuf,
-	    "        fhmtgen_low_%d(datad, w, h, wpld, datat, wpls, index);",
+            "        fhmtgen_low_%d(datad, w, h, wpld, datat, wpls, index);",
             fileindex);
     str_low_dt = stringNew(bigbuf);
     sprintf(bigbuf,
-	    "        fhmtgen_low_%d(datad, w, h, wpld, datas, wpls, index);",
+            "        fhmtgen_low_%d(datad, w, h, wpld, datas, wpls, index);",
             fileindex);
     str_low_ds = stringNew(bigbuf);
 
@@ -340,12 +340,12 @@ SARRAY  *sa1, *sa2, *sa3;
     sprintf(bigbuf, "static char  SEL_NAMES[][80] = {");
     sarrayAddString(sa3, bigbuf, L_COPY);
     for (i = 0; i < nsels - 1; i++) {
-        sprintf(bigbuf,
-        "                             \"%s\",", sarrayGetString(sa1, i, 0));
+        sprintf(bigbuf, "                             \"%s\",",
+                sarrayGetString(sa1, i, L_NOCOPY));
         sarrayAddString(sa3, bigbuf, L_COPY);
     }
-    sprintf(bigbuf,
-        "                             \"%s\"};", sarrayGetString(sa1, i, 0));
+    sprintf(bigbuf, "                             \"%s\"};",
+            sarrayGetString(sa1, i, L_NOCOPY));
     sarrayAddString(sa3, bigbuf, L_COPY);
 
         /* Start pixHMTDwa_*() function description */
@@ -355,7 +355,7 @@ SARRAY  *sa1, *sa2, *sa3;
     sarrayParseRange(sa2, newstart, &actstart, &end, &newstart, "--", 0);
     sarrayAppendRange(sa3, sa2, actstart, end);
 
-        /* Finish pixMorphDwa_*() function definition */
+        /* Finish pixHMTDwa_*() function definition */
     sarrayAddString(sa3, str_def1, L_INSERT);
     sarrayParseRange(sa2, newstart, &actstart, &end, &newstart, "--", 0);
     sarrayAppendRange(sa3, sa2, actstart, end);
@@ -396,7 +396,7 @@ SARRAY  *sa1, *sa2, *sa3;
     sarrayDestroy(&sa1);
     sarrayDestroy(&sa2);
     sarrayDestroy(&sa3);
-    FREE(filestr);
+    LEPT_FREE(filestr);
     return 0;
 }
 
@@ -427,7 +427,7 @@ fhmtautogen2(SELA        *sela,
 {
 char    *filestr, *fname, *linestr;
 char    *str_doc1, *str_doc2, *str_doc3, *str_def1;
-char     bigbuf[BUFFER_SIZE];
+char     bigbuf[L_BUF_SIZE];
 char     breakstring[] = "        break;";
 char     staticstring[] = "static void";
 l_int32  i, k, l, nsels, nbytes, nhits, nmisses;
@@ -451,23 +451,23 @@ SEL     *sel;
         return ERROR_INT("filestr not made", procName, 1);
     if ((sa1 = sarrayCreateLinesFromString(filestr, 1)) == NULL)
         return ERROR_INT("sa1 not made", procName, 1);
-    FREE(filestr);
+    LEPT_FREE(filestr);
 
         /* Make the array of static function names */
     if ((sa2 = sarrayCreate(nsels)) == NULL)
         return ERROR_INT("sa2 not made", procName, 1);
     for (i = 0; i < nsels; i++) {
         sprintf(bigbuf, "fhmt_%d_%d", fileindex, i);
-        sarrayAddString(sa2, bigbuf, 1);
+        sarrayAddString(sa2, bigbuf, L_COPY);
     }
 
         /* Make the static prototype strings */
     if ((sa3 = sarrayCreate(2 * nsels)) == NULL)
         return ERROR_INT("sa3 not made", procName, 1);
     for (i = 0; i < nsels; i++) {
-        fname = sarrayGetString(sa2, i, 0);
+        fname = sarrayGetString(sa2, i, L_NOCOPY);
         sprintf(bigbuf, "static void  %s%s", fname, PROTOARGS);
-        sarrayAddString(sa3, bigbuf, 1);
+        sarrayAddString(sa3, bigbuf, L_COPY);
     }
 
         /* Make strings containing function names */
@@ -551,7 +551,7 @@ SEL     *sel;
             return ERROR_INT("sel not returned", procName, 1);
         if ((sa5 = sarrayMakeWplsCode(sel)) == NULL)
             return ERROR_INT("sa5 not made", procName, 1);
-        sarrayConcatenate(sa4, sa5);
+        sarrayJoin(sa4, sa5);
         sarrayDestroy(&sa5);
 
             /* Make sure sel has at least one hit */
@@ -577,7 +577,7 @@ SEL     *sel;
             /* Insert barrel-op code for *dptr */
         if ((sa6 = sarrayMakeInnerLoopDWACode(sel, nhits, nmisses)) == NULL)
             return ERROR_INT("sa6 not made", procName, 1);
-        sarrayConcatenate(sa4, sa6);
+        sarrayJoin(sa4, sa6);
         sarrayDestroy(&sa6);
 
             /* Finish the function code */
@@ -597,7 +597,7 @@ SEL     *sel;
     sarrayDestroy(&sa2);
     sarrayDestroy(&sa3);
     sarrayDestroy(&sa4);
-    FREE(filestr);
+    LEPT_FREE(filestr);
 
     return 0;
 }
@@ -625,7 +625,7 @@ SARRAY  *sa;
     ymax = 0;
     for (i = 0; i < sel->sy; i++) {
         for (j = 0; j < sel->sx; j++) {
-            if (sel->data[i][j] == 1) {
+            if (sel->data[i][j] == 1 || sel->data[i][j] == 2) {
                 dely = L_ABS(i - sel->cy);
                 ymax = L_MAX(ymax, dely);
             }
@@ -641,27 +641,27 @@ SARRAY  *sa;
 
         /* Declarations */
     if (ymax > 4)
-        sarrayAddString(sa, wpldecls[2], 1);
+        sarrayAddString(sa, wpldecls[2], L_COPY);
     if (ymax > 8)
-        sarrayAddString(sa, wpldecls[6], 1);
+        sarrayAddString(sa, wpldecls[6], L_COPY);
     if (ymax > 12)
-        sarrayAddString(sa, wpldecls[10], 1);
+        sarrayAddString(sa, wpldecls[10], L_COPY);
     if (ymax > 16)
-        sarrayAddString(sa, wpldecls[14], 1);
+        sarrayAddString(sa, wpldecls[14], L_COPY);
     if (ymax > 20)
-        sarrayAddString(sa, wpldecls[18], 1);
+        sarrayAddString(sa, wpldecls[18], L_COPY);
     if (ymax > 24)
-        sarrayAddString(sa, wpldecls[22], 1);
+        sarrayAddString(sa, wpldecls[22], L_COPY);
     if (ymax > 28)
-        sarrayAddString(sa, wpldecls[26], 1);
+        sarrayAddString(sa, wpldecls[26], L_COPY);
     if (ymax > 1)
-        sarrayAddString(sa, wpldecls[ymax - 2], 1);
+        sarrayAddString(sa, wpldecls[ymax - 2], L_COPY);
 
-    sarrayAddString(sa, emptystring, 1);
+    sarrayAddString(sa, emptystring, L_COPY);
 
         /* Definitions */
     for (i = 2; i <= ymax; i++)
-        sarrayAddString(sa, wpldefs[i - 2], 1);
+        sarrayAddString(sa, wpldefs[i - 2], L_COPY);
 
     return sa;
 }
@@ -677,7 +677,7 @@ sarrayMakeInnerLoopDWACode(SEL     *sel,
 {
 char    *string;
 char     land[] = "&";
-char     bigbuf[BUFFER_SIZE];
+char     bigbuf[L_BUF_SIZE];
 l_int32  i, j, ntot, nfound, type, delx, dely;
 SARRAY  *sa;
 
@@ -711,8 +711,8 @@ SARRAY  *sa;
                     sprintf(bigbuf, "                    %s %s", string, land);
                 else  /* nfound == ntot */
                     sprintf(bigbuf, "                    %s;", string);
-                sarrayAddString(sa, bigbuf, 1);
-                FREE(string);
+                sarrayAddString(sa, bigbuf, L_COPY);
+                LEPT_FREE(string);
             }
         }
     }
@@ -730,7 +730,7 @@ makeBarrelshiftString(l_int32  delx,    /* j - cx */
                       l_int32  type)    /* SEL_HIT or SEL_MISS */
 {
 l_int32  absx, absy;
-char     bigbuf[BUFFER_SIZE];
+char     bigbuf[L_BUF_SIZE];
 
     PROCNAME("makeBarrelshiftString");
 

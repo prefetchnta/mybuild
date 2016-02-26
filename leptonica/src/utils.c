@@ -2064,7 +2064,7 @@ char    *newpath;
     ret = rmdir(dir);
 #else
     newpath = genPathname(dir, NULL);
-    remove(newpath);
+    ret = remove(newpath);
     LEPT_FREE(newpath);
 #endif  /* !_WIN32 */
 

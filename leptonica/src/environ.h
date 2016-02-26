@@ -101,8 +101,8 @@ typedef uintptr_t l_uintptr_t;
 #define  HAVE_LIBTIFF     1
 #define  HAVE_LIBPNG      1
 #define  HAVE_LIBZ        1
-#define  HAVE_LIBGIF      0
-#define  HAVE_LIBUNGIF    0
+#define  HAVE_LIBGIF      1
+#define  HAVE_LIBUNGIF    1
 #define  HAVE_LIBWEBP     0
 #define  HAVE_LIBJP2K     0
 

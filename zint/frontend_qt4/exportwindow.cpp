@@ -1,6 +1,6 @@
 /*
     Zint Barcode Generator - the open source barcode generator
-    Copyright (C) 2009 Robin Stuart <robin@zint.org.uk>
+    Copyright (C) 2009-2016 Robin Stuart <rstuart114@gmail.com>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -72,9 +72,20 @@ void ExportWindow::process()
 	inputpos = 0;
 	
 	switch(cmbFileFormat->currentIndex()) {
-		case 0: suffix = ".png"; break;
+#ifdef NO_PNG
+		case 0: suffix = ".eps"; break;
+		case 1: suffix = ".gif"; break;
+                case 2: suffix = ".svg"; break;
+                case 3: suffix = ".bmp"; break;
+                case 4: suffix = ".pcx"; break;
+#else
+                case 0: suffix = ".png"; break;
 		case 1: suffix = ".eps"; break;
-		case 2: suffix = ".svg"; break;
+		case 2: suffix = ".gif"; break;
+                case 3: suffix = ".svg"; break;
+                case 4: suffix = ".bmp"; break;
+                case 5: suffix = ".pcx"; break;
+#endif
 	}
 	
 	for(i = 0; i < lines; i++) {

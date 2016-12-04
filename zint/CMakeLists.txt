@@ -9,8 +9,8 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 #comment or remove the above line before release
 
 set (ZINT_VERSION_MAJOR 2)
-set (ZINT_VERSION_MINOR 4)
-set (ZINT_VERSION_RELEASE 1)
+set (ZINT_VERSION_MINOR 5)
+set (ZINT_VERSION_RELEASE 0)
 set (ZINT_VERSION "${ZINT_VERSION_MAJOR}.${ZINT_VERSION_MINOR}.${ZINT_VERSION_RELEASE}" )
 
 add_definitions (-DZINT_VERSION=\"${ZINT_VERSION}\" -Wall)
@@ -30,8 +30,8 @@ endif (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_GNUCC)
 
 
 IF(APPLE)
-    IF (UNIVERSAL) # TODO: make univeral binary 
-        IF(NOT ZINT_HAS_BEEN_RUN_BEFORE and UNIVERAL) 
+    IF (UNIVERSAL) # TODO: make univeral binary
+        IF(NOT ZINT_HAS_BEEN_RUN_BEFORE and UNIVERAL)
             IF(EXISTS /Developer/SDKs/MacOSX10.5.sdk OR EXISTS /SDKs/MacOSX10.5.sdk)
                 SET(CMAKE_OSX_ARCHITECTURES "ppc;i386;ppc64;x86_64" CACHE STRING "Build architectures for OSX" FORCE)
                 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden -Wl -single_module " CACHE STRING "Flags used by the compiler during all build types." FORCE)
@@ -86,7 +86,14 @@ CONFIGURE_FILE(
 ADD_CUSTOM_TARGET(uninstall
   "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
 
-install(FILES cmake/modules/FindZint.cmake DESTINATION ${CMAKE_ROOT}/Modules COMPONENT Devel)
+# staniek: don't install 
+if (DATA_INSTALL_DIR)
+    set(CMAKE_MODULES_INSTALL_PATH ${DATA_INSTALL_DIR}/cmake/modules)
+else (DATA_INSTALL_DIR)
+    set(CMAKE_MODULES_INSTALL_PATH ${CMAKE_ROOT}/Modules)
+endif(DATA_INSTALL_DIR)
+
+install(FILES cmake/modules/FindZint.cmake DESTINATION ${CMAKE_MODULES_INSTALL_PATH} COMPONENT Devel)
 
 # This needs to be run very last so other parts of the scripts can take
 # advantage of this.

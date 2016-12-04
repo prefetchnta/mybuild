@@ -17,11 +17,25 @@ DataBar, DataBar-14, DataBar Limited, DataBar Extended, DataBar Stacked,
 Composite Symbology, Data Matrix, QR Code, Maxicode, Aztec Code, EAN-13,
 Micro QR, Korea Post Barcode, HIBC Code 128, HIBC Code 39, HIBC Data Matrix,
 HIBC PDF417, HIBC MicroPDF417, HIBC QR Code, HIBC Aztec Code, Japanese Postal
-Code, Code 49, Channel Code, Code One, Grid Matrix, FIM and Flattermarken.
+Code, Code 49, Channel Code, Code One, Grid Matrix, FIM and Flattermarken,
+Codablock-F, DotCode, Han Xin Code.
 
+Output can be saved as BMP, EPS, GIF, PCX, PNG or SVG. 
 
 PROJECT STATUS
 --------------
+Version 2.5.0:
+After a long period of inaction, many new features and bugfixes, including:
+
+* Reintroduction of Codablock-F
+* Introduction of symbologies DotCode and Han Xin Code
+* New output formats: GIF, BMP and PCX
+* ECI handling
+* Redesigned handling of batch files at the command line
+* Integrate DMRE handling in Data Matrix
+* New licensing model
+
+
 Version 2.3.0:
 This release features a complete rebuild of QR Code and Micro QR Code
 functionality which now:
@@ -59,26 +73,25 @@ Visual Studio. Correct bug preventing compilation without PNG support.
 Version 2.4.2:
 Fix bugs in batch processing - this now works from the command line.
 
+Version 2.4.3:
+Some Windows-only fixes and changes
+
+
 CONTACT ME
 ----------
 The home of libzint is:
 
 	<http://www.sourceforge.net/projects/zint>
 
-and the home for Zint documentation is:
-
-	<http://www.zint.org.uk>
-
-For feature requests or bug reports please join the mailing list at
+For feature requests or bug reports please either join the mailing list at
 
 	<https://lists.sourceforge.net/lists/listinfo/zint-barcode>
+	
+or add a ticket on the project's SourceForge.
 
-or send an e-mail to
 
-	<zint-barcode@lists.sourceforge.net>
-
-BEFORE POSTING TO THIS LIST
----------------------------
+BEFORE POSTING TO THE LIST
+--------------------------
 Please note the following points...
 * You do not need to join the list to post messages, although joining
   the list will usually mean your request is answered more promptly.
@@ -97,8 +110,3 @@ Please note the following points...
 * Please remember that Zint is developed by volunteers - don't be surprised
   if we are unable to help you or if it takes a long time to answer your
   questions.
-
-Thanks for your interest in libzint.
-Happy encoding.
-
-Robin.

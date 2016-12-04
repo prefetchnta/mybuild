@@ -1,6 +1,6 @@
 /*
     Zint Barcode Generator - the open source barcode generator
-    Copyright (C) 2009 Robin Stuart <robin@zint.org.uk>
+    Copyright (C) 2009-2016 Robin Stuart <rstuart114@gmail.com>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -187,10 +187,8 @@ void SequenceWindow::import()
 
 void SequenceWindow::generate_sequence()
 {
-	int returnval;
-	
 	ExportWindow dlg;
 	dlg.barcode = barcode;
 	dlg.output_data = txtPreview->toPlainText();
-	returnval = dlg.exec();
+	dlg.exec();
 }

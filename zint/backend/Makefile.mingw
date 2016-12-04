@@ -6,18 +6,14 @@
 # make clean		cleans up a previous compilation and any object or editor files
 #
 
-ZINT_VERSION:=-DZINT_VERSION=\"2.4.3.0\"
+ZINT_VERSION:=-DZINT_VERSION=\"2.3.2\"
 
 
-CC:= gcc -m32
-LD:= ld
+CC:= gcc
 AR:= ar rc
 RANLIB:= ranlib
 INCLUDE:= -I/mingw/include
-CFLAGS:= -O2 -fms-extensions -mms-bitfields -fno-exceptions -fomit-frame-pointer -Wall
-LDFLAGS = -Wl,--major-image-version=2 -Wl,--minor-image-version=43
-RC:= windres 
-RCFLAGS:= -v -F pe-i386 --define GCC_WINDRES
+CFLAGS:= -D_WIN32 -O2 -fms-extensions -mms-bitfields -fno-exceptions -fomit-frame-pointer -Wall
 
 prefix := /mingw
 includedir := $(prefix)/include
@@ -26,9 +22,7 @@ bindir := $(prefix)/bin
 DESTDIR :=
 APP:=zint
 DLL:=$(APP).dll
-DLLIMP:=lib$(DLL).a
 STATLIB:=lib$(APP).a
-TOOLLIB:=lib$(APP).la
 
 COMMON_OBJ:= common.o render.o png.o library.o ps.o large.o reedsol.o gs1.o svg.o
 ONEDIM_OBJ:= code.o code128.o 2of5.o upcean.o telepen.o medical.o plessey.o rss.o
@@ -37,6 +31,7 @@ TWODIM_OBJ:= code16k.o dmatrix.o pdf417.o qr.o maxicode.o composite.o aztec.o co
 
 LIB_OBJ:= $(COMMON_OBJ) $(ONEDIM_OBJ) $(TWODIM_OBJ) $(POSTAL_OBJ)
 DLL_OBJ:= $(LIB_OBJ:.o=.lo) dllversion.lo
+
 
 ifeq ($(NO_PNG),true)
 DEFINES+= -DNO_PNG
@@ -48,8 +43,6 @@ endif
 LIBS+= -lm
 
 all: $(DLL) $(STATLIB)
-DLL: $(DLL)
-static: $(STATLIB)
 
 %.lo:%.c
 	@echo Compiling $< ...
@@ -59,12 +52,9 @@ static: $(STATLIB)
 	@echo Compiling $< ...
 	$(CC) $(CFLAGS) $(DEFINES) $(ZINT_VERSION) -c -o $@ $<
 	 
-libzint.o: libzint.rc
-	$(RC) $(RCFLAGS) -o $@ $<
-		 
-$(DLL):$(DLL_OBJ) libzint.o
+$(DLL):$(DLL_OBJ)
 	@echo Linking $@...
-	$(CC) -shared -Wl,--out-implib,$(DLLIMP) $(LDFLAGS) -o $@ zint.def $(DLL_OBJ) libzint.o $(LIBS)
+	o2dll.sh -o $@ $(DLL_OBJ) $(LIBS)
 
 $(STATLIB): $(LIB_OBJ)
 	@echo Linking $@...
@@ -74,20 +64,16 @@ $(STATLIB): $(LIB_OBJ)
 .PHONY: install uninstall clean dist
 
 install:
-	cp -fp $(DLLIMP) $(DESTDIR)$(libdir)
-	cp -fp $(STATLIB) $(DESTDIR)$(libdir)
-	cp -fp $(TOOLLIB) $(DESTDIR)$(libdir)
+	cp -fp libzint.* $(DESTDIR)$(libdir)
 	cp -fp zint.h $(DESTDIR)$(includedir)/zint.h
-	cp -fp $(DLL) $(DESTDIR)$(bindir)
+	cp -fp zint.dll $(DESTDIR)$(bindir)
 
 uninstall:
-	rm $(DESTDIR)$(libdir)/$(DLLIMP)
-	rm $(DESTDIR)$(libdir)/$(STATLIB)
-	rm $(DESTDIR)$(libdir)/$(TOOLLIB)
+	rm $(DESTDIR)$(libdir)/libzint.*
 	rm $(DESTDIR)$(includedir)/zint.h
-	rm $(DESTDIR)$(bindir)/$(DLL)
+	rm $(DESTDIR)$(bindir)/zint.dll
 
 clean:
-	rm -f *.lib *.dll *.o *.a *~ *.res *.exe *.lo *.bak
+	rm -f *.lib *.dll *.o *.a *~ *.res *.exe *.def *.lo *.bak
 
 

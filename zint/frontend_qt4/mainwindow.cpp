@@ -1,6 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2008 by BogDan Vatra <bogdan@licentia.eu>               *
- *   Copyright (C) 2009 by Robin Stuart <robin@zint.org.uk>                *
+ *   Copyright (C) 2009-2016 by Robin Stuart <rstuart114@gmail.com>        *
  *                                                                         *
  *   This program is free software: you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -39,6 +39,7 @@ MainWindow::MainWindow(QWidget* parent, Qt::WFlags fl)
 		"Aztec Runes",
 		"Channel Code",
 		"Codabar",
+                "Codablock-F",
 		"Code 11",
 		"Code 128 (ISO 15417)",
 		"Code 16k",
@@ -53,22 +54,24 @@ MainWindow::MainWindow(QWidget* parent, Qt::WFlags fl)
 		"Code 49",
 		"Code 93", 
 		"Code One",
-		"Databar",
-		"Databar Expanded",
-		"Databar Expanded Stacked",
-		"Databar Limited",
-		"Databar Stacked",
-		"Databar Stacked Omnidirectional",
 		"Data Matrix (ISO 16022)",
 		"Deutsche Post Identcode",
 		"Deutsche Post Leitcode",
+                "DotCode",
 		"Dutch Post KIX",
 		"EAN-14",
 		"European Article Number (EAN)",
 		"Facing Identification Mark (FIM)",
 		"Flattermarken",
 		"Grid Matrix",
-		"ITF-14",
+		"GS1 DataBar Expanded Omnidirectional",
+		"GS1 DataBar Expanded Stacked Omnidirectional",
+		"GS1 DataBar Limited",
+		"GS1 DataBar Omnidirectional",                
+		"GS1 DataBar Stacked",
+		"GS1 DataBar Stacked Omnidirectional",                
+		"Han Xin (Chinese Sensible) Code",
+                "ITF-14",
 		"International Standard Book Number (ISBN)",
 		"Japanese Postal Barcode",
 		"Korean Postal Barcode",
@@ -106,7 +109,7 @@ MainWindow::MainWindow(QWidget* parent, Qt::WFlags fl)
 		bstyle->addItem(metaObject()->enumerator(0).key(i));
 		bstyle->setItemText(i,bstyle_text[i]);
 	}
-	bstyle->setCurrentIndex(9);
+	bstyle->setCurrentIndex(10);
 	change_options();
 	update_preview();
 	view->scene()->addItem(&m_bc);
@@ -146,9 +149,15 @@ bool MainWindow::save()
 {
 	bool status;
 	
+#ifdef NO_PNG
 	QString fileName = QFileDialog::getSaveFileName(this,
 			tr("Save Barcode Image"), ".",
-			   tr("Portable Network Graphic (*.png);;Encapsulated Post Script (*.eps);;Scalable Vector Graphic (*.svg)"));
+			   tr("Encapsulated Post Script (*.eps);;Scalable Vector Graphic (*.svg)"));
+#else
+	QString fileName = QFileDialog::getSaveFileName(this,
+			tr("Save Barcode Image"), ".",
+			   tr("Portable Network Graphic (*.png);;Encapsulated Post Script (*.eps);;Graphics Interchange Format (*.gif);;Scalable Vector Graphic (*.svg);;Windows Bitmap (*.bmp);;ZSoft PC Painter Image (*.pcx)"));
+#endif
 	
 	if (fileName.isEmpty())
 		return false;
@@ -163,21 +172,22 @@ bool MainWindow::save()
 void MainWindow::about()
 {
 	QMessageBox::about(this, tr("About Zint"),
-			   tr("<h2>Zint Barcode Studio 2.4.3</h2>"
+			   tr("<h2>Zint Barcode Studio 2.5</h2>"
 					   "<p>A free barcode generator"
 					   "<p>Instruction manual is available from Sourceforge:"
 					   "<p>http://www.sourceforge.net/projects/zint"
-					   "<p>Copyright &copy; 2011 Robin Stuart.<br>"
+					   "<p>Copyright &copy; 2006-2016 Robin Stuart.<br>"
 					   "Qt4 code by BogDan Vatra, MS Windows port by \"tgotic\".<br>"
-					   "With thanks to Norbert Szab&oacute;, and Robert Elliott."
+					   "With thanks to Norbert Szab&oacute;, Robert Elliott,"
+                                           "Harald Oehlmann and many others at Sourceforge."
 					   "<p>Released under the GNU General Public License ver. 3 or later.<br>"
 					   "\"QR Code\" is a Registered Trademark of Denso Corp.<br>"
 					   "\"Telepen\" is a Registered Trademark of SB Electronics."
 					   "<p><table border=1><tr><td><small>Currently supported standards include:<br>"
 					   "EN 797:1996, EN 798:1996, EN 12323:2005, ISO/IEC 15417:2007,<br>"
 					   "ISO/IEC 15438:2006, ISO/IEC 16022:2006, ISO/IEC 16023:2000,<br>"
-					   "ISO/IEC 16388:2007, ISO/IEC 18004:2006, ISO/IEC 24723:2006,<br>"
-					   "ISO/IEC 24724:2006, ISO/IEC 24728:2006, ISO/IEC 24778:2008,<br>"
+					   "ISO/IEC 16388:2007, ISO/IEC 18004:2006, ISO/IEC 24723:2010,<br>"
+					   "ISO/IEC 24724:2011, ISO/IEC 24728:2006, ISO/IEC 24778:2008,<br>"
 					   "ANSI-HIBC 2.3-2009, ANSI/AIM BC6-2000, ANSI/AIM BC12-1998,<br>"
 					   "AIMD014 (v 1.63), USPS-B-3200</small></td></tr></table>"
 			     ));
@@ -277,6 +287,20 @@ void MainWindow::change_options()
 		connect(m_optionWidget->findChild<QObject*>("radMPDFStand"), SIGNAL(toggled( bool )), SLOT(update_preview()));
 	}
 
+    if(metaObject()->enumerator(0).value(bstyle->currentIndex()) == BARCODE_DOTCODE)
+    {
+        QFile file(":/grpDotCode.ui");
+        if (!file.open(QIODevice::ReadOnly))
+            return;
+        m_optionWidget=uiload.load(&file);
+        file.close();
+        tabMain->insertTab(1,m_optionWidget,tr("DotCode"));
+        connect(m_optionWidget->findChild<QObject*>("cmbDotCols"), SIGNAL(currentIndexChanged( int )), SLOT(update_preview()));
+        connect(m_optionWidget->findChild<QObject*>("radDotStan"), SIGNAL(clicked( bool )), SLOT(update_preview()));
+        connect(m_optionWidget->findChild<QObject*>("radDotGs1"), SIGNAL(clicked( bool )), SLOT(update_preview()));
+        connect(m_optionWidget->findChild<QObject*>("txtDotSize"), SIGNAL(textChanged( QString )), SLOT(update_preview()));
+    }
+
 	if(metaObject()->enumerator(0).value(bstyle->currentIndex()) == BARCODE_AZTEC)
 	{
 		QFile file(":/grpAztec.ui");
@@ -342,6 +366,21 @@ void MainWindow::change_options()
 		connect(m_optionWidget->findChild<QObject*>("radC16kStand"), SIGNAL(toggled( bool )), SLOT(update_preview()));
 	}
 	
+        if(metaObject()->enumerator(0).value(bstyle->currentIndex()) == BARCODE_CODABLOCKF)
+        {
+                QFile file (":/grpCodablockF.ui");
+                if (!file.open(QIODevice::ReadOnly))
+                    return;
+                m_optionWidget=uiload.load(&file);
+                file.close();
+                tabMain->insertTab(1,m_optionWidget,tr("Codablock-F"));
+                connect(m_optionWidget->findChild<QObject*>("radCbfAutosize"), SIGNAL(toggled( bool )), SLOT(update_preview()));
+                connect(m_optionWidget->findChild<QObject*>("radCbfSetWidth"), SIGNAL(toggled( bool )), SLOT(update_preview()));
+                connect(m_optionWidget->findChild<QObject*>("radCbfSetHeight"), SIGNAL(toggled( bool )), SLOT(update_preview()));
+                connect(m_optionWidget->findChild<QObject*>("cmbCbfWidth"), SIGNAL(currentIndexChanged( int )), SLOT(update_preview()));
+                connect(m_optionWidget->findChild<QObject*>("cmbCbfHeight"), SIGNAL(currentIndexChanged( int )), SLOT(update_preview()));
+        }
+        
 	if(metaObject()->enumerator(0).value(bstyle->currentIndex()) == BARCODE_DATAMATRIX)
 	{
 		QFile file(":/grpDM.ui");
@@ -355,6 +394,7 @@ void MainWindow::change_options()
 		connect(m_optionWidget->findChild<QObject*>("radDM200HIBC"), SIGNAL(clicked( bool )), SLOT(update_preview()));
 		connect(m_optionWidget->findChild<QObject*>("cmbDM200Size"), SIGNAL(currentIndexChanged( int )), SLOT(update_preview()));
 		connect(m_optionWidget->findChild<QObject*>("chkDMRectangle"), SIGNAL(stateChanged( int )), SLOT(update_preview()));
+		connect(m_optionWidget->findChild<QObject*>("chkDMRE"), SIGNAL(stateChanged( int )), SLOT(update_preview()));
 	}
 	
 	if(metaObject()->enumerator(0).value(bstyle->currentIndex()) == BARCODE_QRCODE)
@@ -374,6 +414,21 @@ void MainWindow::change_options()
 		connect(m_optionWidget->findChild<QObject*>("radQRGS1"), SIGNAL(clicked( bool )), SLOT(update_preview()));
 		connect(m_optionWidget->findChild<QObject*>("radQRHIBC"), SIGNAL(clicked( bool )), SLOT(update_preview()));
 	}
+        
+        if(metaObject()->enumerator(0).value(bstyle->currentIndex()) == BARCODE_HANXIN)
+        {
+                QFile file (":/grpHX.ui");
+                if (!file.open(QIODevice::ReadOnly))
+                    return;
+                m_optionWidget=uiload.load(&file);
+                file.close();
+                tabMain->insertTab(1,m_optionWidget,tr("Han Xin Code"));
+                connect(m_optionWidget->findChild<QObject*>("radHXAuto"), SIGNAL(clicked( bool )), SLOT(update_preview()));
+                connect(m_optionWidget->findChild<QObject*>("radHXSize"), SIGNAL(clicked( bool )), SLOT(update_preview()));
+                connect(m_optionWidget->findChild<QObject*>("radHXECC"), SIGNAL(clicked( bool )), SLOT(update_preview()));
+                connect(m_optionWidget->findChild<QObject*>("cmbHXSize"), SIGNAL(currentIndexChanged( int )), SLOT(update_preview()));
+                connect(m_optionWidget->findChild<QObject*>("cmbHXECC"), SIGNAL(currentIndexChanged( int )), SLOT(update_preview()));
+        }
 
 	if(metaObject()->enumerator(0).value(bstyle->currentIndex()) == BARCODE_MICROQR)
 	{
@@ -459,7 +514,7 @@ void MainWindow::change_options()
 			return;
 		m_optionWidget=uiload.load(&file);
 		file.close();
-		tabMain->insertTab(1,m_optionWidget,tr("DataBar Stacked"));
+		tabMain->insertTab(1,m_optionWidget,tr("GS1 DataBar Stacked"));
 		connect(m_optionWidget->findChild<QObject*>("cmbCols"), SIGNAL(currentIndexChanged ( int )), SLOT(update_preview()));
 	}
 
@@ -654,6 +709,14 @@ void MainWindow::update_preview()
 				m_bc.bc.setSymbol(BARCODE_HIBC_MICPDF);
 			break;
 
+        case BARCODE_DOTCODE:
+            m_bc.bc.setSymbol(BARCODE_DOTCODE);
+            m_bc.bc.setWidth(m_optionWidget->findChild<QComboBox*>("cmbDotCols")->currentIndex());
+            if(m_optionWidget->findChild<QRadioButton*>("radDotGs1")->isChecked())
+                m_bc.bc.setInputMode(GS1_MODE);
+            m_bc.bc.setDotSize(m_optionWidget->findChild<QLineEdit*>("txtDotSize")->text().toFloat());
+            break;
+
 		case BARCODE_AZTEC:
 			m_bc.bc.setSymbol(BARCODE_AZTEC);
 			if(m_optionWidget->findChild<QRadioButton*>("radAztecSize")->isChecked())
@@ -668,7 +731,7 @@ void MainWindow::update_preview()
 				m_bc.bc.setSymbol(BARCODE_HIBC_AZTEC);
 			break;
 
-		case MSI_PLESSEY:
+		case BARCODE_MSI_PLESSEY:
 			m_bc.bc.setSymbol(BARCODE_MSI_PLESSEY);
 			m_bc.bc.setWidth(m_optionWidget->findChild<QComboBox*>("cmbMSICheck")->currentIndex());
 			break;
@@ -698,6 +761,15 @@ void MainWindow::update_preview()
 				m_bc.bc.setInputMode(GS1_MODE);
 			break;
 
+            case BARCODE_CODABLOCKF:
+                m_bc.bc.setSymbol(BARCODE_CODABLOCKF);
+                if(m_optionWidget->findChild<QRadioButton*>("radCbfSetWidth")->isChecked())
+                    m_bc.bc.setWidth(m_optionWidget->findChild<QComboBox*>("cmbCbfWidth")->currentIndex() + 6);
+                // Height selection uses option 1 in zint_symbol
+                if(m_optionWidget->findChild<QRadioButton*>("radCbfSetHeight")->isChecked())
+                    m_bc.bc.setSecurityLevel(m_optionWidget->findChild<QComboBox*>("cmbCbfHeight")->currentIndex() + 1);
+                break;
+                        
 		case BARCODE_DATAMATRIX:
 			m_bc.bc.setSecurityLevel(1);
 			if(m_optionWidget->findChild<QRadioButton*>("radDM200HIBC")->isChecked())
@@ -711,8 +783,12 @@ void MainWindow::update_preview()
 			m_bc.bc.setWidth(m_optionWidget->findChild<QComboBox*>("cmbDM200Size")->currentIndex());
 			if(m_optionWidget->findChild<QCheckBox*>("chkDMRectangle")->isChecked())
 				m_bc.bc.setOption3(DM_SQUARE);
-			else
-				m_bc.bc.setOption3(0);
+			else {
+				if(m_optionWidget->findChild<QCheckBox*>("chkDMRE")->isChecked())
+					m_bc.bc.setOption3(DM_DMRE);
+				else
+					m_bc.bc.setOption3(0);
+			}
 			break;
 			
 		case BARCODE_QRCODE:
@@ -780,7 +856,16 @@ void MainWindow::update_preview()
 			if(m_optionWidget->findChild<QRadioButton*>("radC49GS1")->isChecked())
 				m_bc.bc.setInputMode(GS1_MODE);
 			break;
-			
+                        
+                case BARCODE_HANXIN:
+                        m_bc.bc.setSymbol(BARCODE_HANXIN);
+			if(m_optionWidget->findChild<QRadioButton*>("radHXSize")->isChecked())
+				m_bc.bc.setWidth(m_optionWidget->findChild<QComboBox*>("cmbHXSize")->currentIndex() + 1);
+
+			if(m_optionWidget->findChild<QRadioButton*>("radHXECC")->isChecked())
+				m_bc.bc.setSecurityLevel(m_optionWidget->findChild<QComboBox*>("cmbHXECC")->currentIndex() + 1);
+                        break;
+                        
 		default:
 			m_bc.bc.setSymbol(metaObject()->enumerator(0).value(bstyle->currentIndex()));
 			break;

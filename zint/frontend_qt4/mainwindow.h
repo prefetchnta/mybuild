@@ -1,6 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2008 by BogDan Vatra <bogdan@licentia.eu>               *
- *   Copyright (C) 2009 by Robin Stuart <robin@zint.org.uk>                *
+ *   Copyright (C) 2009-2016 by Robin Stuart <rstuart114@gmail.com>        *
  *                                                                         *
  *   This program is free software: you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -46,6 +46,7 @@ public:
 		AZRUNE		=128,
 		CHANNEL		=140,
 		CODABAR		=18,
+                CODABLOCK       =74,
 		CODE11		=1,
 		CODE128		=20,
 		CODE16K		=23,
@@ -60,21 +61,23 @@ public:
 		CODE49		=24,
 		CODE93		=25,
 		CODE_ONE	=141,
-		RSS14		=29,
-		RSS_EXP		=31,
-		RSS_EXPSTACK	=81,
-		RSS_LTD		=30,
-		RSS14STACK	=79,
-		RSS14STACK_OMNI	=80,
 		DATAMATRIX	=71,
 		DPIDENT		=22,
 		DPLEIT		=21,
+                DOTCODE         =115,
 		KIX		=90,
 		EAN14		=72,
 		EANX		=13,
 		FIM		=49,
 		FLAT		=28,
 		GRIDMATRIX	=142,
+		RSS_EXP		=31,
+		RSS_EXPSTACK	=81,
+		RSS_LTD		=30,
+		RSS14		=29,                
+		RSS14STACK	=79,
+		RSS14STACK_OMNI	=80,
+                HANXIN          =116,
 		ITF14		=89,
 		ISBNX		=69,
 		JAPANPOST	=76,

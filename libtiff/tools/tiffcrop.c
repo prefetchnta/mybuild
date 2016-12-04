@@ -1,4 +1,4 @@
-/* $Id: tiffcrop.c,v 1.35 2015-08-19 02:31:04 bfriesen Exp $ */
+/* $Id: tiffcrop.c,v 1.46 2016-11-18 14:58:46 erouault Exp $ */
 
 /* tiffcrop.c -- a port of tiffcp.c extended to include manipulations of
  * the image data through additional options listed below
@@ -147,6 +147,8 @@ extern int getopt(int argc, char * const argv[], const char *optstring);
 #ifndef PATH_MAX
 #define PATH_MAX 1024
 #endif
+
+#define TIFF_UINT32_MAX     0xFFFFFFFFU
 
 #ifndef streq
 #define	streq(a,b)	(strcmp((a),(b)) == 0)
@@ -798,6 +800,11 @@ static int readContigTilesIntoBuffer (TIFF* in, uint8* buf,
     }
 
   tile_buffsize = tilesize;
+  if (tilesize == 0 || tile_rowsize == 0)
+  {
+     TIFFError("readContigTilesIntoBuffer", "Tile size or tile rowsize is zero");
+     exit(-1);
+  }
 
   if (tilesize < (tsize_t)(tl * tile_rowsize))
     {
@@ -807,11 +814,25 @@ static int readContigTilesIntoBuffer (TIFF* in, uint8* buf,
               tilesize, tl * tile_rowsize);
 #endif
     tile_buffsize = tl * tile_rowsize;
-    } 
+    if (tl != (tile_buffsize / tile_rowsize))
+    {
+    	TIFFError("readContigTilesIntoBuffer", "Integer overflow when calculating buffer size.");
+        exit(-1);
+    }
+    }
 
-  tilebuf = _TIFFmalloc(tile_buffsize);
+  /* Add 3 padding bytes for extractContigSamplesShifted32bits */
+  if( (size_t) tile_buffsize > 0xFFFFFFFFU - 3U )
+  {
+      TIFFError("readContigTilesIntoBuffer", "Integer overflow when calculating buffer size.");
+      exit(-1);
+  }
+  tilebuf = _TIFFmalloc(tile_buffsize + 3);
   if (tilebuf == 0)
     return 0;
+  tilebuf[tile_buffsize] = 0;
+  tilebuf[tile_buffsize+1] = 0;
+  tilebuf[tile_buffsize+2] = 0;
 
   dst_rowsize = ((imagewidth * bps * spp) + 7) / 8;  
   for (row = 0; row < imagelength; row += tl)
@@ -989,7 +1010,7 @@ static int  readSeparateTilesIntoBuffer (TIFF* in, uint8 *obuf,
     nrow = (row + tl > imagelength) ? imagelength - row : tl;
     for (col = 0; col < imagewidth; col += tw)
       {
-      for (s = 0; s < spp; s++)
+      for (s = 0; s < spp && s < MAX_SAMPLES; s++)
         {  /* Read each plane of a tile set into srcbuffs[s] */
 	tbytes = TIFFReadTile(in, srcbuffs[s], col, row, 0, s);
         if (tbytes < 0  && !ignore)
@@ -1145,7 +1166,24 @@ writeBufferToSeparateStrips (TIFF* out, uint8* buf,
   (void) TIFFGetFieldDefaulted(out, TIFFTAG_ROWSPERSTRIP, &rowsperstrip);
   (void) TIFFGetField(out, TIFFTAG_BITSPERSAMPLE, &bps);
   bytes_per_sample = (bps + 7) / 8;
-  rowsize = ((bps * spp * width) + 7) / 8; /* source has interleaved samples */
+  if( width == 0 ||
+      (uint32)bps * (uint32)spp > TIFF_UINT32_MAX / width ||
+      bps * spp * width > TIFF_UINT32_MAX - 7U )
+  {
+      TIFFError(TIFFFileName(out),
+            "Error, uint32 overflow when computing (bps * spp * width) + 7");
+      return 1;
+  }
+  rowsize = ((bps * spp * width) + 7U) / 8; /* source has interleaved samples */
+  if( bytes_per_sample == 0 ||
+      rowsperstrip > TIFF_UINT32_MAX / bytes_per_sample ||
+      rowsperstrip * bytes_per_sample > TIFF_UINT32_MAX / (width + 1) )
+  {
+      TIFFError(TIFFFileName(out),
+                "Error, uint32 overflow when computing rowsperstrip * "
+                "bytes_per_sample * (width + 1)");
+      return 1;
+  }
   rowstripsize = rowsperstrip * bytes_per_sample * (width + 1); 
 
   obuf = _TIFFmalloc (rowstripsize);
@@ -1210,6 +1248,12 @@ static int writeBufferToContigTiles (TIFF* out, uint8* buf, uint32 imagelength,
       !TIFFGetField(out, TIFFTAG_BITSPERSAMPLE, &bps) )
       return 1;
 
+  if (tilesize == 0 || tile_rowsize == 0 || tl == 0 || tw == 0)
+  {
+    TIFFError("writeBufferToContigTiles", "Tile size, tile row size, tile width, or tile length is zero");
+    exit(-1);
+  }
+  
   tile_buffsize = tilesize;
   if (tilesize < (tsize_t)(tl * tile_rowsize))
     {
@@ -1219,13 +1263,26 @@ static int writeBufferToContigTiles (TIFF* out, uint8* buf, uint32 imagelength,
               tilesize, tl * tile_rowsize);
 #endif
     tile_buffsize = tl * tile_rowsize;
+    if (tl != tile_buffsize / tile_rowsize)
+    {
+	TIFFError("writeBufferToContigTiles", "Integer overflow when calculating buffer size");
+	exit(-1);
     }
+    }
+
+  if( imagewidth == 0 ||
+      (uint32)bps * (uint32)spp > TIFF_UINT32_MAX / imagewidth ||
+      bps * spp * imagewidth > TIFF_UINT32_MAX - 7U )
+  {
+      TIFFError(TIFFFileName(out),
+            "Error, uint32 overflow when computing (imagewidth * bps * spp) + 7");
+      return 1;
+  }
+  src_rowsize = ((imagewidth * spp * bps) + 7U) / 8;
 
   tilebuf = _TIFFmalloc(tile_buffsize);
   if (tilebuf == 0)
     return 1;
-
-  src_rowsize = ((imagewidth * spp * bps) + 7) / 8;
   for (row = 0; row < imagelength; row += tl)
     {
     nrow = (row + tl > imagelength) ? imagelength - row : tl;
@@ -1285,7 +1342,17 @@ static int writeBufferToSeparateTiles (TIFF* out, uint8* buf, uint32 imagelength
   TIFFGetField(out, TIFFTAG_TILELENGTH, &tl);
   TIFFGetField(out, TIFFTAG_TILEWIDTH, &tw);
   TIFFGetField(out, TIFFTAG_BITSPERSAMPLE, &bps);
-  src_rowsize = ((imagewidth * spp * bps) + 7) / 8;
+
+  if( imagewidth == 0 ||
+      (uint32)bps * (uint32)spp > TIFF_UINT32_MAX / imagewidth ||
+      bps * spp * imagewidth > TIFF_UINT32_MAX - 7 )
+  {
+      TIFFError(TIFFFileName(out),
+            "Error, uint32 overflow when computing (imagewidth * bps * spp) + 7");
+      _TIFFfree(obuf);
+      return 1;
+  }
+  src_rowsize = ((imagewidth * spp * bps) + 7U) / 8;
          
   for (row = 0; row < imagelength; row += tl)
     {
@@ -3607,7 +3674,7 @@ static int readContigStripsIntoBuffer (TIFF* in, uint8* buf)
 {
         uint8* bufp = buf;
         int32  bytes_read = 0;
-        uint16 strip, nstrips   = TIFFNumberOfStrips(in);
+        uint32 strip, nstrips   = TIFFNumberOfStrips(in);
         uint32 stripsize = TIFFStripSize(in);
         uint32 rows = 0;
         uint32 rps = TIFFGetFieldDefaulted(in, TIFFTAG_ROWSPERSTRIP, &rps);
@@ -3738,7 +3805,7 @@ combineSeparateSamples8bits (uint8 *in[], uint8 *out, uint32 cols,
 
       matchbits = maskbits << (8 - src_bit - bps); 
       /* load up next sample from each plane */
-      for (s = 0; s < spp; s++)
+      for (s = 0; (s < spp) && (s < MAX_SAMPLES); s++)
         {
 	src = in[s] + src_offset + src_byte;
         buff1 = ((*src) & matchbits) << (src_bit);
@@ -3837,7 +3904,7 @@ combineSeparateSamples16bits (uint8 *in[], uint8 *out, uint32 cols,
       src_bit  = bit_offset % 8;
 
       matchbits = maskbits << (16 - src_bit - bps); 
-      for (s = 0; s < spp; s++)
+      for (s = 0; (s < spp) && (s < MAX_SAMPLES); s++)
         {
 	src = in[s] + src_offset + src_byte;
         if (little_endian)
@@ -3947,7 +4014,7 @@ combineSeparateSamples24bits (uint8 *in[], uint8 *out, uint32 cols,
       src_bit  = bit_offset % 8;
 
       matchbits = maskbits << (32 - src_bit - bps); 
-      for (s = 0; s < spp; s++)
+      for (s = 0; (s < spp) && (s < MAX_SAMPLES); s++)
         {
 	src = in[s] + src_offset + src_byte;
         if (little_endian)
@@ -4073,7 +4140,7 @@ combineSeparateSamples32bits (uint8 *in[], uint8 *out, uint32 cols,
       src_bit  = bit_offset % 8;
 
       matchbits = maskbits << (64 - src_bit - bps); 
-      for (s = 0; s < spp; s++)
+      for (s = 0; (s < spp) && (s < MAX_SAMPLES); s++)
 	{
 	src = in[s] + src_offset + src_byte;
 	if (little_endian)
@@ -4263,7 +4330,7 @@ combineSeparateTileSamples8bits (uint8 *in[], uint8 *out, uint32 cols,
 
       matchbits = maskbits << (8 - src_bit - bps); 
       /* load up next sample from each plane */
-      for (s = 0; s < spp; s++)
+      for (s = 0; (s < spp) && (s < MAX_SAMPLES); s++)
         {
 	src = in[s] + src_offset + src_byte;
         buff1 = ((*src) & matchbits) << (src_bit);
@@ -4362,7 +4429,7 @@ combineSeparateTileSamples16bits (uint8 *in[], uint8 *out, uint32 cols,
       src_bit  = bit_offset % 8;
 
       matchbits = maskbits << (16 - src_bit - bps); 
-      for (s = 0; s < spp; s++)
+      for (s = 0; (s < spp) && (s < MAX_SAMPLES); s++)
         {
 	src = in[s] + src_offset + src_byte;
         if (little_endian)
@@ -4471,7 +4538,7 @@ combineSeparateTileSamples24bits (uint8 *in[], uint8 *out, uint32 cols,
       src_bit  = bit_offset % 8;
 
       matchbits = maskbits << (32 - src_bit - bps); 
-      for (s = 0; s < spp; s++)
+      for (s = 0; (s < spp) && (s < MAX_SAMPLES); s++)
         {
 	src = in[s] + src_offset + src_byte;
         if (little_endian)
@@ -4597,7 +4664,7 @@ combineSeparateTileSamples32bits (uint8 *in[], uint8 *out, uint32 cols,
       src_bit  = bit_offset % 8;
 
       matchbits = maskbits << (64 - src_bit - bps); 
-      for (s = 0; s < spp; s++)
+      for (s = 0; (s < spp) && (s < MAX_SAMPLES); s++)
 	{
 	src = in[s] + src_offset + src_byte;
 	if (little_endian)
@@ -4690,9 +4757,12 @@ static int readSeparateStripsIntoBuffer (TIFF *in, uint8 *obuf, uint32 length,
                                          uint32 width, uint16 spp,
                                          struct dump_opts *dump)
   {
-  int i, j, bytes_per_sample, bytes_per_pixel, shift_width, result = 1;
+  int i, bytes_per_sample, bytes_per_pixel, shift_width, result = 1;
+  uint32 j;
   int32  bytes_read = 0;
-  uint16 bps, nstrips, planar, strips_per_sample;
+  uint16 bps, planar;
+  uint32 nstrips;
+  uint32 strips_per_sample;
   uint32 src_rowsize, dst_rowsize, rows_processed, rps;
   uint32 rows_this_strip = 0;
   tsample_t s;
@@ -5737,7 +5807,8 @@ loadImage(TIFF* in, struct image_data *image, struct dump_opts *dump, unsigned c
   {
   uint32   i;
   float    xres = 0.0, yres = 0.0;
-  uint16   nstrips = 0, ntiles = 0, planar = 0;
+  uint32   nstrips = 0, ntiles = 0;
+  uint16   planar = 0;
   uint16   bps = 0, spp = 0, res_unit = 0;
   uint16   orientation = 0;
   uint16   input_compression = 0, input_photometric = 0;
@@ -5945,12 +6016,27 @@ loadImage(TIFF* in, struct image_data *image, struct dump_opts *dump, unsigned c
     TIFFGetField(in, TIFFTAG_TILELENGTH, &tl);
 
     tile_rowsize  = TIFFTileRowSize(in);      
+    if (ntiles == 0 || tlsize == 0 || tile_rowsize == 0)
+    {
+	TIFFError("loadImage", "File appears to be tiled, but the number of tiles, tile size, or tile rowsize is zero.");
+	exit(-1);
+    }
     buffsize = tlsize * ntiles;
+    if (tlsize != (buffsize / ntiles))
+    {
+	TIFFError("loadImage", "Integer overflow when calculating buffer size");
+	exit(-1);
+    }
 
-        
     if (buffsize < (uint32)(ntiles * tl * tile_rowsize))
       {
       buffsize = ntiles * tl * tile_rowsize;
+      if (ntiles != (buffsize / tl / tile_rowsize))
+      {
+	TIFFError("loadImage", "Integer overflow when calculating buffer size");
+	exit(-1);
+      }
+      
 #ifdef DEBUG2
       TIFFError("loadImage",
 	        "Tilesize %u is too small, using ntiles * tilelength * tilerowsize %lu",
@@ -5965,12 +6051,29 @@ loadImage(TIFF* in, struct image_data *image, struct dump_opts *dump, unsigned c
     }
   else
     {
+    uint32 buffsize_check;
     readunit = STRIP;
     TIFFGetFieldDefaulted(in, TIFFTAG_ROWSPERSTRIP, &rowsperstrip);
     stsize = TIFFStripSize(in);
     nstrips = TIFFNumberOfStrips(in);
+    if (nstrips == 0 || stsize == 0)
+    {
+	TIFFError("loadImage", "File appears to be striped, but the number of stipes or stripe size is zero.");
+	exit(-1);
+    }
+
     buffsize = stsize * nstrips;
-    
+    if (stsize != (buffsize / nstrips))
+    {
+	TIFFError("loadImage", "Integer overflow when calculating buffer size");
+	exit(-1);
+    }
+    buffsize_check = ((length * width * spp * bps) + 7);
+    if (length != ((buffsize_check - 7) / width / spp / bps))
+    {
+	TIFFError("loadImage", "Integer overflow detected.");
+	exit(-1);
+    }
     if (buffsize < (uint32) (((length * width * spp * bps) + 7) / 8))
       {
       buffsize =  ((length * width * spp * bps) + 7) / 8;
@@ -6013,11 +6116,23 @@ loadImage(TIFF* in, struct image_data *image, struct dump_opts *dump, unsigned c
   /* +3 : add a few guard bytes since reverseSamples16bits() can read a bit */
   /* outside buffer */
   if (!read_buff)
+  {
+    if( buffsize > 0xFFFFFFFFU - 3 )
+    {
+        TIFFError("loadImage", "Unable to allocate/reallocate read buffer");
+        return (-1);
+    }
     read_buff = (unsigned char *)_TIFFmalloc(buffsize+3);
+  }
   else
     {
     if (prev_readsize < buffsize)
+    {
+      if( buffsize > 0xFFFFFFFFU - 3 )
       {
+          TIFFError("loadImage", "Unable to allocate/reallocate read buffer");
+          return (-1);
+      }
       new_buff = _TIFFrealloc(read_buff, buffsize+3);
       if (!new_buff)
         {
@@ -8859,6 +8974,11 @@ reverseSamplesBytes (uint16 spp, uint16 bps, uint32 width,
     }
 
   bytes_per_pixel  = ((bps * spp) + 7) / 8;
+  if( bytes_per_pixel > sizeof(swapbuff) )
+  {
+    TIFFError("reverseSamplesBytes","bytes_per_pixel too large");
+    return (1);
+  }
   switch (bps / 8)
      {
      case 8:  /* Use memcpy for multiple bytes per sample data */

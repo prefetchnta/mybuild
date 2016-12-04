@@ -1,4 +1,4 @@
-/* $Id: tiffdump.c,v 1.32 2015-08-19 02:31:05 bfriesen Exp $ */
+/* $Id: tiffdump.c,v 1.35 2016-11-19 15:42:46 bfriesen Exp $ */
 
 /*
  * Copyright (c) 1988-1997 Sam Leffler
@@ -388,7 +388,7 @@ ReadDirectory(int fd, unsigned int ix, uint64 off)
 		void* datamem;
 		uint64 dataoffset;
 		int datatruncated;
-        int datasizeoverflow;
+                int datasizeoverflow;
 
 		tag = *(uint16*)dp;
 		if (swabflag)
@@ -413,7 +413,7 @@ ReadDirectory(int fd, unsigned int ix, uint64 off)
 		}
 		else
 		{
-			count = *(uint64*)dp;
+			memcpy(&count, dp, sizeof(uint64));
 			if (swabflag)
 				TIFFSwabLong8(&count);
 			dp += sizeof(uint64);
@@ -427,8 +427,8 @@ ReadDirectory(int fd, unsigned int ix, uint64 off)
 			typewidth = 0;
 		else
 			typewidth = datawidth[type];
-		datasize = count*typewidth;
-        datasizeoverflow = (typewidth > 0 && datasize / typewidth != count);
+		datasize = TIFFSafeMultiply(tmsize_t,count,typewidth);
+                datasizeoverflow = (typewidth > 0 && datasize / typewidth != count);
 		datafits = 1;
 		datamem = dp;
 		dataoffset = 0;
@@ -463,17 +463,17 @@ ReadDirectory(int fd, unsigned int ix, uint64 off)
 		{
 			datatruncated = 1;
 			count = 0x10000/typewidth;
-			datasize = count*typewidth;
+			datasize = TIFFSafeMultiply(tmsize_t,count,typewidth);
 		}
 		if (count>maxitems)
 		{
 			datatruncated = 1;
 			count = maxitems;
-			datasize = count*typewidth;
+                        datasize = TIFFSafeMultiply(tmsize_t,count,typewidth);
 		}
 		if (!datafits)
 		{
-			datamem = _TIFFmalloc((uint32)datasize);
+			datamem = _TIFFmalloc(datasize);
 			if (datamem) {
 				if (_TIFF_lseek_f(fd, (_TIFF_off_t)dataoffset, 0) !=
 				    (_TIFF_off_t)dataoffset)
@@ -761,23 +761,23 @@ PrintData(FILE* fd, uint16 type, uint32 count, unsigned char* data)
 	case TIFF_LONG8: {
 		uint64 *llp = (uint64*)data;
 		while (count-- > 0) {
-#if defined(__WIN32__) && defined(_MSC_VER)
-			fprintf(fd, long8fmt, sep, (unsigned __int64) *llp++);
-#else
-			fprintf(fd, long8fmt, sep, (unsigned long long) *llp++);
-#endif
+                        uint64 val;
+                        memcpy(&val, llp, sizeof(uint64));
+                        llp ++;
+			fprintf(fd, long8fmt, sep, val);
 			sep = " ";
 		}
 		break;
 	}
 	case TIFF_SLONG8: {
 		int64 *llp = (int64*)data;
-		while (count-- > 0)
-#if defined(__WIN32__) && defined(_MSC_VER)
-			fprintf(fd, slong8fmt, sep, (__int64) *llp++), sep = " ";
-#else
-			fprintf(fd, slong8fmt, sep, (long long) *llp++), sep = " ";
-#endif
+		while (count-- > 0) {
+                        int64 val;
+                        memcpy(&val, llp, sizeof(int64));
+                        llp ++;
+                        fprintf(fd, slong8fmt, sep, val);
+                        sep = " ";
+                }
 		break;
 	}
 	case TIFF_RATIONAL: {

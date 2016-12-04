@@ -1,4 +1,4 @@
-/* $Id: tiff2pdf.c,v 1.91 2015-09-06 18:24:27 bfriesen Exp $
+/* $Id: tiff2pdf.c,v 1.97 2016-11-11 21:28:24 erouault Exp $
  *
  * tiff2pdf - converts a TIFF image to a PDF document
  *
@@ -286,7 +286,7 @@ tsize_t t2p_readwrite_pdf_image_tile(T2P*, TIFF*, TIFF*, ttile_t);
 int t2p_process_ojpeg_tables(T2P*, TIFF*);
 #endif
 #ifdef JPEG_SUPPORT
-int t2p_process_jpeg_strip(unsigned char*, tsize_t*, unsigned char*, tsize_t*, tstrip_t, uint32);
+int t2p_process_jpeg_strip(unsigned char*, tsize_t*, unsigned char*, tsize_t, tsize_t*, tstrip_t, uint32);
 #endif
 void t2p_tile_collapse_left(tdata_t, tsize_t, uint32, uint32, uint32);
 void t2p_write_advance_directory(T2P*, TIFF*);
@@ -1903,6 +1903,10 @@ void t2p_read_tiff_size(T2P* t2p, TIFF* input){
 #ifdef CCITT_SUPPORT
 		if(t2p->pdf_compression == T2P_COMPRESS_G4 ){
 			TIFFGetField(input, TIFFTAG_STRIPBYTECOUNTS, &sbc);
+            if (sbc[0] != (uint64)(tmsize_t)sbc[0]) {
+                TIFFError(TIFF2PDF_MODULE, "Integer overflow");
+                t2p->t2p_error = T2P_ERR_ERROR;
+            }
 			t2p->tiff_datasize=(tmsize_t)sbc[0];
 			return;
 		}
@@ -1910,6 +1914,10 @@ void t2p_read_tiff_size(T2P* t2p, TIFF* input){
 #ifdef ZIP_SUPPORT
 		if(t2p->pdf_compression == T2P_COMPRESS_ZIP){
 			TIFFGetField(input, TIFFTAG_STRIPBYTECOUNTS, &sbc);
+            if (sbc[0] != (uint64)(tmsize_t)sbc[0]) {
+                TIFFError(TIFF2PDF_MODULE, "Integer overflow");
+                t2p->t2p_error = T2P_ERR_ERROR;
+            }
 			t2p->tiff_datasize=(tmsize_t)sbc[0];
 			return;
 		}
@@ -2408,7 +2416,8 @@ tsize_t t2p_readwrite_pdf_image(T2P* t2p, TIFF* input, TIFF* output){
 				if(!t2p_process_jpeg_strip(
 					stripbuffer, 
 					&striplength, 
-					buffer, 
+					buffer,
+                    t2p->tiff_datasize,
 					&bufferoffset, 
 					i, 
 					t2p->tiff_length)){
@@ -2886,21 +2895,24 @@ tsize_t t2p_readwrite_pdf_image_tile(T2P* t2p, TIFF* input, TIFF* output, ttile_
 				return(0);
 			}
 			if(TIFFGetField(input, TIFFTAG_JPEGTABLES, &count, &jpt) != 0) {
-				if (count > 0) {
-					_TIFFmemcpy(buffer, jpt, count);
+				if (count >= 4) {
+                    /* Ignore EOI marker of JpegTables */
+					_TIFFmemcpy(buffer, jpt, count - 2);
 					bufferoffset += count - 2;
+                    /* Store last 2 bytes of the JpegTables */
 					table_end[0] = buffer[bufferoffset-2];
 					table_end[1] = buffer[bufferoffset-1];
-				}
-				if (count > 0) {
 					xuint32 = bufferoffset;
+                    bufferoffset -= 2;
 					bufferoffset += TIFFReadRawTile(
 						input, 
 						tile, 
-						(tdata_t) &(((unsigned char*)buffer)[bufferoffset-2]), 
+						(tdata_t) &(((unsigned char*)buffer)[bufferoffset]), 
 						-1);
-						buffer[xuint32-2]=table_end[0];
-						buffer[xuint32-1]=table_end[1];
+                    /* Overwrite SOI marker of image scan with previously */
+                    /* saved end of JpegTables */
+					buffer[xuint32-2]=table_end[0];
+					buffer[xuint32-1]=table_end[1];
 				} else {
 					bufferoffset += TIFFReadRawTile(
 						input, 
@@ -3439,6 +3451,7 @@ int t2p_process_jpeg_strip(
 	unsigned char* strip, 
 	tsize_t* striplength, 
 	unsigned char* buffer, 
+    tsize_t buffersize,
 	tsize_t* bufferoffset, 
 	tstrip_t no, 
 	uint32 height){
@@ -3473,6 +3486,8 @@ int t2p_process_jpeg_strip(
 		}
 		switch( strip[i] ){
 			case 0xd8:	/* SOI - start of image */
+                if( *bufferoffset + 2 > buffersize )
+                    return(0);
 				_TIFFmemcpy(&(buffer[*bufferoffset]), &(strip[i-1]), 2);
 				*bufferoffset+=2;
 				break;
@@ -3482,12 +3497,18 @@ int t2p_process_jpeg_strip(
 			case 0xc9:	/* SOF9 */
 			case 0xca:	/* SOF10 */
 				if(no==0){
+                    if( *bufferoffset + datalen + 2 + 6 > buffersize )
+                        return(0);
 					_TIFFmemcpy(&(buffer[*bufferoffset]), &(strip[i-1]), datalen+2);
+                    if( *bufferoffset + 9 >= buffersize )
+                        return(0);
 					ncomp = buffer[*bufferoffset+9];
 					if (ncomp < 1 || ncomp > 4)
 						return(0);
 					v_samp=1;
 					h_samp=1;
+                    if( *bufferoffset + 11 + 3*(ncomp-1) >= buffersize )
+                        return(0);
 					for(j=0;j<ncomp;j++){
 						uint16 samp = buffer[*bufferoffset+11+(3*j)];
 						if( (samp>>4) > h_samp) 
@@ -3519,20 +3540,28 @@ int t2p_process_jpeg_strip(
 				break;
 			case 0xc4: /* DHT */
 			case 0xdb: /* DQT */
+                if( *bufferoffset + datalen + 2 > buffersize )
+                    return(0);
 				_TIFFmemcpy(&(buffer[*bufferoffset]), &(strip[i-1]), datalen+2);
 				*bufferoffset+=datalen+2;
 				break;
 			case 0xda: /* SOS */
 				if(no==0){
+                    if( *bufferoffset + datalen + 2 > buffersize )
+                        return(0);
 					_TIFFmemcpy(&(buffer[*bufferoffset]), &(strip[i-1]), datalen+2);
 					*bufferoffset+=datalen+2;
 				} else {
+                    if( *bufferoffset + 2 > buffersize )
+                        return(0);
 					buffer[(*bufferoffset)++]=0xff;
 					buffer[(*bufferoffset)++]=
                                             (unsigned char)(0xd0 | ((no-1)%8));
 				}
 				i += datalen + 1;
 				/* copy remainder of strip */
+                if( *bufferoffset + *striplength - i > buffersize )
+                    return(0);
 				_TIFFmemcpy(&(buffer[*bufferoffset]), &(strip[i]), *striplength - i);
 				*bufferoffset+= *striplength - i;
 				return(1);
@@ -3667,7 +3696,12 @@ t2p_sample_rgbaa_to_rgb(tdata_t data, uint32 samplecount)
 {
 	uint32 i;
 	
-	for(i = 0; i < samplecount; i++)
+    /* For the 3 first samples, there is overlapping between souce and
+       destination, so use memmove().
+       See http://bugzilla.maptools.org/show_bug.cgi?id=2577 */
+    for(i = 0; i < 3 && i < samplecount; i++)
+        memmove((uint8*)data + i * 3, (uint8*)data + i * 4, 3);
+	for(; i < samplecount; i++)
 		memcpy((uint8*)data + i * 3, (uint8*)data + i * 4, 3);
 
 	return(i * 3);

@@ -1,4 +1,4 @@
-/* $Id: tiffcp.c,v 1.53 2015-06-21 01:09:10 bfriesen Exp $ */
+/* $Id: tiffcp.c,v 1.55 2016-10-08 15:54:57 erouault Exp $ */
 
 /*
  * Copyright (c) 1988-1997 Sam Leffler
@@ -592,8 +592,8 @@ static	copyFunc pickCopyFunc(TIFF*, TIFF*, uint16, uint16);
 static int
 tiffcp(TIFF* in, TIFF* out)
 {
-	uint16 bitspersample, samplesperpixel;
-	uint16 input_compression, input_photometric;
+	uint16 bitspersample, samplesperpixel = 1;
+	uint16 input_compression, input_photometric = PHOTOMETRIC_MINISBLACK;
 	copyFunc cf;
 	uint32 width, length;
 	struct cpTag* p;
@@ -1338,7 +1338,7 @@ DECLAREreadFunc(readContigTilesIntoBuffer)
 		uint32 colb = 0;
 		uint32 col;
 
-		for (col = 0; col < imagewidth; col += tw) {
+		for (col = 0; col < imagewidth && colb < imagew; col += tw) {
 			if (TIFFReadTile(in, tilebuf, col, row, 0, 0) < 0
 			    && !ignore) {
 				TIFFError(TIFFFileName(in),
@@ -1523,7 +1523,7 @@ DECLAREwriteFunc(writeBufferToContigTiles)
 		uint32 colb = 0;
 		uint32 col;
 
-		for (col = 0; col < imagewidth; col += tw) {
+		for (col = 0; col < imagewidth && colb < imagew; col += tw) {
 			/*
 			 * Tile is clipped horizontally.  Calculate
 			 * visible portion and skewing factors.

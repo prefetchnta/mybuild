@@ -301,6 +301,7 @@ LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+LT_SYS_LIBRARY_PATH = @LT_SYS_LIBRARY_PATH@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
@@ -445,7 +446,8 @@ docfiles = \
 	v4.0.4beta.html \
 	v4.0.4.html \
 	v4.0.5.html \
-	v4.0.6.html
+	v4.0.6.html \
+	v4.0.7.html
 
 dist_doc_DATA = $(docfiles)
 SUBDIRS = images man

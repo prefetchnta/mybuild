@@ -15,7 +15,7 @@ AR = lib
 RC = rc
 CFLAGS  = -nologo -c -MD -W3 -O2 -Oi -Ot -GF -GR- -GS -Oy- -TP -DWIN32 -D_WIN32 -DL_LITTLE_ENDIAN \
           -I "../../zlib" -I "../../libpng" -I "../../libjpeg" -I "../../libtiff/libtiff" \
-          -I "../../giflib/lib" -arch:SSE -Zi $(LOC)
+          -I "../../giflib/lib" -I "../../libwebp/src" -arch:SSE -Zi $(LOC)
 WFLAGS  = -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE -wd4018 -wd4101 -wd4244 -wd4305
 ASFLAGS = -coff -Zi $(LOC)
 LDFLAGS = -nologo -ltcg -incremental:no -opt:ref -opt:icf -manifest -manifestfile:$@.manifest
@@ -159,7 +159,8 @@ $(SHAREDLIB):
 	$(LD) $(LDFLAGS) -dll -out:$@ -implib:$(IMPLIB) $(LEPTLIB_O) \
         ..\..\release\zlib\zdll.lib ..\..\release\libpng\libpng16.lib \
         ..\..\release\libjpeg\jpeg.lib ..\..\release\libtiff\libtiff_i.lib \
-        ..\..\release\giflib\libgif.lib user32.lib gdi32.lib liblept.res
+        ..\..\release\giflib\libgif.lib ..\..\release\libwebp\libwebp_dll.lib \
+        user32.lib gdi32.lib liblept.res
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;2
 

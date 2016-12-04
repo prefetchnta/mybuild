@@ -7,5 +7,6 @@ libjpeg-9b              LIB
 libpng-1.6.26           DLL
 libtesseract-3.04       DLL
 libtiff-4.0.7           LIB & DLL
+libwebp-0.5.1
 zint-2.5.0              DLL
 zlib-1.2.8              LIB & DLL

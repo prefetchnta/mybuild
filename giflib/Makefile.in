@@ -1212,6 +1212,12 @@ release: distcheck
 	shipper version=@VERSION@ | sh -e -x
 	rm -fr doc/staging
 
+# Refresh the wbsite
+refresh:
+	cd doc; make website
+	shipper -w version=@VERSION@ | sh -e -x
+	rm -fr doc/staging
+
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

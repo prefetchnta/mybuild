@@ -35,8 +35,8 @@ static const GifPixelType CodeMask[] = {
 static int EGifPutWord(int Word, GifFileType * GifFile);
 static int EGifSetupCompress(GifFileType * GifFile);
 static int EGifCompressLine(GifFileType * GifFile, GifPixelType * Line,
-                            const int LineLen);
-static int EGifCompressOutput(GifFileType * GifFile, const int Code);
+                            int LineLen);
+static int EGifCompressOutput(GifFileType * GifFile, int Code);
 static int EGifBufferedOutput(GifFileType * GifFile, GifByteType * Buf,
                               int c);
 
@@ -103,6 +103,7 @@ EGifOpenFileHandle(const int FileHandle, int *Error)
 	    *Error = E_GIF_ERR_NOT_ENOUGH_MEM;
         return NULL;
     }
+    /*@i1@*/memset(Private, '\0', sizeof(GifFilePrivateType));
     if ((Private->HashTable = _InitHashTable()) == NULL) {
         free(GifFile);
         free(Private);
@@ -121,6 +122,7 @@ EGifOpenFileHandle(const int FileHandle, int *Error)
     Private->FileHandle = FileHandle;
     Private->File = f;
     Private->FileState = FILE_STATE_WRITE;
+    Private->gif89 = false;
 
     Private->Write = (OutputFunc) 0;    /* No user write routine (MRB) */
     GifFile->UserData = (void *)NULL;    /* No user write handle (MRB) */
@@ -156,6 +158,8 @@ EGifOpen(void *userData, OutputFunc writeFunc, int *Error)
 	    *Error = E_GIF_ERR_NOT_ENOUGH_MEM;
         return NULL;
     }
+
+    memset(Private, '\0', sizeof(GifFilePrivateType));
 
     Private->HashTable = _InitHashTable();
     if (Private->HashTable == NULL) {
@@ -874,7 +878,7 @@ EGifSetupCompress(GifFileType *GifFile)
 static int
 EGifCompressLine(GifFileType *GifFile,
                  GifPixelType *Line,
-                 const int LineLen)
+                 int LineLen)
 {
     int i = 0, CrntCode, NewCode;
     unsigned long NewKey;
@@ -962,7 +966,7 @@ EGifCompressLine(GifFileType *GifFile,
 ******************************************************************************/
 static int
 EGifCompressOutput(GifFileType *GifFile,
-                   const int Code)
+                   int Code)
 {
     GifFilePrivateType *Private = (GifFilePrivateType *) GifFile->Private;
     int retval = GIF_OK;

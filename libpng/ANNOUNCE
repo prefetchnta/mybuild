@@ -1,4 +1,4 @@
-Libpng 1.6.21 - January 15, 2016
+Libpng 1.6.26 - October 20, 2016
 
 This is a public release of libpng, intended for use in production codes.
 
@@ -7,49 +7,53 @@ Files available for download:
 Source files with LF line endings (for Unix/Linux) and with a
 "configure" script
 
-   libpng-1.6.21.tar.xz (LZMA-compressed, recommended)
-   libpng-1.6.21.tar.gz
+   libpng-1.6.26.tar.xz (LZMA-compressed, recommended)
+   libpng-1.6.26.tar.gz
 
 Source files with CRLF line endings (for Windows), without the
 "configure" script
 
-   /scratch/glennrp/Libpng16/lpng1621.7z  (LZMA-compressed, recommended)
-   /scratch/glennrp/Libpng16/lpng1621.zip
+   lpng1626.7z  (LZMA-compressed, recommended)
+   lpng1626.zip
 
 Other information:
 
-   libpng-1.6.21-README.txt
-   libpng-1.6.21-LICENSE.txt
-   libpng-1.6.21-*.asc (armored detached GPG signatures)
+   libpng-1.6.26-README.txt
+   libpng-1.6.26-LICENSE.txt
+   libpng-1.6.26-*.asc (armored detached GPG signatures)
 
-Changes since the last public release (1.6.20):
+Changes since the last public release (1.6.25):
 
-  Fixed syntax "$(command)" in tests/pngstest that some shells other than
-    bash could not parse (Bug report by Nelson Beebe). Use `command` instead.
-  Moved png_check_keyword() from pngwutil.c to pngset.c
-  Removed LE/BE dependencies in pngvalid, to 'fix' the current problem
-    in the BigEndian tests by not testing it, making the BE code the same 
-    as the LE version.
-  Fixes to pngvalid for various reduced build configurations (eliminate unused
-    statics) and a fix for the case in rgb_to_gray when the digitize option
-    reduces graylo to 0, producing a large error.
-  Widened the 'limit' check on the internally calculated error limits in
-    the 'DIGITIZE' case (the code used prior to 1.7 for rgb_to_gray error
-    checks) and changed the check to only operate in non-release builds
-   (base build type not RC or RELEASE.)
-  Fixed undefined behavior in pngvalid.c, undefined because
-    (png_byte) << shift is undefined if it changes the signed bit
-    (because png_byte is promoted to int). The libpng exported functions
-    png_get_uint_32 and png_get_uint_16 handle this. (Bug reported by
-    David Drysdale as a result of reports from UBSAN in clang 3.8).
-  This changes pngvalid to use BE random numbers; this used to produce
-    errors but these should not be fixed as a result of the previous changes.
-  In projects/vstudio, combined readme.txt and WARNING into README.txt
-  Relocated assert() in contrib/tools/pngfix.c, bug found by American
-    Fuzzy Lop, reported by Brian Carpenter.
-  Marked 'limit' UNUSED in transform_range_check().  This only affects
-    release builds.
-  Worked around a false-positive Coverity issue in pngvalid.c.
+  Fixed handling zero length IDAT in pngfix (bug report by Agostino Sarubbo,
+    bugfix by John Bowler).
+  Do not issue a png_error() on read in png_set_pCAL() because png_handle_pCAL
+    has allocated memory that libpng needs to free.
+  Conditionally compile png_set_benign_errors() in pngread.c and pngtest.c
+  Issue a png_benign_error instead of a png_error on ADLER32 mismatch
+    while decoding compressed data chunks.
+  Changed PNG_ZLIB_VERNUM to ZLIB_VERNUM in pngpriv.h, pngstruct.h, and
+    pngrutil.c.
+  If CRC handling of critical chunks has been set to PNG_CRC_QUIET_USE,
+    ignore the ADLER32 checksum in the IDAT chunk as well as the chunk CRCs.
+  Issue png_benign_error() on ADLER32 checksum mismatch instead of png_error().
+  Add tests/badcrc.png and tests/badadler.png to tests/pngtest.
+  Merged pngtest.c with libpng-1.7.0beta84/pngtest.c
+  Updated the documentation about CRC and ADLER32 handling.
+  Quieted 117 warnings from clang-3.8 in pngtrans.c, pngread.c,
+     pngwrite.c, pngunknown.c, and pngvalid.c.
+  Quieted the 144 remaining -Wconversion compiler warnings by
+    revising the png_isaligned() macro and trivial changes in png.c,
+    pngerror.c, pngget.c, pngmem.c, pngset.c, pngrtran.c, pngrutil.c,
+    pngwtran.c, pngwrite.c, and pngwutil.c.
+  Quieted (bogus?) clang warnings about "absolute value has no effect"
+    when PNG_USE_ABS is defined.
+  Fixed offsets in contrib/intel/intel_sse.patch
+  Changed integer constant 4294967294 to unsigned 4294967294U in pngconf.h
+    to avoid a signed/unsigned compare in the preprocessor.
+  Use zlib-1.2.8.1 inflateValidate() instead of inflateReset2() to
+    optionally avoid ADLER32 evaluation.
+  Cosmetic change, "ptr != 0" to "ptr != NULL" in png.c and pngrutil.c
+  Despammed email addresses (replaced "@" with " at ").
 
 Send comments/corrections/commendations to png-mng-implement at lists.sf.net
 (subscription required; visit

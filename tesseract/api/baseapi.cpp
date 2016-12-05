@@ -1378,15 +1378,16 @@ static void AddBaselineCoordsTohOCR(const PageIterator *it,
   hocr_str->add_str_double(" ", round(p0 * 1000.0) / 1000.0);
 }
 
-static void AddIdTohOCR(STRING* hocr_str, const std::string base, int num1, int num2) {
-  unsigned long bufsize = base.length() + 2 * kMaxIntSize;
-  char id_buffer[bufsize];
+static void AddIdTohOCR(STRING* hocr_str, const std::string base, int num1,
+                        int num2) {
+  const size_t BUFSIZE = 64;
+  char id_buffer[BUFSIZE];
   if (num2 >= 0) {
-    snprintf(id_buffer, bufsize - 1, "%s_%d_%d", base.c_str(), num1, num2);
+    snprintf(id_buffer, BUFSIZE - 1, "%s_%d_%d", base.c_str(), num1, num2);
   } else {
-    snprintf(id_buffer, bufsize - 1, "%s_%d", base.c_str(), num1);
+    snprintf(id_buffer, BUFSIZE - 1, "%s_%d", base.c_str(), num1);
   }
-  id_buffer[bufsize - 1] = '\0';
+  id_buffer[BUFSIZE - 1] = '\0';
   *hocr_str += " id='";
   *hocr_str += id_buffer;
   *hocr_str += "'";

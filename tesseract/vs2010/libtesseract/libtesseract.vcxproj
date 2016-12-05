@@ -260,7 +260,7 @@ copy "$(TargetPath)" ..\..\..\lib
     </CustomBuildStep>
     <ClCompile>
       <Optimization>Full</Optimization>
-      <AdditionalIncludeDirectories>..\..\api;..\..\ccmain;..\..\ccutil;..\..\ccstruct;..\..\classify;..\..\cube;..\..\cutil;..\..\dict;..\..\neural_networks\runtime;..\..\textord;..\..\viewer;..\..\wordrec;.;..\..\..\mybuild\leptonica\src;..\port;..\..\opencl;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\api;..\..\ccmain;..\..\ccutil;..\..\ccstruct;..\..\classify;..\..\cube;..\..\cutil;..\..\dict;..\..\neural_networks\runtime;..\..\textord;..\..\viewer;..\..\wordrec;.;..\..\..\leptonica\src;..\port;..\..\opencl;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_USRDLL;_WINDLL;USE_STD_NAMESPACE;TESS_EXPORTS;LIBLEPT_IMPORTS;WINDLLNAME="$(TargetFileName)";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <PrecompiledHeader>
@@ -275,10 +275,10 @@ copy "$(TargetPath)" ..\..\..\lib
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;user32.lib;liblept$(LIBLEPT_VERSION).lib;libtiff_i.lib</AdditionalDependencies>
+      <AdditionalDependencies>ws2_32.lib;user32.lib;liblept173.lib;libtiff_i.lib</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <Version>$(LIBTESS_NUMBER)</Version>
-      <AdditionalLibraryDirectories>..\..\..\mybuild\release\libtiff;..\..\..\mybuild\release\leptonica;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\release\libtiff;..\..\..\release\leptonica;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

@@ -222,10 +222,10 @@ static void ContextInit(j_decompress_ptr cinfo) {
   ctx->pub.bytes_in_buffer = ctx->data_size;
 }
 
-static int ContextFill(j_decompress_ptr cinfo) {
+static boolean ContextFill(j_decompress_ptr cinfo) {
   // we shouldn't get here.
   ERREXIT(cinfo, JERR_FILE_READ);
-  return 0;
+  return FALSE;
 }
 
 static void ContextSkip(j_decompress_ptr cinfo, long jump_size) {
@@ -258,7 +258,8 @@ int ReadJPEG(const uint8_t* const data, size_t data_size,
              WebPPicture* const pic, int keep_alpha,
              Metadata* const metadata) {
   volatile int ok = 0;
-  int stride, width, height;
+  int width, height;
+  int64_t stride;
   volatile struct jpeg_decompress_struct dinfo;
   struct my_error_mgr jerr;
   uint8_t* volatile rgb = NULL;
@@ -297,9 +298,14 @@ int ReadJPEG(const uint8_t* const data, size_t data_size,
 
   width = dinfo.output_width;
   height = dinfo.output_height;
-  stride = dinfo.output_width * dinfo.output_components * sizeof(*rgb);
+  stride = (int64_t)dinfo.output_width * dinfo.output_components * sizeof(*rgb);
 
-  rgb = (uint8_t*)malloc(stride * height);
+  if (stride != (int)stride ||
+      !ImgIoUtilCheckSizeArgumentsOverflow(stride, height)) {
+    goto End;
+  }
+
+  rgb = (uint8_t*)malloc((size_t)stride * height);
   if (rgb == NULL) {
     goto End;
   }
@@ -326,7 +332,7 @@ int ReadJPEG(const uint8_t* const data, size_t data_size,
   // WebP conversion.
   pic->width = width;
   pic->height = height;
-  ok = WebPPictureImportRGB(pic, rgb, stride);
+  ok = WebPPictureImportRGB(pic, rgb, (int)stride);
   if (!ok) goto Error;
 
  End:

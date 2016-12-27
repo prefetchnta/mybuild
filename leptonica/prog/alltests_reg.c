@@ -46,24 +46,35 @@
 #include "allheaders.h"
 
 static const char *tests[] = {
+                              "adaptmap_reg",
+                              "affine_reg",
                               "alphaops_reg",
                               "alphaxform_reg",
                               "bilateral2_reg",
+                              "bilinear_reg",
                               "binarize_reg",
                               "blackwhite_reg",
+                              "blend1_reg",
+                              "blend2_reg",
                               "blend3_reg",
                               "blend4_reg",
+                              "ccthin1_reg",
+                              "ccthin2_reg",
                               "cmapquant_reg",
                               "colorcontent_reg",
                               "coloring_reg",
                               "colorize_reg",
                               "colormask_reg",
+                              "colormorph_reg",
                               "colorquant_reg",
+                              "colorseg_reg",
                               "colorspace_reg",
                               "compare_reg",
+                              "conncomp_reg",
                               "convolve_reg",
                               "dewarp_reg",
-                         /*   "distance_reg", */
+                              "distance_reg",
+                              "dither_reg",
                               "dna_reg",
                               "dwamorph1_reg",
                               "enhance_reg",
@@ -76,16 +87,20 @@ static const char *tests[] = {
 #if HAVE_LIBGIF
                               "gifio_reg",
 #endif  /* HAVE_LIBGIF */
+                              "graymorph1_reg",
                               "graymorph2_reg",
+                              "grayquant_reg",
                               "hardlight_reg",
                               "insert_reg",
                               "ioformats_reg",
+                              "jbclass_reg",
 #if HAVE_LIBJP2K
                               "jp2kio_reg",
 #endif  /* HAVE_LIBJP2K */
                               "jpegio_reg",
                               "kernel_reg",
                               "label_reg",
+                              "lineremoval_reg",
                               "maze_reg",
                               "multitype_reg",
                               "nearline_reg",
@@ -95,19 +110,21 @@ static const char *tests[] = {
                               "paintmask_reg",
                               "pdfseg_reg",
                               "pixa2_reg",
+                              "pixadisp_reg",
                               "pixserial_reg",
                               "pngio_reg",
                               "pnmio_reg",
                               "projection_reg",
+                              "projective_reg",
                               "psio_reg",
                               "psioseg_reg",
                               "pta_reg",
                               "rankbin_reg",
                               "rankhisto_reg",
                               "rasteropip_reg",
-                              "rotateorth_reg",
                               "rotate1_reg",
                               "rotate2_reg",
+                              "rotateorth_reg",
                               "scale_reg",
                               "seedspread_reg",
                               "selio_reg",
@@ -147,7 +164,7 @@ static char  mainName[] = "alltests_reg";
     l_getCurrentTime(&start, NULL);
     ntests = sizeof(tests) / sizeof(char *);
     fprintf(stderr, "Running alltests_reg:\n"
-            "This currently tests %d of the 120 Regression Test\n"
+            "This currently tests %d of the 127 regression test\n"
             "programs in the /prog directory.\n", ntests);
 
         /* Clear the output file if we're doing the set of reg tests */

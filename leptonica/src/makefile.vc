@@ -5,8 +5,8 @@ LOC =
 
 # variables
 STATICLIB = liblept.lib
-SHAREDLIB = liblept173.dll
-IMPLIB    = liblept173.lib
+SHAREDLIB = liblept.dll
+IMPLIB    = liblept_i.lib
 
 CC = cl
 AS = ml
@@ -28,7 +28,7 @@ LEPTLIB_C =	adaptmap.c affine.c \
 		bilateral.c bilinear.c binarize.c \
 		binexpand.c binreduce.c \
 		blend.c bmf.c bmpio.c bmpiostub.c \
-		bootnumgen1.c bootnumgen2.c \
+		bootnumgen1.c bootnumgen2.c bootnumgen3.c \
 		boxbasic.c boxfunc1.c boxfunc2.c \
 		boxfunc3.c boxfunc4.c \
 		bytearray.c ccbord.c ccthin.c classapp.c \
@@ -38,7 +38,8 @@ LEPTLIB_C =	adaptmap.c affine.c \
 		colorseg.c colorspace.c \
 		compare.c conncomp.c convertfiles.c \
 		convolve.c correlscore.c \
-		dewarp1.c dewarp2.c dewarp3.c dewarp4.c dnabasic.c \
+		dewarp1.c dewarp2.c dewarp3.c dewarp4.c \
+		dnabasic.c dnafunc1.c dnahash.c \
 		dwacomb.2.c dwacomblow.2.c \
 		edge.c encoding.c enhance.c \
 		fhmtauto.c fhmtgen.1.c fhmtgenlow.1.c \
@@ -65,7 +66,7 @@ LEPTLIB_C =	adaptmap.c affine.c \
 		pnmio.c pnmiostub.c \
 		projective.c \
 		psio1.c psio1stub.c psio2.c psio2stub.c \
-		ptabasic.c ptafunc1.c \
+		ptabasic.c ptafunc1.c ptafunc2.c \
 		ptra.c quadtree.c queue.c rank.c rbtree.c \
 		readbarcode.c readfile.c \
 		recogbasic.c recogdid.c recogident.c recogtrain.c \
@@ -73,15 +74,15 @@ LEPTLIB_C =	adaptmap.c affine.c \
 		rop.c ropiplow.c roplow.c \
 		rotate.c rotateam.c rotateamlow.c \
 		rotateorth.c rotateshear.c \
-		runlength.c sarray.c \
+		runlength.c sarray1.c sarray2.c \
 		scale.c scalelow.c \
 		seedfill.c seedfilllow.c \
 		sel1.c sel2.c selgen.c \
 		shear.c skew.c spixio.c \
-		stack.c stringcode.c sudoku.c \
+		stack.c stringcode.c \
+		strokes.c sudoku.c \
 		textops.c tiffio.c tiffiostub.c \
-		utils.c viewfiles.c \
-		warper.c watershed.c \
+		utils1.c utils2.c warper.c watershed.c \
 		webpio.c webpiostub.c writefile.c \
 		zlibmem.c zlibmemstub.c
 
@@ -91,7 +92,7 @@ LEPTLIB_O =	adaptmap.obj affine.obj \
 		bilateral.obj bilinear.obj binarize.obj \
 		binexpand.obj binreduce.obj \
 		blend.obj bmf.obj bmpio.obj bmpiostub.obj \
-		bootnumgen1.obj bootnumgen2.obj \
+		bootnumgen1.obj bootnumgen2.obj bootnumgen3.obj \
 		boxbasic.obj boxfunc1.obj boxfunc2.obj \
 		boxfunc3.obj boxfunc4.obj \
 		bytearray.obj ccbord.obj ccthin.obj classapp.obj \
@@ -101,7 +102,8 @@ LEPTLIB_O =	adaptmap.obj affine.obj \
 		colorseg.obj colorspace.obj \
 		compare.obj conncomp.obj convertfiles.obj \
 		convolve.obj correlscore.obj \
-		dewarp1.obj dewarp2.obj dewarp3.obj dewarp4.obj dnabasic.obj \
+		dewarp1.obj dewarp2.obj dewarp3.obj dewarp4.obj \
+		dnabasic.obj dnafunc1.obj dnahash.obj \
 		dwacomb.2.obj dwacomblow.2.obj \
 		edge.obj encoding.obj enhance.obj \
 		fhmtauto.obj fhmtgen.1.obj fhmtgenlow.1.obj \
@@ -128,7 +130,7 @@ LEPTLIB_O =	adaptmap.obj affine.obj \
 		pnmio.obj pnmiostub.obj \
 		projective.obj \
 		psio1.obj psio1stub.obj psio2.obj psio2stub.obj \
-		ptabasic.obj ptafunc1.obj \
+		ptabasic.obj ptafunc1.obj ptafunc2.obj \
 		ptra.obj quadtree.obj queue.obj rank.obj rbtree.obj \
 		readbarcode.obj readfile.obj \
 		recogbasic.obj recogdid.obj recogident.obj recogtrain.obj \
@@ -136,15 +138,15 @@ LEPTLIB_O =	adaptmap.obj affine.obj \
 		rop.obj ropiplow.obj roplow.obj \
 		rotate.obj rotateam.obj rotateamlow.obj \
 		rotateorth.obj rotateshear.obj \
-		runlength.obj sarray.obj \
+		runlength.obj sarray1.obj sarray2.obj \
 		scale.obj scalelow.obj \
 		seedfill.obj seedfilllow.obj \
 		sel1.obj sel2.obj selgen.obj \
 		shear.obj skew.obj spixio.obj \
-		stack.obj stringcode.obj sudoku.obj \
+		stack.obj stringcode.obj \
+		strokes.obj sudoku.obj \
 		textops.obj tiffio.obj tiffiostub.obj \
-		utils.obj viewfiles.obj \
-		warper.obj watershed.obj \
+		utils1.obj utils2.obj warper.obj watershed.obj \
 		webpio.obj webpiostub.obj writefile.obj \
 		zlibmem.obj zlibmemstub.obj
 

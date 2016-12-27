@@ -156,6 +156,7 @@ all: $(SHAREDLIB) $(IMPLIB)
 $(IMPLIB): $(SHAREDLIB)
 
 $(SHAREDLIB):
+	copy endianness.h.vc endianness.h
 	$(RC) $(RCFLAGS) liblept.rc
 	$(CC) $(CFLAGS) $(WFLAGS) -DLIBLEPT_EXPORTS $(LEPTLIB_C)
 	$(LD) $(LDFLAGS) -dll -out:$@ -implib:$(IMPLIB) $(LEPTLIB_O) \

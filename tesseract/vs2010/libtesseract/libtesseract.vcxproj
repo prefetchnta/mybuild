@@ -275,7 +275,7 @@ copy "$(TargetPath)" ..\..\..\lib
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;user32.lib;liblept173.lib;libtiff_i.lib</AdditionalDependencies>
+      <AdditionalDependencies>ws2_32.lib;user32.lib;liblept_i.lib;libtiff_i.lib</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <Version>$(LIBTESS_NUMBER)</Version>
       <AdditionalLibraryDirectories>..\..\..\release\libtiff;..\..\..\release\leptonica;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>

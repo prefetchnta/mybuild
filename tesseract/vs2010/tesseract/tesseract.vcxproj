@@ -293,7 +293,7 @@
       <PreprocessorDefinitions>MYVERSION=$(LIBTESS_VERSION_R);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;user32.lib;liblept173.lib</AdditionalDependencies>
+      <AdditionalDependencies>ws2_32.lib;user32.lib;liblept_i.lib</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <Version>$(LIBTESS_NUMBER)</Version>
       <AdditionalLibraryDirectories>..\..\..\release\leptonica;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>

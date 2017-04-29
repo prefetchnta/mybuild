@@ -162,6 +162,10 @@ shutdown(how) -- shut down traffic in one or both directions\n\
 # undef HAVE_GETHOSTBYNAME_R_6_ARG
 #endif
 
+#ifdef __ANDROID__
+# undef HAVE_GETHOSTBYNAME_R
+#endif
+
 #ifndef WITH_THREAD
 # undef HAVE_GETHOSTBYNAME_R
 #endif

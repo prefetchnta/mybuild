@@ -206,6 +206,7 @@ PyDoc_STRVAR(localeconv__doc__,
 static PyObject*
 PyLocale_localeconv(PyObject* self)
 {
+#ifndef __ANDROID__
     PyObject* result;
     struct lconv *l;
     PyObject *x;
@@ -266,6 +267,7 @@ PyLocale_localeconv(PyObject* self)
   failed:
     Py_XDECREF(result);
     Py_XDECREF(x);
+#endif
     return NULL;
 }
 

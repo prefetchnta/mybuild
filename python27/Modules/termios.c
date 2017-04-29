@@ -227,6 +227,7 @@ termios_tcsendbreak(PyObject *self, PyObject *args)
     return Py_None;
 }
 
+#ifndef __ANDROID__
 PyDoc_STRVAR(termios_tcdrain__doc__,
 "tcdrain(fd) -> None\n\
 \n\
@@ -246,6 +247,7 @@ termios_tcdrain(PyObject *self, PyObject *args)
     Py_INCREF(Py_None);
     return Py_None;
 }
+#endif
 
 PyDoc_STRVAR(termios_tcflush__doc__,
 "tcflush(fd, queue) -> None\n\
@@ -301,8 +303,10 @@ static PyMethodDef termios_methods[] =
      METH_VARARGS, termios_tcsetattr__doc__},
     {"tcsendbreak", termios_tcsendbreak,
      METH_VARARGS, termios_tcsendbreak__doc__},
+#ifndef __ANDROID__
     {"tcdrain", termios_tcdrain,
      METH_VARARGS, termios_tcdrain__doc__},
+#endif
     {"tcflush", termios_tcflush,
      METH_VARARGS, termios_tcflush__doc__},
     {"tcflow", termios_tcflow,

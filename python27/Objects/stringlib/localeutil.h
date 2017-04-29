@@ -202,10 +202,14 @@ _Py_InsertThousandsGroupingLocale(STRINGLIB_CHAR *buffer,
                                   Py_ssize_t n_digits,
                                   Py_ssize_t min_width)
 {
+#ifndef __ANDROID__
         struct lconv *locale_data = localeconv();
         const char *grouping = locale_data->grouping;
         const char *thousands_sep = locale_data->thousands_sep;
-
+#else
+        const char *grouping = "\x03";
+        const char *thousands_sep = ",";
+#endif
         return _Py_InsertThousandsGrouping(buffer, n_buffer, digits, n_digits,
                                            min_width, grouping, thousands_sep);
 }

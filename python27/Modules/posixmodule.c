@@ -156,6 +156,9 @@ corresponding Unix manual entries for more information on calls.");
 #define HAVE_SYSTEM     1
 #define HAVE_WAIT       1
 #define HAVE_TTYNAME    1
+#ifdef __ANDROID__
+    #undef HAVE_TTYNAME
+#endif
 #endif  /* PYOS_OS2 && PYCC_GCC && __VMS */
 #endif  /* _MSC_VER */
 #endif  /* __BORLANDC__ */
@@ -3967,7 +3970,7 @@ posix_openpty(PyObject *self, PyObject *noargs)
     slave_fd = open(slave_name, O_RDWR | O_NOCTTY); /* open slave */
     if (slave_fd < 0)
         return posix_error();
-#if !defined(__CYGWIN__) && !defined(HAVE_DEV_PTC)
+#if !defined(__CYGWIN__) && !defined(HAVE_DEV_PTC) && !defined(__ANDROID__)
     ioctl(slave_fd, I_PUSH, "ptem"); /* push ptem */
     ioctl(slave_fd, I_PUSH, "ldterm"); /* push ldterm */
 #ifndef __hpux

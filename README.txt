@@ -1,9 +1,9 @@
 
-Android (GCC 4.9.x API-14)
+Android (GCC 4.9.x ARMv7-A API-14)
 
 python-2.7.13           LIB                     https://www.python.org/downloads/
 
-Windows (Visual Studio 2010 /MD)
+Windows (Visual Studio 2010 X86 /MD)
 
 giflib-5.1.4            LIB                     https://sourceforge.net/projects/giflib/
 leptonica-1.74          DLL (without libjp2k)   https://github.com/DanBloomberg/leptonica/releases

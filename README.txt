@@ -1,5 +1,5 @@
 
-Android (GCC 4.9.x ARMv7-A API-14)
+Android (GCC 4.9.x ARMv7 -O2 API-14)
 
 python-2.7.13           LIB                     https://www.python.org/downloads/
 

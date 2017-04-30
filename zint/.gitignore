@@ -1,0 +1,10 @@
+build/
+*~
+*.[ao]
+*.swp
+*.swo
+.directory
+CMakeLists.txt.user*
+Makefile
+backend/Makefile
+frontend/Makefile

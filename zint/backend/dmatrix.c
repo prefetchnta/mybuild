@@ -250,7 +250,7 @@ static void dminsert(char binary_string[], const int posn, const char newbit) {
     int i, end;
 
     end = (int) strlen(binary_string);
-    for (i = end; i > posn; i--) {
+    for (i = end + 1; i > posn; i--) {
         binary_string[i] = binary_string[i - 1];
     }
     binary_string[posn] = newbit;
@@ -304,6 +304,7 @@ static int p_r_6_2_1(const unsigned char inputData[], const int position, const 
 /* 'look ahead test' from Annex P */
 static int look_ahead_test(const unsigned char inputData[], const int sourcelen, const int position, const int current_mode, const int gs1) {
     float ascii_count, c40_count, text_count, x12_count, edf_count, b256_count, best_count;
+    const float stiction = (1.0F / 24.0F); // smallest change to act on, to get around floating point inaccuracies
     int sp, best_scheme;
 
     best_scheme = DM_NULL;
@@ -341,7 +342,7 @@ static int look_ahead_test(const unsigned char inputData[], const int sourcelen,
     sp = position;
 
     do {
-        if (sp == (sourcelen - 1)) {
+        if (sp == sourcelen) {
             /* At the end of data ... step (k) */
             ascii_count = ceilf(ascii_count);
             b256_count = ceilf(b256_count);
@@ -353,27 +354,27 @@ static int look_ahead_test(const unsigned char inputData[], const int sourcelen,
             best_count = c40_count;
             best_scheme = DM_C40; // (k)(7)
 
-            if (x12_count < best_count) {
+            if (x12_count < (best_count - stiction)) {
                 best_count = x12_count;
                 best_scheme = DM_X12; // (k)(6)
             }
 
-            if (text_count < best_count) {
+            if (text_count < (best_count - stiction)) {
                 best_count = text_count;
                 best_scheme = DM_TEXT; // (k)(5)
             }
 
-            if (edf_count < best_count) {
+            if (edf_count < (best_count - stiction)) {
                 best_count = edf_count;
                 best_scheme = DM_EDIFACT; // (k)(4)
             }
 
-            if (b256_count < best_count) {
+            if (b256_count < (best_count - stiction)) {
                 best_count = b256_count;
                 best_scheme = DM_BASE256; // (k)(3)
             }
 
-            if (ascii_count <= best_count) {
+            if (ascii_count <= (best_count + stiction)) {
                 best_scheme = DM_ASCII; // (k)(2)
             }
         } else {
@@ -431,13 +432,13 @@ static int look_ahead_test(const unsigned char inputData[], const int sourcelen,
                 edf_count += (3.0F / 4.0F); // (p)(1)
             } else {
                 if (inputData[sp] > 127) {
-                    edf_count += (17.0F / 4.0F); // (p)(2)
+                    edf_count += 17.0F; // (p)(2) > Value changed from ISO
                 } else {
-                    edf_count += (13.0F / 4.0F); // (p)(3)
+                    edf_count += 13.0F; // (p)(3) > Value changed from ISO
                 }
             }
             if ((gs1 == 1) && (inputData[sp] == '[')) {
-                edf_count += 6.0F;
+                edf_count += 13.0F; //  > Value changed from ISO
             }
 
             /* base 256 ... step (q) */
@@ -453,16 +454,17 @@ static int look_ahead_test(const unsigned char inputData[], const int sourcelen,
             /* 4 data characters processed ... step (r) */
 
             /* step (r)(6) */
-            if (((c40_count + 1.0F) < ascii_count) &&
-                    ((c40_count + 1.0F) < b256_count) &&
-                    ((c40_count + 1.0F) < edf_count) &&
-                    ((c40_count + 1.0F) < text_count)) {
+            if (((c40_count + 1.0F) < (ascii_count - stiction)) &&
+                    ((c40_count + 1.0F) < (b256_count - stiction)) &&
+                    ((c40_count + 1.0F) < (edf_count - stiction)) &&
+                    ((c40_count + 1.0F) < (text_count - stiction))) {
 
-                if (c40_count < x12_count) {
+                if (c40_count < (x12_count - stiction)) {
                     best_scheme = DM_C40;
                 }
 
-                if (c40_count == x12_count) {
+                if ((c40_count >= (x12_count - stiction))
+                        && (c40_count <= (x12_count + stiction))) {
                     if (p_r_6_2_1(inputData, sp, sourcelen) == 1) {
                         // Test (r)(6)(ii)(i)
                         best_scheme = DM_X12;
@@ -473,50 +475,53 @@ static int look_ahead_test(const unsigned char inputData[], const int sourcelen,
             }
 
             /* step (r)(5) */
-            if (((x12_count + 1.0F) < ascii_count) &&
-                    ((x12_count + 1.0F) < b256_count) &&
-                    ((x12_count + 1.0F) < edf_count) &&
-                    ((x12_count + 1.0F) < text_count) &&
-                    ((x12_count + 1.0F) < c40_count)) {
+            if (((x12_count + 1.0F) < (ascii_count - stiction)) &&
+                    ((x12_count + 1.0F) < (b256_count - stiction)) &&
+                    ((x12_count + 1.0F) < (edf_count - stiction)) &&
+                    ((x12_count + 1.0F) < (text_count - stiction)) &&
+                    ((x12_count + 1.0F) < (c40_count - stiction))) {
                 best_scheme = DM_X12;
             }
 
             /* step (r)(4) */
-            if (((text_count + 1.0F) < ascii_count) &&
-                    ((text_count + 1.0F) < b256_count) &&
-                    ((text_count + 1.0F) < edf_count) &&
-                    ((text_count + 1.0F) < x12_count) &&
-                    ((text_count + 1.0F) < c40_count)) {
+            if (((text_count + 1.0F) < (ascii_count - stiction)) &&
+                    ((text_count + 1.0F) < (b256_count - stiction)) &&
+                    ((text_count + 1.0F) < (edf_count - stiction)) &&
+                    ((text_count + 1.0F) < (x12_count - stiction)) &&
+                    ((text_count + 1.0F) < (c40_count - stiction))) {
                 best_scheme = DM_TEXT;
             }
 
             /* step (r)(3) */
-            if (((edf_count + 1.0F) < ascii_count) &&
-                    ((edf_count + 1.0F) < b256_count) &&
-                    ((edf_count + 1.0F) < text_count) &&
-                    ((edf_count + 1.0F) < x12_count) &&
-                    ((edf_count + 1.0F) < c40_count)) {
+            if (((edf_count + 1.0F) < (ascii_count - stiction)) &&
+                    ((edf_count + 1.0F) < (b256_count - stiction)) &&
+                    ((edf_count + 1.0F) < (text_count - stiction)) &&
+                    ((edf_count + 1.0F) < (x12_count - stiction)) &&
+                    ((edf_count + 1.0F) < (c40_count - stiction))) {
                 best_scheme = DM_EDIFACT;
             }
 
             /* step (r)(2) */
-            if (((b256_count + 1.0F) <= ascii_count) ||
-                    (((b256_count + 1.0F) < edf_count) &&
-                    ((b256_count + 1.0F) < text_count) &&
-                    ((b256_count + 1.0F) < x12_count) &&
-                    ((b256_count + 1.0F) < c40_count))) {
+            if (((b256_count + 1.0F) <= (ascii_count + stiction)) ||
+                    (((b256_count + 1.0F) < (edf_count - stiction)) &&
+                    ((b256_count + 1.0F) < (text_count - stiction)) &&
+                    ((b256_count + 1.0F) < (x12_count - stiction)) &&
+                    ((b256_count + 1.0F) < (c40_count - stiction)))) {
                 best_scheme = DM_BASE256;
             }
 
             /* step (r)(1) */
-            if (((ascii_count + 1.0F) <= b256_count) &&
-                    ((ascii_count + 1.0F) <= edf_count) &&
-                    ((ascii_count + 1.0F) <= text_count) &&
-                    ((ascii_count + 1.0F) <= x12_count) &&
-                    ((ascii_count + 1.0F) <= c40_count)) {
+            if (((ascii_count + 1.0F) <= (b256_count + stiction)) &&
+                    ((ascii_count + 1.0F) <= (edf_count + stiction)) &&
+                    ((ascii_count + 1.0F) <= (text_count + stiction)) &&
+                    ((ascii_count + 1.0F) <= (x12_count + stiction)) &&
+                    ((ascii_count + 1.0F) <= (c40_count + stiction))) {
                 best_scheme = DM_ASCII;
             }
         }
+        
+        //printf("Char %d[%c]: ASC:%.2f C40:%.2f X12:%.2f TXT:%.2f EDI:%.2f BIN:%.2f\n", sp,
+        //        inputData[sp], ascii_count, c40_count, x12_count, text_count, edf_count, b256_count);
 
         sp++;
     } while (best_scheme == DM_NULL); // step (s)
@@ -879,14 +884,12 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                 (*process_p)++;
                 next_mode = DM_ASCII;
             } else {
-                if ((source[sp] >= '@') && (source[sp] <= '^')) {
-                    value = source[sp] - '@';
+                value = source[sp];
+                
+                if (source[sp] >= 64) {  // '@'
+                    value -= 64;
                 }
-                if ((source[sp] >= ' ') && (source[sp] <= '?')) {
-                    value = source[sp];
-                }
-                /* possibility put an assertion here for invalid character (none of the ifs trigger) */
-
+                
                 process_buffer[*process_p] = value;
                 (*process_p)++;
                 sp++;
@@ -944,7 +947,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                 /* start of binary data */
                 int binary_count; /* length of b256 data */
 
-                for (binary_count = 0; binary[binary_count + i] == 'b'; binary_count++);
+                for (binary_count = 0; binary_count + i < tp && binary[binary_count + i] == 'b'; binary_count++);
 
                 if (binary_count <= 249) {
                     dminsert(binary, i, 'b');
@@ -987,63 +990,43 @@ static int dm200encode_remainder(unsigned char target[], int target_length, cons
     switch (last_mode) {
         case DM_C40:
         case DM_TEXT:
-            if (symbols_left == process_p) // No unlatch required!
+            if (process_p == 1) // 1 data character left to encode.
             {
-                if (process_p == 1) // 1 data character left to encode.
-                {
-                    target[target_length] = source[inputlen - 1] + 1;
+                if (symbols_left > 1) {
+                    target[target_length] = 254;
+                    target_length++; // Unlatch and encode remaining data in ascii.
+                }
+                target[target_length] = source[inputlen - 1] + 1;
+                target_length++;
+            } else if (process_p == 2) // 2 data characters left to encode.
+            {
+                // Pad with shift 1 value (0) and encode as double.
+                int intValue = (1600 * process_buffer[0]) + (40 * process_buffer[1]) + 1; // ie (0 + 1).
+                target[target_length] = (unsigned char) (intValue / 256);
+                target_length++;
+                target[target_length] = (unsigned char) (intValue % 256);
+                target_length++;
+                if (symbols_left > 2) {
+                    target[target_length] = 254; // Unlatch
                     target_length++;
                 }
-
-                if (process_p == 2) // 2 data characters left to encode.
-                {
-                    // Pad with shift 1 value (0) and encode as double.
-                    int intValue = (1600 * process_buffer[0]) + (40 * process_buffer[1]) + 1; // ie (0 + 1).
-                    target[target_length] = (unsigned char) (intValue / 256);
-                    target_length++;
-                    target[target_length] = (unsigned char) (intValue % 256);
-                    target_length++;
-                }
-            }
-
-            if (symbols_left > process_p) {
-                target[target_length] = (254);
-                target_length++; // Unlatch and encode remaining data in ascii.
-                if (process_p == 1 || (process_p == 2 && process_buffer[0] < 3)) // Check for a shift value.
-                {
-                    target[target_length] = source[inputlen - 1] + 1;
-                    target_length++;
-                } else if (process_p == 2) {
-                    target[target_length] = source[inputlen - 2] + 1;
-                    target_length++;
-                    target[target_length] = source[inputlen - 1] + 1;
+            } else {
+                if (symbols_left > 0) {
+                    target[target_length] = 254; // Unlatch
                     target_length++;
                 }
             }
             break;
 
         case DM_X12:
-            if (symbols_left == process_p) // Unlatch not required!
-            {
-                if (process_p == 1) // 1 data character left to encode.
-                {
-                    target[target_length] = source[inputlen - 1] + 1;
-                    target_length++;
-                }
-
-                if (process_p == 2) {
-                    // Encode last 2 bytes as ascii.
-                    target[target_length] = source[inputlen - 2] + 1;
-                    target_length++;
-                    target[target_length] = source[inputlen - 1] + 1;
-                    target_length++;
-                }
-            }
-
-            if (symbols_left > process_p) // Unlatch and encode remaining data in ascii.
-            {
+            if ((symbols_left == process_p) && (process_p == 1)) {
+                // Unlatch not required!
+                target[target_length] = source[inputlen - 1] + 1;
+                target_length++;
+            } else {
                 target[target_length] = (254);
                 target_length++; // Unlatch.
+                
                 if (process_p == 1) {
                     target[target_length] = source[inputlen - 1] + 1;
                     target_length++;
@@ -1073,7 +1056,16 @@ static int dm200encode_remainder(unsigned char target[], int target_length, cons
                     target_length++;
                 }
             } else {
-                // Append edifact unlatch value (31) and encode as triple.
+                // Append edifact unlatch value (31) and encode as triple
+                
+                if (process_p == 0) {
+                    target[target_length] = (unsigned char) (31 << 2);
+                    target_length++;
+                    target[target_length] = 0;
+                    target_length++;
+                    target[target_length] = 0;
+                    target_length++;
+                }
 
                 if (process_p == 1) {
                     target[target_length] = (unsigned char) ((process_buffer[0] << 2) + ((31 & 0x30) >> 4));
@@ -1200,6 +1192,11 @@ int data_matrix_200(struct zint_symbol *symbol, const unsigned char source[], co
     // Now we know the symbol size we can handle the remaining data in the process buffer.
     symbols_left = matrixbytes[symbolsize] - binlen;
     binlen = dm200encode_remainder(binary, binlen, source, inputlen, last_mode, process_buffer, process_p, symbols_left);
+    
+    if (binlen > matrixbytes[symbolsize]) {
+        strcpy(symbol->errtxt, "Data too long to fit in symbol (E12A)");
+        return ZINT_ERROR_TOO_LONG;
+    }
 
     H = matrixH[symbolsize];
     W = matrixW[symbolsize];

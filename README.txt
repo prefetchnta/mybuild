@@ -14,5 +14,5 @@ Windows (Visual Studio 2010 X86 /MD)
     libtiff-4.0.7           LIB & DLL               http://libtiff.maptools.org/
     libwebp-0.5.2           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/releases
     zint-2.5.0              DLL                     https://sourceforge.net/projects/zint/
-    zlib-1.2.8              LIB & DLL               http://www.zlib.net/
+    zlib-1.2.11             LIB & DLL               http://www.zlib.net/
     zxing-cpp-20161122      LIB                     https://github.com/glassechidna/zxing-cpp

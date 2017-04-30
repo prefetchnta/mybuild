@@ -153,7 +153,7 @@ SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		dewarp_reg.c distance_reg.c \
 		dither_reg.c dna_reg.c \
 		dwamorph1_reg.c dwamorph2_reg.c \
-		enhance_reg.c equal_reg.c \
+		edge_reg.c enhance_reg.c equal_reg.c \
 		expand_reg.c extrema_reg.c \
 		fhmtauto_reg.c files_reg.c \
 		findcorners_reg.c findpattern_reg.c \
@@ -170,7 +170,7 @@ SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		maze_reg.c morphseq_reg.c multitype_reg.c \
 		nearline_reg.c newspaper_reg.c \
 		numa1_reg.c numa2_reg.c \
-		overlap_reg.c paint_reg.c paintmask_reg.c \
+		overlap_reg.c pageseg_reg.c paint_reg.c paintmask_reg.c \
 		pdfseg_reg.c pixa1_reg.c pixa2_reg.c \
 		pixadisp_reg.c pixalloc_reg.c \
 		pixcomp_reg.c pixmem_reg.c \
@@ -207,7 +207,7 @@ SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		dewarptest3.c dewarptest4.c dewarptest5.c \
 		digitprep1.c displayboxa.c displayboxes_on_pixa.c \
 		displaypix.c displaypixa.c \
-		dwalineargen.c edgetest.c falsecolortest.c \
+		dwalineargen.c falsecolortest.c \
 		fcombautogen.c fhmtautogen.c \
 		fileinfo.c findbinding.c \
 		findpattern1.c findpattern2.c findpattern3.c \
@@ -227,7 +227,7 @@ SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		partitiontest.c pdfiotest.c percolatetest.c \
 		pixaatest.c pixafileinfo.c plottest.c \
 		printimage.c printsplitimage.c printtiff.c \
-		quadtreetest.c ranktest.c rbtreetest.c \
+		quadtreetest.c rbtreetest.c \
 		recog_bootnum.c recogsort.c recogtest1.c \
 		reducetest.c removecmap.c \
 		renderfonts.c rotatefastalt.c \
@@ -425,6 +425,9 @@ dwamorph1_reg:  dwamorph1_reg.o dwalinear.3.o dwalinearlow.3.o $(LEPTLIB)
 dwamorph2_reg:  dwamorph2_reg.o dwalinear.3.o dwalinearlow.3.o $(LEPTLIB)
 	$(CC) -o dwamorph2_reg dwamorph2_reg.o dwalinear.3.o dwalinearlow.3.o $(ALL_LIBS) $(EXTRALIBS)
 
+edge_reg:	edge_reg.o $(LEPTLIB)
+	$(CC) -o edge_reg edge_reg.o $(ALL_LIBS) $(EXTRALIBS)
+
 enhance_reg:	enhance_reg.o $(LEPTLIB)
 	$(CC) -o enhance_reg enhance_reg.o $(ALL_LIBS) $(EXTRALIBS)
 
@@ -541,6 +544,9 @@ numa2_reg:	numa2_reg.o $(LEPTLIB)
 
 overlap_reg:	overlap_reg.o $(LEPTLIB)
 	$(CC) -o overlap_reg overlap_reg.o $(ALL_LIBS) $(EXTRALIBS)
+
+pageseg_reg:	pageseg_reg.o $(LEPTLIB)
+	$(CC) -o pageseg_reg pageseg_reg.o $(ALL_LIBS) $(EXTRALIBS)
 
 paint_reg:	paint_reg.o $(LEPTLIB)
 	$(CC) -o paint_reg paint_reg.o $(ALL_LIBS) $(EXTRALIBS)
@@ -818,9 +824,6 @@ displaypixa:	displaypixa.o $(LEPTLIB)
 dwalineargen:	dwalineargen.o $(LEPTLIB)
 	$(CC) -o dwalineargen dwalineargen.o $(ALL_LIBS) $(EXTRALIBS)
 
-edgetest:	edgetest.o $(LEPTLIB)
-	$(CC) -o edgetest edgetest.o $(ALL_LIBS) $(EXTRALIBS)
-
 falsecolortest:	falsecolortest.o $(LEPTLIB)
 	$(CC) -o falsecolortest falsecolortest.o $(ALL_LIBS) $(EXTRALIBS)
 
@@ -976,9 +979,6 @@ printtiff:	printtiff.o $(LEPTLIB)
 
 quadtreetest:	quadtreetest.o $(LEPTLIB)
 	$(CC) -o quadtreetest quadtreetest.o $(ALL_LIBS) $(EXTRALIBS)
-
-ranktest:	ranktest.o $(LEPTLIB)
-	$(CC) -o ranktest ranktest.o $(ALL_LIBS) $(EXTRALIBS)
 
 rbtreetest:	rbtreetest.o $(LEPTLIB)
 	$(CC) -o rbtreetest rbtreetest.o $(ALL_LIBS) $(EXTRALIBS)

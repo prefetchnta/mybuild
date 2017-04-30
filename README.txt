@@ -12,7 +12,7 @@ Windows (Visual Studio 2010 X86 /MD)
     libpng-1.6.29           DLL                     http://www.libpng.org/pub/png/libpng.html
     libtesseract-3.04.01    DLL                     https://github.com/tesseract-ocr/tesseract/releases
     libtiff-4.0.7           LIB & DLL               http://libtiff.maptools.org/
-    libwebp-0.5.2           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/releases
+    libwebp-0.6.0           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/releases
     zint-2.5.0              DLL                     https://sourceforge.net/projects/zint/
     zlib-1.2.11             LIB & DLL               http://www.zlib.net/
     zxing-cpp-20161122      LIB                     https://github.com/glassechidna/zxing-cpp

@@ -5,8 +5,9 @@ project(libwebp C)
 # Options for coder / decoder executables.
 option(WEBP_BUILD_CWEBP "Build the cwebp command line tool." OFF)
 option(WEBP_BUILD_DWEBP "Build the dwebp command line tool." OFF)
+option(WEBP_BUILD_GIF2WEBP "Build the gif2webp conversion tool." OFF)
+option(WEBP_BUILD_IMG2WEBP "Build the img2webp animation tool." OFF)
 option(WEBP_EXPERIMENTAL_FEATURES "Build with experimental features." OFF)
-option(WEBP_FORCE_ALIGNED "Force aligned memory operations." OFF)
 option(WEBP_ENABLE_SWAP_16BIT_CSP "Enable byte swap for 16 bit colorspaces." OFF)
 
 set(WEBP_DEP_LIBRARIES)
@@ -43,14 +44,13 @@ endif()
 ################################################################################
 # WebP source files.
 # Read the Makefile.am to get the source files.
-set(WEBP_SRCS)
 
-function(parse_Makefile_am FOLDER WEBP_SRCS)
+function(parse_Makefile_am FOLDER VAR)
   file(READ ${FOLDER}/Makefile.am MAKEFILE_AM)
   string(REGEX MATCHALL "_SOURCES \\+= [^\n]*"
     FILES_PER_LINE ${MAKEFILE_AM}
   )
-  set(SRCS ${WEBP_SRCS})
+  set(SRCS ${${VAR}})
   foreach(FILES ${FILES_PER_LINE})
     string(SUBSTRING ${FILES} 12 -1 FILES)
     string(REGEX MATCHALL "[0-9a-z\\._]+"
@@ -60,14 +60,15 @@ function(parse_Makefile_am FOLDER WEBP_SRCS)
       list(APPEND SRCS ${FOLDER}/${FILE})
     endforeach()
   endforeach()
-  set(WEBP_SRCS ${SRCS} PARENT_SCOPE)
+  set(${VAR} ${SRCS} PARENT_SCOPE)
 endfunction()
 
-parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/dec "${WEBP_SRCS}")
-parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/demux "${WEBP_SRCS}")
-parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/dsp "${WEBP_SRCS}")
-parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/enc "${WEBP_SRCS}")
-parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/utils "${WEBP_SRCS}")
+set(WEBP_SRCS)
+parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/dec "WEBP_SRCS")
+parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/demux "WEBP_SRCS")
+parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/dsp "WEBP_SRCS")
+parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/enc "WEBP_SRCS")
+parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/utils "WEBP_SRCS")
 
 # Remove the files specific to SIMD we don't use.
 foreach(FILE ${WEBP_SIMD_FILES_NOT_TO_INCLUDE})
@@ -95,36 +96,51 @@ foreach(I_FILE RANGE ${WEBP_SIMD_FILES_TO_INCLUDE_RANGE})
 endforeach()
 
 # Build the executables if asked for.
-if(WEBP_BUILD_CWEBP OR WEBP_BUILD_DWEBP)
+if(WEBP_BUILD_CWEBP OR WEBP_BUILD_DWEBP OR
+   WEBP_BUILD_GIF2WEBP OR WEBP_BUILD_IMG2WEBP)
   # Example utility library.
   set(exampleutil_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/stopwatch.h
     ${CMAKE_CURRENT_SOURCE_DIR}/examples/example_util.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/example_util.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/stopwatch.h)
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/example_util.h)
   add_library(exampleutil ${exampleutil_SRCS})
   target_link_libraries(exampleutil webp ${WEBP_DEP_LIBRARIES})
-endif()
 
-if(WEBP_BUILD_CWEBP)
+  set(imageioutil_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/imageio_util.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/imageio_util.h)
+  add_library(imageioutil ${imageioutil_SRCS})
+  target_link_libraries(imageioutil ${WEBP_DEP_LIBRARIES})
+
   # Image-decoding utility library.
-  set(exampledec_SRCS
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/image_dec.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/image_dec.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/jpegdec.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/jpegdec.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/metadata.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/metadata.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/pngdec.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/pngdec.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/tiffdec.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/tiffdec.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/webpdec.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/webpdec.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/wicdec.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/wicdec.h)
-  add_library(exampledec ${exampledec_SRCS})
-  target_link_libraries(exampledec webp ${WEBP_DEP_LIBRARIES}
+  set(imagedec_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/gifdec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/gifdec.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/image_dec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/image_dec.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/jpegdec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/jpegdec.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/metadata.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/metadata.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/pngdec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/pngdec.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/tiffdec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/tiffdec.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/webpdec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/webpdec.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/wicdec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/wicdec.h)
+  add_library(imagedec ${imagedec_SRCS})
+  target_link_libraries(imagedec webp ${WEBP_DEP_LIBRARIES}
     ${WEBP_DEP_IMG_LIBRARIES})
+
+  # Image-encoding utility library.
+  set(imageenc_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/image_enc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/imageio/image_enc.h)
+  add_library(imageenc ${imageenc_SRCS})
+  target_link_libraries(imageenc webp imageioutil
+    ${WEBP_DEP_LIBRARIES} ${WEBP_DEP_IMG_LIBRARIES})
 endif()
 
 if(WEBP_BUILD_DWEBP)
@@ -132,10 +148,10 @@ if(WEBP_BUILD_DWEBP)
   include_directories(${WEBP_DEP_IMG_INCLUDE_DIRS})
   add_executable(dwebp
     ${CMAKE_CURRENT_SOURCE_DIR}/examples/dwebp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples/stopwatch.h
-  )
-  target_link_libraries(dwebp webp exampleutil ${WEBP_DEP_LIBRARIES}
-    ${WEBP_DEP_IMG_LIBRARIES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/stopwatch.h)
+  target_link_libraries(dwebp imagedec imageenc webp
+    exampleutil imageioutil
+    ${WEBP_DEP_LIBRARIES} ${WEBP_DEP_IMG_LIBRARIES}
   )
 endif()
 
@@ -145,7 +161,29 @@ if(WEBP_BUILD_CWEBP)
   add_executable(cwebp
     ${CMAKE_CURRENT_SOURCE_DIR}/examples/cwebp.c
     ${CMAKE_CURRENT_SOURCE_DIR}/examples/stopwatch.h)
-  target_link_libraries(cwebp exampledec webp exampleutil
+  target_link_libraries(cwebp imagedec webp exampleutil imageioutil
+    ${WEBP_DEP_LIBRARIES} ${WEBP_DEP_IMG_LIBRARIES}
+  )
+endif()
+
+if(WEBP_BUILD_GIF2WEBP)
+  # gif2webp
+  include_directories(${WEBP_DEP_IMG_INCLUDE_DIRS})
+  set(GIF2WEBP_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/examples/gif2webp.c)
+  parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/mux "GIF2WEBP_SRCS")
+  add_executable(gif2webp ${GIF2WEBP_SRCS})
+  target_link_libraries(gif2webp imagedec webp exampleutil imageioutil
+    ${WEBP_DEP_LIBRARIES} ${WEBP_DEP_IMG_LIBRARIES}
+  )
+endif()
+
+if(WEBP_BUILD_IMG2WEBP)
+  # img2webp
+  include_directories(${WEBP_DEP_IMG_INCLUDE_DIRS})
+  set(IMG2WEBP_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/examples/img2webp.c)
+  parse_Makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/mux "IMG2WEBP_SRCS")
+  add_executable(img2webp ${IMG2WEBP_SRCS})
+  target_link_libraries(img2webp imagedec webp exampleutil imageioutil
     ${WEBP_DEP_LIBRARIES} ${WEBP_DEP_IMG_LIBRARIES}
   )
 endif()

@@ -1,7 +1,8 @@
 
 Android (GCC 4.9.x ARMv7 -O2 API-14)
 
-    python-2.7.13           LIB                     https://www.python.org/downloads/
+    openssl-1.0.2k          LIB                     https://www.openssl.org/source/
+    python-2.7.13           LIB & EXE               https://www.python.org/downloads/
 
 Windows (Visual Studio 2010 X86 /MD)
 

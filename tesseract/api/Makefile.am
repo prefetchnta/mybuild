@@ -67,7 +67,7 @@ libtesseract_la_LIBADD += ../cube/libtesseract_cube.la \
         ../neural_networks/runtime/libtesseract_neural.la
 endif
 
-libtesseract_la_LDFLAGS += -version-info $(GENERIC_LIBRARY_VERSION)
+libtesseract_la_LDFLAGS += -version-info $(GENERIC_LIBRARY_VERSION) -no-undefined
 
 bin_PROGRAMS = tesseract
 tesseract_SOURCES = tesseractmain.cpp
@@ -81,10 +81,6 @@ tesseract_LDADD = libtesseract.la
 
 tesseract_LDFLAGS = $(OPENCL_LDFLAGS)
 
-if OPENMP
-tesseract_LDADD += $(OPENMP_CFLAGS)
-endif
-
 if T_WIN
 tesseract_LDADD += -lws2_32
 libtesseract_la_LDFLAGS += -no-undefined -Wl,--as-needed -lws2_32
@@ -92,4 +88,3 @@ endif
 if ADD_RT
 tesseract_LDADD += -lrt
 endif
-

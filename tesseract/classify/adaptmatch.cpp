@@ -819,7 +819,7 @@ int Classify::GetAdaptiveFeatures(TBLOB *Blob,
   Features = ExtractPicoFeatures(Blob);
 
   NumFeatures = Features->NumFeatures;
-  if (NumFeatures > UNLIKELY_NUM_FEAT) {
+  if (NumFeatures == 0 || NumFeatures > UNLIKELY_NUM_FEAT) {
     FreeFeatureSet(Features);
     return 0;
   }
@@ -907,8 +907,9 @@ void Classify::AdaptToChar(TBLOB* Blob, CLASS_ID ClassId, int FontinfoId,
     IClass = ClassForClassId(adaptive_templates->Templates, ClassId);
 
     NumFeatures = GetAdaptiveFeatures(Blob, IntFeatures, &FloatFeatures);
-    if (NumFeatures <= 0)
-      return;
+    if (NumFeatures <= 0) {
+      return;  // Features already freed by GetAdaptiveFeatures.
+    }
 
     // Only match configs with the matching font.
     BIT_VECTOR MatchingFontConfigs = NewBitVector(MAX_NUM_PROTOS);
@@ -1001,10 +1002,10 @@ void Classify::DisplayAdaptedChar(TBLOB* blob, INT_CLASS_STRUCT* int_class) {
               6 | 0x19, matcher_debug_separate_windows);
     UpdateMatchDisplay();
   }
+
+  delete sample;
 #endif
 }
-
-
 
 /**
  * This routine adds the result of a classification into

@@ -37,9 +37,9 @@
 #include "scrollview.h"
 
 #ifdef _MSC_VER
-#pragma warning(disable:4786)  // Don't give stupid warnings for stl
-#pragma warning(disable:4018)  // signed/unsigned warnings
-#pragma warning(disable:4530)  // exception warnings
+#pragma warning(disable : 4786)  // Don't give irrelevant warnings for stl
+#pragma warning(disable : 4018)  // signed/unsigned warnings
+#pragma warning(disable : 4530)  // exception warnings
 #endif
 
 const int kSvPort = 8461;
@@ -794,7 +794,7 @@ void ScrollView::Image(struct Pix* image, int x_pos, int y_pos) {
   int remainder = 0;
   int bits_left = 0;
   int code_len = 0;
-  for (int i = 0; i < size; ++i) {
+  for (size_t i = 0; i < size; ++i) {
     int code = (data[i] >> (bits_left + 2)) | remainder;
     base64[code_len++] = kBase64Table[code & 63];
     bits_left += 2;

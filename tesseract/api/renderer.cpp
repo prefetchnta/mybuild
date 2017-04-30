@@ -1,4 +1,20 @@
-// Include automatically generated configuration file if running autoconf.
+///////////////////////////////////////////////////////////////////////
+// File:        renderer.cpp
+// Description: Rendering interface to inject into TessBaseAPI
+//
+// (C) Copyright 2011, Google Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+///////////////////////////////////////////////////////////////////////
+
 #ifdef HAVE_CONFIG_H
 #include "config_auto.h"
 #endif
@@ -139,11 +155,11 @@ TessHOcrRenderer::TessHOcrRenderer(const char *outputbase, bool font_info)
 
 bool TessHOcrRenderer::BeginDocumentHandler() {
   AppendString(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n"
-        "    \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n"
-        "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" "
-        "lang=\"en\">\n <head>\n  <title>");
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n"
+      "    \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n"
+      "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" "
+      "lang=\"en\">\n <head>\n  <title>");
   AppendString(title());
   AppendString(
       "</title>\n"
@@ -175,6 +191,39 @@ bool TessHOcrRenderer::AddImageHandler(TessBaseAPI* api) {
 
   AppendString(hocr);
   delete[] hocr;
+
+  return true;
+}
+
+/**********************************************************************
+ * TSV Text Renderer interface implementation
+ **********************************************************************/
+TessTsvRenderer::TessTsvRenderer(const char* outputbase)
+    : TessResultRenderer(outputbase, "tsv") {
+  font_info_ = false;
+}
+
+TessTsvRenderer::TessTsvRenderer(const char* outputbase, bool font_info)
+    : TessResultRenderer(outputbase, "tsv") {
+  font_info_ = font_info;
+}
+
+bool TessTsvRenderer::BeginDocumentHandler() {
+  // Output TSV column headings
+  AppendString(
+      "level\tpage_num\tblock_num\tpar_num\tline_num\tword_"
+      "num\tleft\ttop\twidth\theight\tconf\ttext\n");
+  return true;
+}
+
+bool TessTsvRenderer::EndDocumentHandler() { return true; }
+
+bool TessTsvRenderer::AddImageHandler(TessBaseAPI* api) {
+  char* tsv = api->GetTSVText(imagenum());
+  if (tsv == NULL) return false;
+
+  AppendString(tsv);
+  delete[] tsv;
 
   return true;
 }
@@ -217,8 +266,7 @@ bool TessBoxTextRenderer::AddImageHandler(TessBaseAPI* api) {
  * Osd Text Renderer interface implementation
  **********************************************************************/
 TessOsdRenderer::TessOsdRenderer(const char* outputbase)
-    : TessResultRenderer(outputbase, "osd") {
-}
+    : TessResultRenderer(outputbase, "osd") {}
 
 bool TessOsdRenderer::AddImageHandler(TessBaseAPI* api) {
   char* osd = api->GetOsdText(imagenum());

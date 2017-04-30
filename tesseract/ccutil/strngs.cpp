@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        strngs.c  (Formerly strings.c)
  * Description: STRING class functions.
- * Author:					Ray Smith
- * Created:					Fri Feb 15 09:13:30 GMT 1991
+ * Author:          Ray Smith
+ * Created:         Fri Feb 15 09:13:30 GMT 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,8 +32,8 @@ using tesseract::TFile;
 // possible length of an int (in 64 bits), being -<20 digits>.
 const int kMaxIntSize = 22;
 // Size of buffer needed to host the decimal representation of the maximum
-// possible length of a %.8g being -0.12345678e+999<nul> = 15.
-const int kMaxDoubleSize = 15;
+// possible length of a %.8g being -1.2345678e+999<nul> = 16.
+const int kMaxDoubleSize = 16;
 
 /**********************************************************************
  * STRING_HEADER provides metadata about the allocated buffer,
@@ -179,6 +179,14 @@ bool STRING::DeSerialize(bool swap, TFile* fp) {
   truncate_at(len);
   if (fp->FRead(GetCStr(), 1, len) != len) return false;
   return true;
+}
+
+// As DeSerialize, but only seeks past the data - hence a static method.
+bool STRING::SkipDeSerialize(bool swap, tesseract::TFile* fp) {
+  inT32 len;
+  if (fp->FRead(&len, sizeof(len), 1) != 1) return false;
+  if (swap) ReverseN(&len, sizeof(len));
+  return fp->FRead(NULL, 1, len) == len;
 }
 
 BOOL8 STRING::contains(const char c) const {

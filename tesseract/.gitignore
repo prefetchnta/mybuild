@@ -72,3 +72,11 @@ build/*
 tesseract_opencl_profile_devices.dat
 kernel*.bin
 
+# build dirs
+/build*
+/cppan
+/.cppan
+/win*
+*.dll
+*.exe
+*.lnk

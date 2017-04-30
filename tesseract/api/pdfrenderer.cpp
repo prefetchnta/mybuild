@@ -1,14 +1,31 @@
+///////////////////////////////////////////////////////////////////////
+// File:        pdfrenderer.cpp
+// Description: PDF rendering interface to inject into TessBaseAPI
+//
+// (C) Copyright 2011, Google Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+///////////////////////////////////////////////////////////////////////
+
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
 #include "config_auto.h"
 #endif
 
+#include "allheaders.h"
 #include "baseapi.h"
-#include "renderer.h"
 #include "math.h"
+#include "renderer.h"
 #include "strngs.h"
 #include "tprintf.h"
-#include "allheaders.h"
 
 #ifdef _MSC_VER
 #include "mathfix.h"
@@ -265,7 +282,7 @@ void AffineMatrix(int writing_direction,
   }
 }
 
-// There are some really stupid PDF viewers in the wild, such as
+// There are some really awkward PDF viewers in the wild, such as
 // 'Preview' which ships with the Mac. They do a better job with text
 // selection and highlighting when given perfectly flat baseline
 // instead of very slightly tilted. We clip small tilts to appease
@@ -424,8 +441,8 @@ char* TessPDFRenderer::GetPDFTextObjects(TessBaseAPI* api,
           int code = unicodes[i];
           // Convert to UTF-16BE https://en.wikipedia.org/wiki/UTF-16
           if ((code > 0xD7FF && code < 0xE000) || code > 0x10FFFF) {
-                tprintf("Dropping invalid codepoint %d\n", code);
-                continue;
+            tprintf("Dropping invalid codepoint %d\n", code);
+            continue;
           }
           if (code < 0x10000) {
             snprintf(utf16, sizeof(utf16), "<%04X>", code);
@@ -550,7 +567,8 @@ bool TessPDFRenderer::BeginDocumentHandler() {
                "<<\n"
                "  /Length %lu /Filter /FlateDecode\n"
                ">>\n"
-               "stream\n", (unsigned long)len);
+               "stream\n",
+               (unsigned long)len);
   if (n >= sizeof(buf)) {
     lept_free(comp);
     return false;
@@ -602,7 +620,6 @@ bool TessPDFRenderer::BeginDocumentHandler() {
   AppendPDFObject(buf);
 
   // FONT DESCRIPTOR
-  const int kCharHeight = 2;  // Effect: highlights are half height
   n = snprintf(buf, sizeof(buf),
                "7 0 obj\n"
                "<<\n"
@@ -618,10 +635,10 @@ bool TessPDFRenderer::BeginDocumentHandler() {
                "  /Type /FontDescriptor\n"
                ">>\n"
                "endobj\n",
-               1000 / kCharHeight,
-               1000 / kCharHeight,
+               1000,
+               1000,
                1000 / kCharWidth,
-               1000 / kCharHeight,
+               1000,
                8L      // Font data
                );
   if (n >= sizeof(buf)) return false;
@@ -694,8 +711,9 @@ bool TessPDFRenderer::imageToPDFObj(Pix *pix,
   int format, sad;
   findFileFormat(filename, &format);
   if (pixGetSpp(pix) == 4 && format == IFF_PNG) {
-    pixSetSpp(pix, 3);
-    sad = pixGenerateCIData(pix, L_FLATE_ENCODE, 0, 0, &cid);
+    Pix *p1 = pixAlphaBlendUniform(pix, 0xffffff00);
+    sad = pixGenerateCIData(p1, L_FLATE_ENCODE, 0, 0, &cid);
+    pixDestroy(&p1);
   } else {
     sad = l_generateCIDataForPdf(filename, pix, kJpegQuality, &cid);
   }
@@ -801,10 +819,6 @@ bool TessPDFRenderer::imageToPDFObj(Pix *pix,
   *pdf_object_size =
       b1_len + colorspace_len + b2_len + cid->nbytescomp + b3_len;
   *pdf_object = new char[*pdf_object_size];
-  if (!pdf_object) {
-    l_CIDataDestroy(&cid);
-    return false;
-  }
 
   char *p = *pdf_object;
   memcpy(p, b1, b1_len);

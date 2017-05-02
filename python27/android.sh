@@ -1,13 +1,5 @@
 #!/bin/sh
-chmod +x ./cleanup.sh
-chmod +x ./configure
-chmod +x ./ndk_setup.sh
-chmod +x ./setup.py
-chmod +x ./Modules/*.py
-chmod +x ./Modules/makesetup
-chmod +x ./Parser/*.py
-chmod +x ./Parser/pgen
-chmod +x ./Python/*.py
+chmod -R +x *
 rm -f ./Modules/Setup
 rm -f ./Modules/Setup.local
 source ./ndk_setup.sh

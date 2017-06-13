@@ -197,8 +197,8 @@ static void qr_bscan(char *binary, int data, int h) {
 }
 
 /* Convert input data to a binary stream and add padding */
-void qr_binary(int datastream[], int version, int target_binlen, char mode[], int jisdata[], int length, int gs1, int eci, int est_binlen) {
-    int position = 0, debug = 0;
+void qr_binary(int datastream[], int version, int target_binlen, char mode[], int jisdata[], int length, int gs1, int eci, int est_binlen, int debug) {
+    int position = 0;
     int short_data_block_length, i, scheme = 1;
     char data_block, padbits;
     int current_binlen, current_bytes;
@@ -261,15 +261,16 @@ void qr_binary(int datastream[], int version, int target_binlen, char mode[], in
                 /* Character representation */
                 for (i = 0; i < short_data_block_length; i++) {
                     int jis = jisdata[position + i];
-                    int msb, lsb, prod;
-
-                    if (jis > 0x9fff) {
+                    int prod;
+                    
+                    if (jis >= 0x8140 && jis <= 0x9ffc)
+                        jis -= 0x8140;
+                    
+                    else if (jis >= 0xe040 && jis <= 0xebbf)
                         jis -= 0xc140;
-                    }
-                    msb = (jis & 0xff00) >> 4;
-                    lsb = (jis & 0xff);
-                    prod = (msb * 0xc0) + lsb;
-
+                    
+                    prod = ((jis >> 8) * 0xc0) + (jis & 0xff);
+                    
                     qr_bscan(binary, prod, 0x1000);
 
                     if (debug) {
@@ -1632,6 +1633,11 @@ int qr_code(struct zint_symbol *symbol, const unsigned char source[], int length
             version = symbol->option_2;
             est_binlen = getBinaryLength(symbol->option_2, mode, jisdata, length, gs1, symbol->eci);
         }
+        
+        if (symbol->option_2 < version) {
+            strcpy(symbol->errtxt, "Input too long for selected symbol size");
+            return ZINT_ERROR_TOO_LONG;
+        }
     }
 
     /* Ensure maxium error correction capacity */
@@ -1667,7 +1673,7 @@ int qr_code(struct zint_symbol *symbol, const unsigned char source[], int length
     fullstream = (int *) _alloca((qr_total_codewords[version - 1] + 1) * sizeof (int));
 #endif
 
-    qr_binary(datastream, version, target_binlen, mode, jisdata, length, gs1, symbol->eci, est_binlen);
+    qr_binary(datastream, version, target_binlen, mode, jisdata, length, gs1, symbol->eci, est_binlen, symbol->debug);
     add_ecc(fullstream, datastream, version, target_binlen, blocks);
 
     size = qr_sizes[version - 1];
@@ -1713,10 +1719,10 @@ int qr_code(struct zint_symbol *symbol, const unsigned char source[], int length
 
 /* NOTE: From this point forward concerns Micro QR Code only */
 
-int micro_qr_intermediate(char binary[], int jisdata[], char mode[], int length, int *kanji_used, int *alphanum_used, int *byte_used) {
+int micro_qr_intermediate(char binary[], int jisdata[], char mode[], int length, int *kanji_used, int *alphanum_used, int *byte_used, int debug) {
     /* Convert input data to an "intermediate stage" where data is binary encoded but
        control information is not */
-    int position = 0, debug = 0;
+    int position = 0;
     int short_data_block_length, i;
     char data_block;
     char buffer[2];
@@ -1760,14 +1766,15 @@ int micro_qr_intermediate(char binary[], int jisdata[], char mode[], int length,
                 /* Character representation */
                 for (i = 0; i < short_data_block_length; i++) {
                     int jis = jisdata[position + i];
-                    int msb, lsb, prod;
-
-                    if (jis > 0x9fff) {
+                    int prod;
+                    
+                    if (jis >= 0x8140 && jis <= 0x9ffc)
+                        jis -= 0x8140;
+                    
+                    else if (jis >= 0xe040 && jis <= 0xebbf)
                         jis -= 0xc140;
-                    }
-                    msb = (jis & 0xff00) >> 4;
-                    lsb = (jis & 0xff);
-                    prod = (msb * 0xc0) + lsb;
+                    
+                    prod = ((jis >> 8) * 0xc0) + (jis & 0xff);
 
                     qr_bscan(binary, prod, 0x1000);
 
@@ -2702,7 +2709,7 @@ int microqr(struct zint_symbol *symbol, const unsigned char source[], int length
         }
     }
 
-    error_number = micro_qr_intermediate(binary_stream, jisdata, mode, length, &kanji_used, &alphanum_used, &byte_used);
+    error_number = micro_qr_intermediate(binary_stream, jisdata, mode, length, &kanji_used, &alphanum_used, &byte_used, symbol->debug);
     if (error_number != 0) {
         strcpy(symbol->errtxt, "Input data too long (E64)");
         return error_number;
@@ -2791,6 +2798,9 @@ int microqr(struct zint_symbol *symbol, const unsigned char source[], int length
     if ((symbol->option_2 >= 1) && (symbol->option_2 <= 4)) {
         if (symbol->option_2 >= autoversion) {
             version = symbol->option_2;
+        } else {
+            strcpy(symbol->errtxt, "Input too long for selected symbol size");
+            return ZINT_ERROR_TOO_LONG;
         }
     }
 

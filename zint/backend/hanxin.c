@@ -1,7 +1,7 @@
 /*  hanxin.c - Han Xin Code
 
     libzint - the open source barcode library
-    Copyright (C) 2009-2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -328,11 +328,10 @@ int lookup_text2(char input) {
 }
 
 /* Convert input data to binary stream */
-void calculate_binary(char binary[], char mode[], int source[], int length, int eci) {
+void calculate_binary(char binary[], char mode[], int source[], int length, int eci, int debug) {
     int block_length;
     int position = 0;
     int i, p, count, encoding_value;
-    int debug = 0;
     int first_byte, second_byte;
     int third_byte, fourth_byte;
     int glyph;
@@ -987,11 +986,12 @@ void hx_add_ecc(unsigned char fullstream[], unsigned char datastream[], int vers
     int batch_size, data_length, ecc_length;
     int input_position = -1;
     int output_position = -1;
+    int table_d1_pos = ((version - 1) * 36) + ((ecc_level - 1) * 9);
 
     for (i = 0; i < 3; i++) {
-        batch_size = hx_table_d1[(((version - 1) + (ecc_level - 1)) * 9) + (3 * i)];
-        data_length = hx_table_d1[(((version - 1) + (ecc_level - 1)) * 9) + (3 * i) + 1];
-        ecc_length = hx_table_d1[(((version - 1) + (ecc_level - 1)) * 9) + (3 * i) + 2];
+        batch_size = hx_table_d1[table_d1_pos + (3 * i)];
+        data_length = hx_table_d1[table_d1_pos + (3 * i) + 1];
+        ecc_length = hx_table_d1[table_d1_pos + (3 * i) + 2];
 
         for (block = 0; block < batch_size; block++) {
             for (j = 0; j < data_length; j++) {
@@ -1065,7 +1065,7 @@ int hx_evaluate(unsigned char *eval, int size, int pattern) {
                     p += (0x40 >> weight);
                 }
             }
-            if ((p == 0x57) || (p = 0x75)) {
+            if ((p == 0x57) || (p == 0x75)) {
                 /* Pattern found, check before and after */
                 beforeCount = 0;
                 for (b = (y - 3); b < y; b++) {
@@ -1111,7 +1111,7 @@ int hx_evaluate(unsigned char *eval, int size, int pattern) {
                     p += (0x40 >> weight);
                 }
             }
-            if ((p == 0x57) || (p = 0x75)) {
+            if ((p == 0x57) || (p == 0x75)) {
                 /* Pattern found, check before and after */
                 beforeCount = 0;
                 for (b = (x - 3); b < x; b++) {
@@ -1301,11 +1301,13 @@ int hx_apply_bitmask(unsigned char *grid, int size) {
 int han_xin(struct zint_symbol *symbol, const unsigned char source[], int length) {
     int est_binlen;
     int ecc_level = symbol->option_1;
-    int i, j, version, posn = 0, glyph, glyph2;
+    int i, j, version, posn = 0;
     int data_codewords = 0, size;
-    int est_codewords;
+    int codewords;
     int bitmask;
     int error_number;
+    int bin_len;
+    int done;
     char function_information[36];
     unsigned char fi_cw[3] = {0, 0, 0};
     unsigned char fi_ecc[4];
@@ -1338,42 +1340,65 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], int length
 
         posn = 0;
         for (i = 0; i < length; i++) {
+            done = 0;
+            gbdata[posn] = 0;
+            
+            /* Single byte characters in range U+0000 -> U+007F */
             if (utfdata[i] <= 0x7f) {
                 gbdata[posn] = utfdata[i];
                 posn++;
-            } else {
+                done = 1;
+            }
+            
+            /* Two bytes characters */
+            if (done == 0) {
                 j = 0;
-                glyph = 0;
                 do {
                     if (gb18030_twobyte_lookup[j * 2] == utfdata[i]) {
-                        glyph = gb18030_twobyte_lookup[(j * 2) + 1];
+                        gbdata[posn] = gb18030_twobyte_lookup[(j * 2) + 1];
+                        posn++;
+                        done = 1;
                     }
                     j++;
-                } while ((j < 23940) && (glyph == 0));
+                } while ((j < 23940) && (done == 0));
+            }
 
-                if (glyph == 0) {
-                    j = 0;
-                    glyph = 0;
-                    glyph2 = 0;
-                    do {
-                        if (gb18030_fourbyte_lookup[j * 3] == utfdata[i]) {
-                            glyph = gb18030_fourbyte_lookup[(j * 3) + 1];
-                            glyph2 = gb18030_fourbyte_lookup[(j * 3) + 2];
-                        }
-                        j++;
-                    } while ((j < 6793) && (glyph == 0));
-                    if (glyph == 0) {
-                        strcpy(symbol->errtxt, "Unknown character in input data (E40)");
-                        return ZINT_ERROR_INVALID_DATA;
-                    } else {
-                        gbdata[posn] = glyph;
-                        gbdata[posn + 1] = glyph2;
+            /* Four byte characters in range U+0080 -> U+FFFF */
+            if (done == 0) {
+                j = 0;
+                do {
+                    if (gb18030_fourbyte_lookup[j * 3] == utfdata[i]) {
+                        gbdata[posn] = gb18030_fourbyte_lookup[(j * 3) + 1];
+                        gbdata[posn + 1] = gb18030_fourbyte_lookup[(j * 3) + 2];
                         posn += 2;
+                        done = 1;
                     }
-                } else {
-                    gbdata[posn] = glyph;
-                    posn++;
+                    j++;
+                } while ((j < 6793) && (done == 0));
+            }
+            
+            /* Supplementary planes U+10000 -> U+1FFFF */
+            if (done == 0) {
+                if (utfdata[i] >= 0x10000 && utfdata[i] < 0x110000) {
+                    /* algorithm from libiconv-1.15\lib\gb18030.h */
+                    int j, r3, r2, r1, r0;
+                    
+                    j = utfdata[i] - 0x10000;
+                    r3 = (j % 10) + 0x30; j = j / 10;
+                    r2 = (j % 126) + 0x81; j = j / 126;
+                    r1 = (j % 10) + 0x30; j = j / 10;
+                    r0 = j + 0x90;
+                    gbdata[posn] = (r0 << 8) + r1;
+                    gbdata[posn + 1] = (r2 << 8) + r3;
+                    posn += 2;
+                    done = 1;
                 }
+            }
+            
+            /* Character not found */
+            if (done == 0) {
+                strcpy(symbol->errtxt, "Unknown character in input data (E40)");
+                return ZINT_ERROR_INVALID_DATA;
             }
         }
         length = posn;
@@ -1382,13 +1407,9 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], int length
     hx_define_mode(mode, gbdata, length);
 
     est_binlen = calculate_binlength(mode, gbdata, length, symbol->eci);
-    est_codewords = est_binlen / 8;
-    if (est_binlen % 8 != 0) {
-        est_codewords++;
-    }
 
 #ifndef _MSC_VER
-    char binary[est_binlen + 1];
+    char binary[est_binlen + 10];
 #else
     binary = (char *) _alloca((est_binlen + 10) * sizeof (char));
 #endif
@@ -1398,31 +1419,36 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], int length
         ecc_level = 1;
     }
 
-    calculate_binary(binary, mode, gbdata, length, symbol->eci);
+    calculate_binary(binary, mode, gbdata, length, symbol->eci, symbol->debug);
+    bin_len = strlen(binary);
+    codewords = bin_len / 8;
+    if (bin_len % 8 != 0) {
+        codewords++;
+    }
 
     version = 85;
     for (i = 84; i > 0; i--) {
         switch (ecc_level) {
             case 1:
-                if (hx_data_codewords_L1[i - 1] > est_codewords) {
+                if (hx_data_codewords_L1[i - 1] > codewords) {
                     version = i;
                     data_codewords = hx_data_codewords_L1[i - 1];
                 }
                 break;
             case 2:
-                if (hx_data_codewords_L2[i - 1] > est_codewords) {
+                if (hx_data_codewords_L2[i - 1] > codewords) {
                     version = i;
                     data_codewords = hx_data_codewords_L2[i - 1];
                 }
                 break;
             case 3:
-                if (hx_data_codewords_L3[i - 1] > est_codewords) {
+                if (hx_data_codewords_L3[i - 1] > codewords) {
                     version = i;
                     data_codewords = hx_data_codewords_L3[i - 1];
                 }
                 break;
             case 4:
-                if (hx_data_codewords_L4[i - 1] > est_codewords) {
+                if (hx_data_codewords_L4[i - 1] > codewords) {
                     version = i;
                     data_codewords = hx_data_codewords_L4[i - 1];
                 }
@@ -1445,20 +1471,25 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], int length
     if (symbol->option_2 > version) {
         version = symbol->option_2;
     }
+    
+    if ((symbol->option_2 != 0) && (symbol->option_2 < version)) {
+        strcpy(symbol->errtxt, "Input too long for selected symbol size");
+        return ZINT_ERROR_TOO_LONG;
+    }
 
     /* If there is spare capacity, increase the level of ECC */
 
-    if ((ecc_level == 1) && (est_codewords < hx_data_codewords_L2[version - 1])) {
+    if ((ecc_level == 1) && (codewords < hx_data_codewords_L2[version - 1])) {
         ecc_level = 2;
         data_codewords = hx_data_codewords_L2[version - 1];
     }
 
-    if ((ecc_level == 2) && (est_codewords < hx_data_codewords_L3[version - 1])) {
+    if ((ecc_level == 2) && (codewords < hx_data_codewords_L3[version - 1])) {
         ecc_level = 3;
         data_codewords = hx_data_codewords_L3[version - 1];
     }
 
-    if ((ecc_level == 3) && (est_codewords < hx_data_codewords_L4[version - 1])) {
+    if ((ecc_level == 3) && (codewords < hx_data_codewords_L4[version - 1])) {
         ecc_level = 4;
         data_codewords = hx_data_codewords_L4[version - 1];
     }
@@ -1483,7 +1514,7 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], int length
         datastream[i] = 0;
     }
 
-    for (i = 0; i < est_binlen; i++) {
+    for (i = 0; i < bin_len; i++) {
         if (binary[i] == '1') {
             datastream[i / 8] += 0x80 >> (i % 8);
         }

@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
 
     developed from and including some functions from:
         IEC16022 bar code generation
@@ -536,7 +536,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
     int sp, tp, i, gs1;
     int current_mode, next_mode;
     int inputlen = *length_p;
-    int debug = 0;
+    int debug = symbol->debug;
 #ifndef _MSC_VER
     char binary[2 * inputlen];
 #else
@@ -1183,9 +1183,8 @@ int data_matrix_200(struct zint_symbol *symbol, const unsigned char source[], co
     if (calcsize > optionsize) {
         symbolsize = calcsize;
         if (optionsize != -1) {
-            /* flag an error */
-            error_number = ZINT_WARN_INVALID_OPTION;
-            strcpy(symbol->errtxt, "Data does not fit in selected symbol size (E12)");
+            strcpy(symbol->errtxt, "Input too long for selected symbol size");
+            return ZINT_ERROR_TOO_LONG;
         }
     }
 
@@ -1221,12 +1220,13 @@ int data_matrix_200(struct zint_symbol *symbol, const unsigned char source[], co
 #ifdef DEBUG
     {
         int CWCount;
+		int posCur;
         if (skew)
             CWCount = 1558 + 620;
         else
             CWCount = bytes + rsblock * (bytes / datablock);
         printf("Codewords (%i):", CWCount);
-        for (int posCur = 0; posCur < CWCount; posCur++)
+        for (posCur = 0; posCur < CWCount; posCur++)
             printf(" %3i", binary[posCur]);
         puts("\n");
     }
@@ -1255,9 +1255,10 @@ int data_matrix_200(struct zint_symbol *symbol, const unsigned char source[], co
         // Print position matrix as in standard
         for (y = NR - 1; y >= 0; y--) {
             for (x = 0; x < NC; x++) {
+				int v;
                 if (x != 0)
                     fprintf(stderr, "|");
-                int v = places[(NR - y - 1) * NC + x];
+                v = places[(NR - y - 1) * NC + x];
                 fprintf(stderr, "%3d.%2d", (v >> 3), 8 - (v & 7));
             }
             fprintf(stderr, "\n");

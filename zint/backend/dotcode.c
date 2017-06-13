@@ -184,7 +184,7 @@ void rsencode(int nd, int nc, unsigned char *wd) {
 
     // Start by generating "nc" roots (antilogs):
     root[0] = 1;
-    for (i = 1; i <= nc; i++)
+    for (i = 1; (i <= nc) && (i < GF); i++)
         root[i] = (PM * root[i - 1]) % GF;
 
     // Here we compute how many interleaved R-S blocks will be needed
@@ -266,7 +266,7 @@ int datum_b(const unsigned char source[], int position, int length) {
 int datum_c(const unsigned char source[], int position, int length) {
     int retval = 0;
 
-    if (position < length - 2) {
+    if (position <= length - 2) {
         if (((source[position] >= '0') && (source[position] <= '9'))
                 && ((source[position + 1] >= '0') && (source[position + 1] <= '9')))
             retval = 1;
@@ -352,7 +352,7 @@ int ahead_b(const unsigned char source[], int position, int length) {
 }
 
 /* checks if the next character is in the range 128 to 255  (Annex F.II.I) */
-int binary(const unsigned char source[], int position, int length) {
+int binary(const unsigned char source[], int position) {
     int retval = 0;
 
     if (source[position] >= 128) {
@@ -363,11 +363,11 @@ int binary(const unsigned char source[], int position, int length) {
 }
 
 /* Analyse input data stream and encode using algorithm from Annex F */
-int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char source[], int length, unsigned char *codeword_array) {
+int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char source[], int length, unsigned char *codeword_array, int *binary_finish) {
     int input_position, array_length, i;
     char encoding_mode;
     int inside_macro, done;
-    int debug = 0;
+    int debug = symbol->debug;
     int binary_buffer_size = 0;
     int lawrencium[6]; // Reversed radix 103 values
 
@@ -521,7 +521,7 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
 
         /* Setp B3 */
         if ((!done) && (encoding_mode == 'C')) {
-            if (binary(source, input_position, length)) {
+            if (binary(source, input_position)) {
                 if (n_digits(source, input_position + 1, length) > 0) {
                     if ((source[input_position] - 128) < 32) {
                         codeword_array[array_length] = 110; // Bin Shift A
@@ -614,12 +614,42 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
                 }
             } else {
                 if (datum_b(source, input_position, length)) {
-                    codeword_array[array_length] = source[input_position] - 32;
-                    array_length++;
-                    input_position++;
-                    done = 1;
-                    if (debug) {
-                        printf("C2/2 ");
+                    
+                    if ((source[input_position] >= 32) && (source[input_position] <= 127)) {
+                        codeword_array[array_length] = source[input_position] - 32;
+                        done = 1;
+                        
+                    } else if (source[input_position] == 13) {
+                        /* CR/LF */
+                        codeword_array[array_length] = 96;
+                        input_position++;
+                        done = 1;
+                        
+                    } else if (input_position != 0) {
+                        /* HT, FS, GS and RS in the first data position would be interpreted as a macro (see table 2) */
+                        switch(source[input_position]) {
+                            case 9: // HT
+                                codeword_array[array_length] = 97;
+                                break;
+                            case 28: // FS
+                                codeword_array[array_length] = 98;
+                                break;
+                            case 29: // GS
+                                codeword_array[array_length] = 99;
+                                break;
+                            case 30: // RS
+                                codeword_array[array_length] = 100;
+                                break;
+                        }
+                        done = 1;
+                    }
+                    
+                    if (done == 1) {
+                        array_length++;
+                        input_position++;
+                        if (debug) {
+                            printf("C2/2 ");
+                        }
                     }
                 }
             }
@@ -627,7 +657,7 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
 
         /* Step C3 */
         if ((!done) && (encoding_mode == 'B')) {
-            if (binary(source, input_position, length)) {
+            if (binary(source, input_position)) {
                 if (datum_b(source, input_position + 1, length)) {
                     if ((source[input_position] - 128) < 32) {
                         codeword_array[array_length] = 110; // Bin Shift A
@@ -729,7 +759,7 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
 
         /* Step D3 */
         if ((!done) && (encoding_mode == 'A')) {
-            if (binary(source, input_position, length)) {
+            if (binary(source, input_position)) {
                 if (datum_a(source, input_position + 1, length)) {
                     if ((source[input_position] - 128) < 32) {
                         codeword_array[array_length] = 110; // Bin Shift A
@@ -822,10 +852,10 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
          * base 103 into five base 259 values..."
          */
         if ((!done) && (encoding_mode == 'X')) {
-            if (binary(source, input_position, length)
-                    || binary(source, input_position + 1, length)
-                    || binary(source, input_position + 2, length)
-                    || binary(source, input_position + 3, length)) {
+            if (binary(source, input_position)
+                    || binary(source, input_position + 1)
+                    || binary(source, input_position + 2)
+                    || binary(source, input_position + 3)) {
                 binary_buffer *= 259;
                 binary_buffer += source[input_position];
                 binary_buffer_size++;
@@ -880,6 +910,10 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
             }
         }
     } while (input_position < length);
+
+    if (encoding_mode == 'X') {
+        *(binary_finish) = 1;
+    }
 
     if (debug) {
         printf("\n\n");
@@ -1039,25 +1073,26 @@ int dotcode(struct zint_symbol *symbol, const unsigned char source[], int length
     int i, j, k;
     size_t jc;
     int data_length, ecc_length;
-    int min_dots, n_dots;
-    int height, width, pad_chars;
+    int min_dots, n_dots, min_area;
+    int height, width;
     int mask_score[4];
     int weight;
     size_t dot_stream_length;
     int high_score, best_mask;
+    int binary_finish = 0;
     int debug = 0;
+    int padding_dots, is_first;
 
 #ifndef _MSC_VER
     unsigned char codeword_array[length * 3];
-    unsigned char masked_codeword_array[length * 3];
 #else
     char* dot_stream;
     char* dot_array;
+    unsigned char* masked_codeword_array;
     unsigned char* codeword_array = (unsigned char *) _alloca(length * 3 * sizeof (unsigned char));
-    unsigned char* masked_codeword_array = (unsigned char *) _alloca(length * 3 * sizeof (unsigned char));
 #endif /* _MSC_VER */
 
-    data_length = dotcode_encode_message(symbol, source, length, codeword_array);
+    data_length = dotcode_encode_message(symbol, source, length, codeword_array, &binary_finish);
 
     ecc_length = 3 + (data_length / 2);
 
@@ -1066,23 +1101,52 @@ int dotcode(struct zint_symbol *symbol, const unsigned char source[], int length
     }
 
     min_dots = 9 * (data_length + 3 + (data_length / 2)) + 2;
+    min_area = min_dots * 2;
 
     if (symbol->option_2 == 0) {
+        /* Automatic sizing */
+        /* Following Rule 3 (Section 5.2.2) and applying a recommended width to height ratio 3:2 */
+        /* Eliminates under sized symbols */
 
-        height = (int) sqrt(2.0 * min_dots);
-        if (height % 2) {
-            height++;
-        }
+        float h = (float) (sqrt(min_area * 0.666));
+        float w = (float) (sqrt(min_area * 1.5));
 
-        width = (2 * min_dots) / height;
-        if (!(width % 2)) {
-            width++;
+        height = (int) h;
+        width = (int) w;
+
+        if ((width + height) % 2 == 1) {
+            if ((width * height) < min_area) {
+                width++;
+                height++;
+            }
+        } else {
+            if ((h * width) < (w * height)) {
+                width++;
+                if ((width * height) < min_area) {
+                    width--;
+                    height++;
+                    if ((width * height) < min_area) {
+                        width += 2;
+                    }
+                }
+            } else {
+                height++;
+                if ((width * height) < min_area) {
+                    width++;
+                    height--;
+                    if ((width * height) < min_area) {
+                        height += 2;
+                    }
+                }
+            }
         }
 
     } else {
-        width = symbol->option_2;
+        /* User defined width */
+        /* Eliminates under sized symbols */
 
-        height = (2 * min_dots) / width;
+        width = symbol->option_2;
+        height = (min_area + (width - 1)) / width;
 
         if (!((width + height) % 2)) {
             height++;
@@ -1108,27 +1172,37 @@ int dotcode(struct zint_symbol *symbol, const unsigned char source[], int length
 #endif
 
     /* Add pad characters */
-    for (pad_chars = 0; 9 * ((data_length + pad_chars + 3 + ((data_length + pad_chars) / 2)) + 2) < n_dots; pad_chars++);
+    padding_dots = n_dots - min_dots; /* get the number of free dots available for padding */
+    is_first = 1; /* first padding character flag */
 
-    if (pad_chars > 0) {
-        codeword_array[data_length] = 109; // Latch to Code Set A
+    while (padding_dots >= 9) {
+        if (padding_dots < 18 && ((data_length % 2) == 0))
+            padding_dots -= 9;
+
+        else if (padding_dots >= 18) {
+            if ((data_length % 2) == 0)
+                padding_dots -= 9;
+            else
+                padding_dots -= 18;
+        } else
+            break; /* not enough padding dots left for padding */
+
+        if ((is_first == 1) && (binary_finish == 1))
+            codeword_array[data_length] = 109;
+        else
+            codeword_array[data_length] = 106;
+
         data_length++;
-        pad_chars--;
-    }
-
-    for (i = 0; i < pad_chars; i++) {
-        codeword_array[data_length] = 106; // Pad
-        data_length++;
-    }
-
-    if (data_length > 450) {
-        // Larger data sets than this cause rsencode() to throw SIGSEGV
-        // This should probably be fixed by somebody who understands what rsencode() does...
-        strcpy(symbol->errtxt, "Input too long (E21)");
-        return ZINT_ERROR_TOO_LONG;
+        is_first = 0;
     }
 
     ecc_length = 3 + (data_length / 2);
+
+#ifndef _MSC_VER
+    unsigned char masked_codeword_array[data_length + 1 + ecc_length];
+#else
+    masked_codeword_array = (unsigned char *) _alloca((data_length + 1 + ecc_length) * sizeof (unsigned char));
+#endif /* _MSC_VER */
 
     /* Evaluate data mask options */
     for (i = 0; i < 4; i++) {

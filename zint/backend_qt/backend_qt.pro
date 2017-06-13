@@ -19,7 +19,7 @@ TARGET = QtZint
 INCLUDEPATH += ../backend
 
 #EDIT THIS !!!!
-DEFINES += ZINT_VERSION="\\\"2.5.0\\\""
+DEFINES += ZINT_VERSION="\\\"2.5.1\\\""
 
 !contains(DEFINES, NO_PNG) {
     INCLUDEPATH += ../../lpng
@@ -88,6 +88,7 @@ SOURCES += ../backend/2of5.c \
            ../backend/dmatrix.c \
            ../backend/dotcode.c \
            ../backend/eci.c \
+           ../backend/emf.c \
            ../backend/gif.c \
            ../backend/gridmtx.c \
            ../backend/gs1.c \
@@ -108,6 +109,7 @@ SOURCES += ../backend/2of5.c \
            ../backend/rss.c \
            ../backend/svg.c \
            ../backend/telepen.c \
+           ../backend/tif.c \
            ../backend/upcean.c \
            ../backend/qr.c \
            ../backend/dllversion.c \

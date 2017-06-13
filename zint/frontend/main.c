@@ -491,8 +491,9 @@ int main(int argc, char **argv) {
             {"mirror", 0, 0, 0},
             {"dotty", 0, 0, 0},
             {"dotsize", 1, 0, 0},
-            {"eci", 1, 0, 'e'},
+            {"eci", 1, 0, 0},
             {"filetype", 1, 0, 0},
+            {"verbose", 0, 0, 0}, // Currently undocumented, output some debug info
             {0, 0, 0, 0}
         };
         c = getopt_long(argc, argv, "htb:w:d:o:i:rcmpe", long_options, &option_index);
@@ -687,6 +688,9 @@ int main(int argc, char **argv) {
                         fprintf(stderr, "Invalid ECI code (A18)\n");
                         fflush(stderr);
                     }
+                }
+                if (!strcmp(long_options[option_index].name, "verbose")) {
+                    my_symbol->debug = 1;
                 }
                 break;
 

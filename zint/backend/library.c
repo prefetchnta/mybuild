@@ -1,7 +1,7 @@
 /*  library.c - external functions of libzint
 
     libzint - the open source barcode library
-    Copyright (C) 2009-2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -72,6 +72,7 @@ struct zint_symbol *ZBarcode_Create() {
     symbol->bitmap_height = 0;
     symbol->eci = 3;
     symbol->dot_size = 4.0 / 5.0;
+    symbol->debug = 0;
     return symbol;
 }
 
@@ -209,6 +210,7 @@ extern int plot_raster(struct zint_symbol *symbol, int rotate_angle, int file_ty
 extern int render_plot(struct zint_symbol *symbol, float width, float height); /* Plot to gLabels */
 extern int ps_plot(struct zint_symbol *symbol); /* Plot to EPS */
 extern int svg_plot(struct zint_symbol *symbol); /* Plot to SVG */
+extern int emf_plot(struct zint_symbol *symbol); /* Plot to Metafile */
 
 void error_tag(char error_string[], int error_number) {
     char error_buffer[100];
@@ -1122,6 +1124,12 @@ int ZBarcode_Print(struct zint_symbol *symbol, int rotate_angle) {
             }
             error_number = plot_raster(symbol, rotate_angle, OUT_GIF_FILE);
         } else
+            if (!(strcmp(output, "TIF"))) {
+            if (symbol->scale < 1.0) {
+                symbol->text[0] = '\0';
+            }
+            error_number = plot_raster(symbol, rotate_angle, OUT_TIF_FILE);
+        } else
             if (!(strcmp(output, "TXT"))) {
             error_number = dump_plot(symbol);
         } else
@@ -1130,6 +1138,9 @@ int ZBarcode_Print(struct zint_symbol *symbol, int rotate_angle) {
         } else
             if (!(strcmp(output, "SVG"))) {
             error_number = svg_plot(symbol);
+        } else
+            if (!(strcmp(output, "EMF"))) {
+            error_number = emf_plot(symbol);
         } else {
             strcpy(symbol->errtxt, "Unknown output format (B25)");
             error_tag(symbol->errtxt, ZINT_ERROR_INVALID_OPTION);

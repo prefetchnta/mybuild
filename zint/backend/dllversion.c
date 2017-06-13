@@ -20,11 +20,11 @@ HRESULT DllGetVersion (DLLVERSIONINFO2* pdvi)
 		return (E_INVALIDARG);
 
 	pdvi->info1.dwMajorVersion = 2;
-	pdvi->info1.dwMinorVersion = 5;
-	pdvi->info1.dwBuildNumber = 1;
+	pdvi->info1.dwMinorVersion = 6;
+	pdvi->info1.dwBuildNumber = 0;
 	pdvi->info1.dwPlatformID = DLLVER_PLATFORM_WINDOWS;
 	if (sizeof(DLLVERSIONINFO2) == pdvi->info1.cbSize)
-		pdvi->ullVersion = MAKEDLLVERULL(2, 5, 1, 0);
+		pdvi->ullVersion = MAKEDLLVERULL(2, 6, 0, 0);
 
 	return S_OK;
 }

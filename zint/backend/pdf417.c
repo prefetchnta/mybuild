@@ -561,7 +561,7 @@ int pdf417(struct zint_symbol *symbol, unsigned char chaine[], int length) {
     int i, k, j, indexchaine, indexliste, mode, longueur, loop, mccorrection[520], offset;
     int total, chainemc[2700], mclength, c1, c2, c3, dummy[35], codeerr;
     char codebarre[140], pattern[580];
-    int debug = 0;
+    int debug = symbol->debug;
 
     codeerr = 0;
 
@@ -815,9 +815,9 @@ int pdf417(struct zint_symbol *symbol, unsigned char chaine[], int length) {
                 set_module(symbol, i, loop);
             }
         }
-        if (symbol->height == 0) {
-            symbol->row_height[i] = 3;
-        }
+        
+        symbol->row_height[i] = 3;
+        
     }
     symbol->rows = (mclength / symbol->option_2);
     symbol->width = strlen(pattern);

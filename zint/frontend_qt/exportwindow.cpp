@@ -21,23 +21,29 @@
 #include <QUiLoader>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QSettings>
 
 #include "exportwindow.h"
 #include <stdio.h>
 
 ExportWindow::ExportWindow()
 {
+    QSettings settings;
 	setupUi(this);
 	linDestPath->setText(QDir::toNativeSeparators(QDir::homePath()));
 	
 	connect(btnCancel, SIGNAL( clicked( bool )), SLOT(quit_now()));
 	connect(btnOK, SIGNAL( clicked( bool )), SLOT(process()));
 	connect(btnDestPath, SIGNAL( clicked( bool )), SLOT(get_directory()));
+
+    cmbFileFormat->setCurrentIndex(settings.value("studio/export/filetype", 0).toInt());
 }
 
 ExportWindow::~ExportWindow()
 {
-	
+    QSettings settings;
+
+    settings.setValue("studio/export/filetype", cmbFileFormat->currentIndex());
 }
 
 void ExportWindow::quit_now()
@@ -75,18 +81,22 @@ void ExportWindow::process()
 #ifdef NO_PNG
 		case 0: suffix = ".eps"; break;
 		case 1: suffix = ".gif"; break;
-                case 2: suffix = ".svg"; break;
-                case 3: suffix = ".bmp"; break;
-                case 4: suffix = ".pcx"; break;
+        case 2: suffix = ".svg"; break;
+        case 3: suffix = ".bmp"; break;
+        case 4: suffix = ".pcx"; break;
+		case 5: suffix = ".emf"; break;
+		case 6: suffix = ".tif"; break;
 #else
-                case 0: suffix = ".png"; break;
+        case 0: suffix = ".png"; break;
 		case 1: suffix = ".eps"; break;
 		case 2: suffix = ".gif"; break;
-                case 3: suffix = ".svg"; break;
-                case 4: suffix = ".bmp"; break;
-                case 5: suffix = ".pcx"; break;
+        case 3: suffix = ".svg"; break;
+        case 4: suffix = ".bmp"; break;
+        case 5: suffix = ".pcx"; break;
+		case 6: suffix = ".emf"; break;
+		case 7: suffix = ".tif"; break;
 #endif
-	}
+    }
 	
 	for(i = 0; i < lines; i++) {
 		datalen = 0;
@@ -103,7 +113,7 @@ void ExportWindow::process()
 					
 					for(m = 0; m < dataString.length(); m++) {
 						name_qchar = dataString[m];
-						name_char = name_qchar.toAscii();
+						name_char = name_qchar.toLatin1();
 						
 						switch(name_char) {
 							case '\\': url_escaped += "%5C"; break;
@@ -141,8 +151,8 @@ void ExportWindow::process()
 				}
 				break;
 		}
-		barcode->bc.setText(dataString.toAscii().data());
-		barcode->bc.save_to_file(fileName.toAscii().data());
+		barcode->bc.setText(dataString.toLatin1().data());
+		barcode->bc.save_to_file(fileName.toLatin1().data());
 		inputpos += datalen + 1;
 	}
 	close();

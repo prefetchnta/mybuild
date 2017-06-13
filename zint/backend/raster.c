@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -53,6 +53,7 @@ extern int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf);
 extern int bmp_pixel_plot(struct zint_symbol *symbol, char *pixelbuf);
 extern int pcx_pixel_plot(struct zint_symbol *symbol, char *pixelbuf);
 extern int gif_pixel_plot(struct zint_symbol *symbol, char *pixelbuf);
+extern int tif_pixel_plot(struct zint_symbol *symbol, char *pixelbuf);
 
 void buffer_plot(struct zint_symbol *symbol, char *pixelbuf) {
     /* Place pixelbuffer into symbol */
@@ -95,7 +96,7 @@ int save_raster_image_to_file(struct zint_symbol *symbol, int image_height, int 
     char *rotated_pixbuf;
     
     if (!(rotated_pixbuf = (char *) malloc(image_width * image_height))) {
-        printf("Insufficient memory for pixel buffer (F50)");
+        strcpy(symbol->errtxt, "Insufficient memory for pixel buffer (F50)");
         return ZINT_ERROR_ENCODING_PROBLEM;
     }
 
@@ -188,6 +189,9 @@ int save_raster_image_to_file(struct zint_symbol *symbol, int image_height, int 
             break;
         case OUT_GIF_FILE:
             error_number = gif_pixel_plot(symbol, rotated_pixbuf);
+            break;
+        case OUT_TIF_FILE:
+            error_number = tif_pixel_plot(symbol, rotated_pixbuf);
             break;
         default:
             error_number = bmp_pixel_plot(symbol, rotated_pixbuf);
@@ -486,7 +490,7 @@ int plot_raster_maxicode(struct zint_symbol *symbol, int rotate_angle, int data_
     image_height = (300 + (2 * yoffset * 2)) * scaler;
 
     if (!(pixelbuf = (char *) malloc(image_width * image_height))) {
-        printf("Insufficient memory for pixel buffer (F55)");
+        strcpy(symbol->errtxt, "Insufficient memory for pixel buffer (F55)");
         return ZINT_ERROR_ENCODING_PROBLEM;
     } else {
         for (i = 0; i < (image_width * image_height); i++) {
@@ -497,7 +501,7 @@ int plot_raster_maxicode(struct zint_symbol *symbol, int rotate_angle, int data_
     hexagon_size = (int)scaler * 10;
     
     if (!(scaled_hexagon = (char *) malloc(hexagon_size * hexagon_size))) {
-        printf("Insufficient memory for pixel buffer (F56)");
+        strcpy(symbol->errtxt, "Insufficient memory for pixel buffer (F56)");
         free(scaled_hexagon);
         return ZINT_ERROR_ENCODING_PROBLEM;
     } else {
@@ -607,7 +611,7 @@ int plot_raster_dotty(struct zint_symbol *symbol, int rotate_angle, int data_typ
 
     /* Apply scale options by creating another pixel buffer */
     if (!(scaled_pixelbuf = (char *) malloc(scale_width * scale_height))) {
-        printf("Insufficient memory for pixel buffer (F57)");
+        strcpy(symbol->errtxt, "Insufficient memory for pixel buffer (F57)");
         return ZINT_ERROR_ENCODING_PROBLEM;
     } else {
         for (i = 0; i < (scale_width * scale_height); i++) {
@@ -782,7 +786,7 @@ int plot_raster_default(struct zint_symbol *symbol, int rotate_angle, int data_t
     image_height = 2 * (symbol->height + textoffset + yoffset + yoffset);
 
     if (!(pixelbuf = (char *) malloc(image_width * image_height))) {
-        printf("Insufficient memory for pixel buffer (F58)");
+        strcpy(symbol->errtxt, "Insufficient memory for pixel buffer (F58)");
         return ZINT_ERROR_ENCODING_PROBLEM;
     } else {
         for (i = 0; i < (image_width * image_height); i++) {
@@ -824,7 +828,7 @@ int plot_raster_default(struct zint_symbol *symbol, int rotate_angle, int data_t
             block_width = 0;
             do {
                 block_width++;
-            } while (module_is_set(symbol, this_row, i + block_width) == module_is_set(symbol, this_row, i));
+            } while ((i + block_width < symbol->width )&& module_is_set(symbol, this_row, i + block_width) == module_is_set(symbol, this_row, i));
             if ((addon_latch == 0) && (r == 0) && (i > main_width)) {
                 plot_height = (int) (row_height - 5.0);
                 plot_yposn = (int) (row_posn - 5.0);
@@ -1085,7 +1089,7 @@ int plot_raster_default(struct zint_symbol *symbol, int rotate_angle, int data_t
     /* Apply scale options by creating another pixel buffer */
     if (!(scaled_pixelbuf = (char *) malloc(scale_width * scale_height))) {
         free(pixelbuf);
-        printf("Insufficient memory for pixel buffer (F59)");
+        strcpy(symbol->errtxt, "Insufficient memory for pixel buffer (F59)");
         return ZINT_ERROR_ENCODING_PROBLEM;
     } else {
         for (i = 0; i < (scale_width * scale_height); i++) {

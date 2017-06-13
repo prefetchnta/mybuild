@@ -1,7 +1,8 @@
-/*  stdint_msvc.h - definitions for libzint
+/* tif.h - Aldus Tagged Image File Format */
 
+/*
     libzint - the open source barcode library
-    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2016 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -28,25 +29,59 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
     SUCH DAMAGE.
  */
+#ifndef TIF_H
+#define	TIF_H
 
-#ifndef STDINT_MSVC_H
-#define STDINT_MSVC_H
-
-#ifdef __cplusplus
+#ifdef	__cplusplus
 extern "C" {
-#endif /* __cplusplus */
-
+#endif
+    
 #ifdef _MSC_VER
-
-typedef BYTE uint8_t;
-typedef WORD uint16_t;
-typedef DWORD uint32_t;
-typedef INT32 int32_t;
-
+#include <windows.h>
+#include "stdint_msvc.h"
+#else
+#include <stdint.h>
 #endif
 
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
+#pragma pack(1)
+    
+    typedef struct tiff_header {
+        uint16_t byte_order;
+        uint16_t identity;
+        uint32_t offset;
+    } tiff_header_t;
+    
+    typedef struct tiff_tag {
+        uint16_t tag;
+        uint16_t type;
+        uint32_t count;
+        uint32_t offset;
+    } tiff_tag_t;
+    
+    typedef struct tiff_ifd {
+        uint16_t entries;
+        tiff_tag_t new_subset;
+        tiff_tag_t image_width;
+        tiff_tag_t image_length;
+        tiff_tag_t bits_per_sample;
+        tiff_tag_t compression;
+        tiff_tag_t photometric;
+        tiff_tag_t strip_offsets;
+        tiff_tag_t samples_per_pixel;
+        tiff_tag_t rows_per_strip;
+        tiff_tag_t strip_byte_counts;
+        tiff_tag_t x_resolution;
+        tiff_tag_t y_resolution;
+        tiff_tag_t planar_config;
+        tiff_tag_t resolution_unit;
+        uint32_t offset;
+    } tiff_ifd_t;
+    
+#pragma pack()
 
-#endif /* STDINT_MSVC_H */
+#ifdef	__cplusplus
+}
+#endif
+
+#endif	/* TIF_H */
+

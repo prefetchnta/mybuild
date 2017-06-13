@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -206,6 +206,13 @@ int svg_plot(struct zint_symbol *symbol) {
     }
     addon[r] = '\0';
 
+    /* Don't include control characters in output text */
+    for(i = 0; i < ustrlen(local_text); i++) {
+        if (local_text[i] < ' ') {
+            local_text[i] = ' ';
+        }
+    }
+    
     if (ustrlen(local_text) != 0) {
         textoffset = 9;
     } else {
@@ -316,7 +323,7 @@ int svg_plot(struct zint_symbol *symbol) {
             row_posn += yoffset;
 
             if (symbol->output_options & BARCODE_DOTTY_MODE) {
-                /* Use (currently undocumented) dot mode - see SF ticket #29 */
+                /* Use dot mode */
                 for (i = 0; i < symbol->width; i++) {
                     if (module_is_set(symbol, this_row, i)) {
                         fprintf(fsvg, "      <circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" fill=\"#%s\" />\n", ((i + xoffset) * scaler) + (scaler / 2.0), (row_posn * scaler) + (scaler / 2.0), (symbol->dot_size / 2.0) * scaler, symbol->fgcolour);

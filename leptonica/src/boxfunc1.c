@@ -32,22 +32,29 @@
  *           l_int32   boxContains()
  *           l_int32   boxIntersects()
  *           BOXA     *boxaContainedInBox()
+ *           l_int32   boxaContainedInBoxCount()
+ *           l_int32   boxaContainedInBoxa()
  *           BOXA     *boxaIntersectsBox()
+ *           l_int32   boxaIntersectsBoxCount()
  *           BOXA     *boxaClipToBox()
  *           BOXA     *boxaCombineOverlaps()
+ *           l_int32   boxaCombineOverlapsInPair()
  *           BOX      *boxOverlapRegion()
  *           BOX      *boxBoundingRegion()
  *           l_int32   boxOverlapFraction()
  *           l_int32   boxOverlapArea()
  *           BOXA     *boxaHandleOverlaps()
  *           l_int32   boxSeparationDistance()
+ *           l_int32   boxCompareSize()
  *           l_int32   boxContainsPt()
  *           BOX      *boxaGetNearestToPt()
+ *           BOX      *boxaGetNearestToLine()
  *           l_int32   boxIntersectByLine()
  *           l_int32   boxGetCenter()
  *           BOX      *boxClipToRectangle()
  *           l_int32   boxClipToRectangleParams()
  *           BOX      *boxRelocateOneSide()
+ *           BOXA     *boxaAdjustSides()
  *           BOX      *boxAdjustSides()
  *           BOXA     *boxaSetSide()
  *           BOXA     *boxaAdjustWidthToTarget()
@@ -183,6 +190,92 @@ BOXA    *boxad;
 
 
 /*!
+ * \brief   boxaContainedInBoxCount()
+ *
+ * \param[in]    boxa
+ * \param[in]    box      for selecting contained boxes in %boxa
+ * \param[out]   pcount   number of boxes intersecting the box
+ * \return  0 if OK, 1 on error
+ */
+l_int32
+boxaContainedInBoxCount(BOXA     *boxa,
+                        BOX      *box,
+                        l_int32  *pcount)
+{
+l_int32  i, n, val;
+BOX     *box1;
+
+    PROCNAME("boxaContainedInBoxCount");
+
+    if (!pcount)
+        return ERROR_INT("&count not defined", procName, 1);
+    *pcount = 0;
+    if (!boxa)
+        return ERROR_INT("boxa not defined", procName, 1);
+    if (!box)
+        return ERROR_INT("box not defined", procName, 1);
+    if ((n = boxaGetCount(boxa)) == 0)
+        return 0;
+
+    for (i = 0; i < n; i++) {
+        box1 = boxaGetBox(boxa, i, L_CLONE);
+        boxContains(box, box1, &val);
+        if (val == 1)
+            (*pcount)++;
+        boxDestroy(&box1);
+    }
+    return 0;
+}
+
+
+/*!
+ * \brief   boxaContainedInBoxa()
+ *
+ * \param[in]     boxa1, boxa2
+ * \param[out]    pcontained    1 if every box in boxa2 is contained in
+ *                              some box in boxa1; 0 otherwise
+ * \return  0 if OK, 1 on error
+ */
+l_int32
+boxaContainedInBoxa(BOXA     *boxa1,
+                    BOXA     *boxa2,
+                    l_int32  *pcontained)
+{
+l_int32  i, j, n1, n2, cont, result;
+BOX     *box1, *box2;
+
+    PROCNAME("boxaContainedInBoxa");
+
+    if (!pcontained)
+        return ERROR_INT("&contained not defined", procName, 1);
+    *pcontained = 0;
+    if (!boxa1 || !boxa2)
+        return ERROR_INT("boxa1 and boxa2 not both defined", procName, 1);
+
+    n1 = boxaGetCount(boxa1);
+    n2 = boxaGetCount(boxa2);
+    for (i = 0; i < n2; i++) {
+        box2 = boxaGetBox(boxa2, i, L_CLONE);
+        cont = 0;
+        for (j = 0; j < n1; j++) {
+            box1 = boxaGetBox(boxa1, j, L_CLONE);
+            boxContains(box1, box2, &result);
+            boxDestroy(&box1);
+            if (result) {
+                cont = 1;
+                break;
+            }
+        }
+        boxDestroy(&box2);
+        if (!cont) return 0;
+    }
+
+    *pcontained = 1;
+    return 0;
+}
+
+
+/*!
  * \brief   boxaIntersectsBox()
  *
  * \param[in]    boxas
@@ -223,6 +316,45 @@ BOXA    *boxad;
     }
 
     return boxad;
+}
+
+
+/*!
+ * \brief   boxaIntersectsBoxCount()
+ *
+ * \param[in]    boxa
+ * \param[in]    box      for selecting intersecting boxes in %boxa
+ * \param[out]   pcount   number of boxes intersecting the box
+ * \return  0 if OK, 1 on error
+ */
+l_int32
+boxaIntersectsBoxCount(BOXA     *boxa,
+                       BOX      *box,
+                       l_int32  *pcount)
+{
+l_int32  i, n, val;
+BOX     *box1;
+
+    PROCNAME("boxaIntersectsBoxCount");
+
+    if (!pcount)
+        return ERROR_INT("&count not defined", procName, 1);
+    *pcount = 0;
+    if (!boxa)
+        return ERROR_INT("boxa not defined", procName, 1);
+    if (!box)
+        return ERROR_INT("box not defined", procName, 1);
+    if ((n = boxaGetCount(boxa)) == 0)
+        return 0;
+
+    for (i = 0; i < n; i++) {
+        box1 = boxaGetBox(boxa, i, L_CLONE);
+        boxIntersects(box, box1, &val);
+        if (val == 1)
+            (*pcount)++;
+        boxDestroy(&box1);
+    }
+    return 0;
 }
 
 
@@ -272,7 +404,8 @@ BOXA    *boxad;
 /*!
  * \brief   boxaCombineOverlaps()
  *
- * \param[in]    boxas
+ * \param[in]       boxas
+ * \param[in,out]   pixadb     debug output
  * \return  boxad where each set of boxes in boxas that overlap are
  *                     combined into a single bounding box in boxad, or
  *                     NULL on error.
@@ -281,76 +414,238 @@ BOXA    *boxad;
  * Notes:
  *      (1) If there are no overlapping boxes, it simply returns a copy
  *          of %boxas.
- *      (2) The alternative method of painting each rectanle and finding
- *          the 4-connected components gives the wrong result, because
- *          two non-overlapping rectangles, when rendered, can still
- *          be 4-connected, and hence they will be joined.
- *      (3) A bad case is to have n boxes, none of which overlap.
- *          Then you have one iteration with O(n^2) compares.  This
- *          is still faster than painting each rectangle and finding
- *          the connected components, even for thousands of rectangles.
+ *      (2) Input an empty %pixadb, using pixaCreate(0), for debug output.
+ *          The output gives 2 visualizations of the boxes per iteration;
+ *          boxes in red before, and added boxes in green after. Note that
+ *          all pixels in the red boxes are contained in the green ones.
+ *      (3) The alternative method of painting each rectangle and finding
+ *          the 4-connected components gives a different result in
+ *          general, because two non-overlapping (but touching)
+ *          rectangles, when rendered, are 4-connected and will be joined.
+ *      (4) A bad case computationally is to have n boxes, none of which
+ *          overlap.  Then you have one iteration with O(n^2) compares.
+ *          This is still faster than painting each rectangle and finding
+ *          the bounding boxes of the connected components, even for
+ *          thousands of rectangles.
  * </pre>
  */
 BOXA *
-boxaCombineOverlaps(BOXA  *boxas)
+boxaCombineOverlaps(BOXA  *boxas,
+                    PIXA  *pixadb)
 {
-l_int32  i, j, n1, n2, inter, interfound, niters;
+l_int32  i, j, w, h, n1, n2, overlap, niters;
 BOX     *box1, *box2, *box3;
-BOXA    *boxat1, *boxat2;
+BOXA    *boxa1, *boxa2;
+PIX     *pix1;
 
     PROCNAME("boxaCombineOverlaps");
 
     if (!boxas)
         return (BOXA *)ERROR_PTR("boxas not defined", procName, NULL);
 
-    boxat1 = boxaCopy(boxas, L_COPY);
-    n1 = boxaGetCount(boxat1);
+    if (pixadb) boxaGetExtent(boxas, &w, &h, NULL);
+
+    boxa1 = boxaCopy(boxas, L_COPY);
+    n1 = boxaGetCount(boxa1);
     niters = 0;
-/*    fprintf(stderr, "%d iters: %d boxes\n", niters, n1); */
     while (1) {  /* loop until no change from previous iteration */
         niters++;
-        boxat2 = boxaCreate(n1);
+        if (pixadb) {
+            pix1 = pixCreate(w + 5, h + 5, 32);
+            pixSetAll(pix1);
+            pixRenderBoxaArb(pix1, boxa1, 2, 255, 0, 0);
+            pixaAddPix(pixadb, pix1, L_COPY);
+        }
+
+            /* Combine overlaps for this iteration */
         for (i = 0; i < n1; i++) {
-            box1 = boxaGetBox(boxat1, i, L_COPY);
-            if (i == 0) {
-                boxaAddBox(boxat2, box1, L_INSERT);
+            if ((box1 = boxaGetValidBox(boxa1, i, L_COPY)) == NULL)
                 continue;
-            }
-            n2 = boxaGetCount(boxat2);
-                /* Now test box1 against all boxes already put in boxat2.
-                 * If it is found to intersect with an existing box,
-                 * replace that box by the union of the two boxes,
-                 * and break to the outer loop.  If no overlap is
-                 * found, add box1 to boxat2. */
-            interfound = FALSE;
-            for (j = 0; j < n2; j++) {
-                box2 = boxaGetBox(boxat2, j, L_CLONE);
-                boxIntersects(box1, box2, &inter);
-                if (inter == 1) {
+            for (j = i + 1; j < n1; j++) {
+                if ((box2 = boxaGetValidBox(boxa1, j, L_COPY)) == NULL)
+                    continue;
+                boxIntersects(box1, box2, &overlap);
+                if (overlap) {
                     box3 = boxBoundingRegion(box1, box2);
-                    boxaReplaceBox(boxat2, j, box3);
+                    boxaReplaceBox(boxa1, i, box3);
+                    boxaReplaceBox(boxa1, j, boxCreate(0, 0, 0, 0));
                     boxDestroy(&box1);
-                    boxDestroy(&box2);
-                    interfound = TRUE;
-                    break;
+                    box1 = boxCopy(box3);
                 }
                 boxDestroy(&box2);
             }
-            if (interfound == FALSE)
-                boxaAddBox(boxat2, box1, L_INSERT);
+            boxDestroy(&box1);
+        }
+        boxa2 = boxaSaveValid(boxa1, L_COPY);
+        n2 = boxaGetCount(boxa2);
+        boxaDestroy(&boxa1);
+        boxa1 = boxa2;
+        if (n1 == n2) {
+            if (pixadb) pixDestroy(&pix1);
+            break;
+        }
+        n1 = n2;
+        if (pixadb) {
+            pixRenderBoxaArb(pix1, boxa1, 2, 0, 255, 0);
+            pixaAddPix(pixadb, pix1, L_INSERT);
+        }
+    }
+
+    if (pixadb)
+        L_INFO("number of iterations: %d\n", procName, niters);
+    return boxa1;
+}
+
+
+/*!
+ * \brief   boxaCombineOverlapsInPair()
+ *
+ * \param[in]       boxas1     input boxa1
+ * \param[in]       boxas2     input boxa2
+ * \param[out]      pboxad1    output boxa1
+ * \param[out]      pboxad2    output boxa2
+ * \param[in,out]   pixadb     debug output
+ * \return  0 if OK, 1 on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) One of three things happens to each box in %boxa1 and %boxa2:
+ *           * it gets absorbed into a larger box that it overlaps with
+ *           * it absorbs a smaller (by area) box that it overlaps with
+ *             and gets larger, using the bounding region of the 2 boxes
+ *           * it is unchanged (including absorbing smaller boxes that
+ *             are contained within it).
+ *      (2) If all the boxes from one of the input boxa are absorbed, this
+ *          returns an empty boxa.
+ *      (3) Input an empty %pixadb, using pixaCreate(0), for debug output
+ *      (4) This is useful if different operations are to be carried out
+ *          on possibly overlapping rectangular regions, and it is desired
+ *          to have only one operation on any rectangular region.
+ * </pre>
+ */
+l_int32
+boxaCombineOverlapsInPair(BOXA   *boxas1,
+                          BOXA   *boxas2,
+                          BOXA  **pboxad1,
+                          BOXA  **pboxad2,
+                          PIXA   *pixadb)
+{
+l_int32  i, j, w, h, w2, h2, n1, n2, n1i, n2i, niters;
+l_int32  overlap, bigger, area1, area2;
+BOX     *box1, *box2, *box3;
+BOXA    *boxa1, *boxa2, *boxac1, *boxac2, *boxad1, *boxad2;
+PIX     *pix1;
+
+    PROCNAME("boxaCombineOverlapsInPair");
+
+    if (pboxad1) *pboxad1 = NULL;
+    if (pboxad2) *pboxad2 = NULL;
+    if (!boxas1 || !boxas2)
+        return ERROR_INT("boxas1 and boxas2 not both defined", procName, 1);
+    if (!pboxad1 || !pboxad2)
+        return ERROR_INT("&boxad1 and &boxad2 not both defined", procName, 1);
+
+    if (pixadb) {
+        boxaGetExtent(boxas1, &w, &h, NULL);
+        boxaGetExtent(boxas2, &w2, &h2, NULL);
+        w = L_MAX(w, w2);
+        h = L_MAX(h, w2);
+    }
+
+        /* Let the boxa with the largest area have first crack at the other */
+    boxaGetArea(boxas1, &area1);
+    boxaGetArea(boxas2, &area2);
+    if (area1 >= area2) {
+        boxac1 = boxaCopy(boxas1, L_COPY);
+        boxac2 = boxaCopy(boxas2, L_COPY);
+    } else {
+        boxac1 = boxaCopy(boxas2, L_COPY);
+        boxac2 = boxaCopy(boxas1, L_COPY);
+    }
+
+    n1i = boxaGetCount(boxac1);
+    n2i = boxaGetCount(boxac2);
+    niters = 0;
+    while (1) {
+        niters++;
+        if (pixadb) {
+            pix1 = pixCreate(w + 5, h + 5, 32);
+            pixSetAll(pix1);
+            pixRenderBoxaArb(pix1, boxac1, 2, 255, 0, 0);
+            pixRenderBoxaArb(pix1, boxac2, 2, 0, 255, 0);
+            pixaAddPix(pixadb, pix1, L_INSERT);
         }
 
-        n2 = boxaGetCount(boxat2);
-/*        fprintf(stderr, "%d iters: %d boxes\n", niters, n2); */
-        if (n2 == n1)  /* we're done */
-            break;
+            /* First combine boxes in each set */
+        boxa1 = boxaCombineOverlaps(boxac1, NULL);
+        boxa2 = boxaCombineOverlaps(boxac2, NULL);
 
-        n1 = n2;
-        boxaDestroy(&boxat1);
-        boxat1 = boxat2;
+            /* Now combine boxes between sets */
+        n1 = boxaGetCount(boxa1);
+        n2 = boxaGetCount(boxa2);
+        for (i = 0; i < n1; i++) {  /* 1 eats 2 */
+            if ((box1 = boxaGetValidBox(boxa1, i, L_COPY)) == NULL)
+                continue;
+            for (j = 0; j < n2; j++) {
+                if ((box2 = boxaGetValidBox(boxa2, j, L_COPY)) == NULL)
+                    continue;
+                boxIntersects(box1, box2, &overlap);
+                boxCompareSize(box1, box2, L_SORT_BY_AREA, &bigger);
+                if (overlap && (bigger == 1)) {
+                    box3 = boxBoundingRegion(box1, box2);
+                    boxaReplaceBox(boxa1, i, box3);
+                    boxaReplaceBox(boxa2, j, boxCreate(0, 0, 0, 0));
+                    boxDestroy(&box1);
+                    box1 = boxCopy(box3);
+                }
+                boxDestroy(&box2);
+            }
+            boxDestroy(&box1);
+        }
+        for (i = 0; i < n2; i++) {  /* 2 eats 1 */
+            if ((box2 = boxaGetValidBox(boxa2, i, L_COPY)) == NULL)
+                continue;
+            for (j = 0; j < n1; j++) {
+                if ((box1 = boxaGetValidBox(boxa1, j, L_COPY)) == NULL)
+                    continue;
+                boxIntersects(box1, box2, &overlap);
+                boxCompareSize(box2, box1, L_SORT_BY_AREA, &bigger);
+                if (overlap && (bigger == 1)) {
+                    box3 = boxBoundingRegion(box1, box2);
+                    boxaReplaceBox(boxa2, i, box3);
+                    boxaReplaceBox(boxa1, j, boxCreate(0, 0, 0, 0));
+                    boxDestroy(&box2);
+                    box2 = boxCopy(box3);
+                }
+                boxDestroy(&box1);
+            }
+            boxDestroy(&box2);
+        }
+        boxaDestroy(&boxac1);
+        boxaDestroy(&boxac2);
+        boxac1 = boxaSaveValid(boxa1, L_COPY);  /* remove invalid boxes */
+        boxac2 = boxaSaveValid(boxa2, L_COPY);
+        boxaDestroy(&boxa1);
+        boxaDestroy(&boxa2);
+        n1 = boxaGetCount(boxac1);
+        n2 = boxaGetCount(boxac2);
+        if (n1 == n1i && n2 == n2i) break;
+        n1i = n1;
+        n2i = n2;
+        if (pixadb) {
+            pix1 = pixCreate(w + 5, h + 5, 32);
+            pixSetAll(pix1);
+            pixRenderBoxaArb(pix1, boxac1, 2, 255, 0, 0);
+            pixRenderBoxaArb(pix1, boxac2, 2, 0, 255, 0);
+            pixaAddPix(pixadb, pix1, L_INSERT);
+        }
     }
-    boxaDestroy(&boxat1);
-    return boxat2;
+
+    if (pixadb)
+        L_INFO("number of iterations: %d\n", procName, niters);
+    *pboxad1 = boxac1;
+    *pboxad2 = boxac2;
+    return 0;
 }
 
 
@@ -707,6 +1002,64 @@ l_int32  l1, t1, w1, h1, r1, b1, l2, t2, w2, h2, r2, b2;
 
 
 /*!
+ * \brief   boxCompareSize()
+ *
+ * \param[in]    box1, box2
+ * \param[in]    type     L_SORT_BY_WIDTH, L_SORT_BY_HEIGHT,
+ *                        L_SORT_BY_MAX_DIMENSION, L_SORT_BY_PERIMETER,
+ *                        L_SORT_BY_AREA,
+ * \param[out]   prel   1 if box1 > box2, 0 if the same, -1 if box1 < box2
+ * \return   0 if OK, 1 on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) We're re-using the SORT enum for these comparisons.
+ * </pre>
+ */
+l_int32
+boxCompareSize(BOX      *box1,
+               BOX      *box2,
+               l_int32   type,
+               l_int32  *prel)
+{
+l_int32  w1, h1, w2, h2, size1, size2;
+
+    PROCNAME("boxCompareSize");
+
+    if (!prel)
+        return ERROR_INT("&rel not defined", procName, 1);
+    *prel = 0;
+    if (!box1 || !box2)
+        return ERROR_INT("box1 and box2 not both defined", procName, 1);
+    if (type != L_SORT_BY_WIDTH && type != L_SORT_BY_HEIGHT &&
+        type != L_SORT_BY_MAX_DIMENSION && type != L_SORT_BY_PERIMETER &&
+        type != L_SORT_BY_AREA)
+        return ERROR_INT("invalid compare type", procName, 1);
+
+    boxGetGeometry(box1, NULL, NULL, &w1, &h1);
+    boxGetGeometry(box2, NULL, NULL, &w2, &h2);
+    if (type == L_SORT_BY_WIDTH) {
+        *prel = (w1 > w2) ? 1 : ((w1 == w2) ? 0 : -1);
+    } else if (type == L_SORT_BY_HEIGHT) {
+        *prel = (h1 > h2) ? 1 : ((h1 == h2) ? 0 : -1);
+    } else if (type == L_SORT_BY_MAX_DIMENSION) {
+        size1 = L_MAX(w1, h1);
+        size2 = L_MAX(w2, h2);
+        *prel = (size1 > size2) ? 1 : ((size1 == size2) ? 0 : -1);
+    } else if (type == L_SORT_BY_PERIMETER) {
+        size1 = w1 + h1;
+        size2 = w2 + h2;
+        *prel = (size1 > size2) ? 1 : ((size1 == size2) ? 0 : -1);
+    } else if (type == L_SORT_BY_AREA) {
+        size1 = w1 * h1;
+        size2 = w2 * h2;
+        *prel = (size1 > size2) ? 1 : ((size1 == size2) ? 0 : -1);
+    }
+    return 0;
+}
+
+
+/*!
  * \brief   boxContainsPt()
  *
  * \param[in]    box
@@ -773,6 +1126,63 @@ BOX       *box;
         delx = (l_float32)(cx - x);
         dely = (l_float32)(cy - y);
         dist = delx * delx + dely * dely;
+        if (dist < mindist) {
+            minindex = i;
+            mindist = dist;
+        }
+        boxDestroy(&box);
+    }
+
+    return boxaGetBox(boxa, minindex, L_COPY);
+}
+
+
+/*!
+ * \brief   boxaGetNearestToLine()
+ *
+ * \param[in]    boxa
+ * \param[in]    x, y   (y = -1 for vertical line; x = -1 for horiz line)
+ * \return  box with centroid closest to the given line,
+ *              or NULL if no boxes in boxa
+ *
+ * <pre>
+ * Notes:
+ *      (1) For a horizontal line at some value y, get the minimum of the
+ *          distance |yc - y| from the box centroid yc value to y;
+ *          likewise minimize |xc - x| for a vertical line at x.
+ *      (2) Input y < 0, x >= 0 to indicate a vertical line at x, and
+ *          x < 0, y >= 0 for a horizontal line at y.
+ * </pre>
+ */
+BOX *
+boxaGetNearestToLine(BOXA    *boxa,
+                     l_int32  x,
+                     l_int32  y)
+{
+l_int32    i, n, minindex;
+l_float32  dist, mindist, cx, cy;
+BOX       *box;
+
+    PROCNAME("boxaGetNearestToLine");
+
+    if (!boxa)
+        return (BOX *)ERROR_PTR("boxa not defined", procName, NULL);
+    if ((n = boxaGetCount(boxa)) == 0)
+        return (BOX *)ERROR_PTR("n = 0", procName, NULL);
+    if (y >= 0 && x >= 0)
+        return (BOX *)ERROR_PTR("either x or y must be < 0", procName, NULL);
+    if (y < 0 && x < 0)
+        return (BOX *)ERROR_PTR("either x or y must be >= 0", procName, NULL);
+
+    mindist = 1000000000.;
+    minindex = 0;
+    for (i = 0; i < n; i++) {
+        box = boxaGetBox(boxa, i, L_CLONE);
+        boxGetCenter(box, &cx, &cy);
+        if (x >= 0)
+            dist = L_ABS(cx - (l_float32)x);
+        else  /* y >= 0 */
+            dist = L_ABS(cy - (l_float32)y);
         if (dist < mindist) {
             minindex = i;
             mindist = dist;
@@ -985,9 +1395,9 @@ BOX  *boxd;
  *          returned parameter values are bogus.
  *      (2) This simplifies the selection of pixel locations within
  *          a given rectangle:
- *             for (i = ystart; i \< yend; i++ {
+ *             for (i = ystart; i < yend; i++ {
  *                 ...
- *                 for (j = xstart; j \< xend; j++ {
+ *                 for (j = xstart; j < xend; j++ {
  *                     ....
  * </pre>
  */
@@ -1082,6 +1492,55 @@ l_int32  x, y, w, h;
 
 
 /*!
+ * \brief   boxaAdjustSides()
+ *
+ * \param[in]    boxas
+ * \param[in]    delleft, delright, deltop, delbot   changes in location of
+ *                                                   each side for each box
+ * \return  boxad, or NULL on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) New box dimensions are cropped at left and top to x >= 0 and y >= 0.
+ *      (2) If the width or height of a box goes to 0, we generate a box with
+ *          w == 1 and h == 1, as a placeholder.
+ *      (3) See boxAdjustSides().
+ * </pre>
+ */
+BOXA *
+boxaAdjustSides(BOXA    *boxas,
+                l_int32  delleft,
+                l_int32  delright,
+                l_int32  deltop,
+                l_int32  delbot)
+{
+l_int32  n, i, x, y;
+BOX     *box1, *box2;
+BOXA    *boxad;
+
+    PROCNAME("boxaAdjustSides");
+
+    if (!boxas)
+        return (BOXA *)ERROR_PTR("boxas not defined", procName, NULL);
+
+    n = boxaGetCount(boxas);
+    boxad = boxaCreate(n);
+    for (i = 0; i < n; i++) {
+        box1 = boxaGetBox(boxas, i, L_COPY);
+        box2 = boxAdjustSides(NULL, box1, delleft, delright, deltop, delbot);
+        if (!box2) {
+            boxGetGeometry(box1, &x, &y, NULL, NULL);
+            box2 = boxCreate(x, y, 1, 1);
+        }
+        boxaAddBox(boxad, box2, L_INSERT);
+        boxDestroy(&box1);
+    }
+
+    return boxad;
+}
+
+
+/*!
  * \brief   boxAdjustSides()
  *
  * \param[in]    boxd  [optional]; this can be null, equal to boxs,
@@ -1100,8 +1559,8 @@ l_int32  x, y, w, h;
  *               boxd = boxAdjustSides(NULL, boxs, ...);   // new
  *               boxAdjustSides(boxs, boxs, ...);          // in-place
  *               boxAdjustSides(boxd, boxs, ...);          // other
- *      (1) New box dimensions are cropped at left and top to x \>= 0 and y \>= 0.
- *      (2) For example, to expand in-place by 20 pixels on each side, use
+ *      (3) New box dimensions are cropped at left and top to x >= 0 and y >= 0.
+ *      (4) For example, to expand in-place by 20 pixels on each side, use
  *             boxAdjustSides(box, box, -20, 20, -20, 20);
  * </pre>
  */
@@ -1214,7 +1673,7 @@ BOX     *box;
  *
  * \param[in]    boxad use NULL to get a new one; same as boxas for in-place
  * \param[in]    boxas
- * \param[in]    sides L_ADJUST_LEFT, L_ADJUST_RIGHT, L_ADJUST_LEFTL_AND_RIGHT
+ * \param[in]    sides L_ADJUST_LEFT, L_ADJUST_RIGHT, L_ADJUST_LEFT_AND_RIGHT
  * \param[in]    target target width if differs by more than thresh
  * \param[in]    thresh min abs difference in width to cause adjustment
  * \return  boxad, or NULL on error
@@ -1604,8 +2063,8 @@ BOX     *box1, *box2;
  * <pre>
  * Notes:
  *      (1) This appends a clone of each indicated box in boxas to boxad
- *      (2) istart \< 0 is taken to mean 'read from the start' (istart = 0)
- *      (3) iend \< 0 means 'read to the end'
+ *      (2) istart < 0 is taken to mean 'read from the start' (istart = 0)
+ *      (3) iend < 0 means 'read to the end'
  *      (4) if boxas == NULL or has no boxes, this is a no-op.
  * </pre>
  */
@@ -1653,8 +2112,8 @@ BOX     *box;
  * <pre>
  * Notes:
  *      (1) This appends a clone of each indicated boxa in baas to baad
- *      (2) istart \< 0 is taken to mean 'read from the start' (istart = 0)
- *      (3) iend \< 0 means 'read to the end'
+ *      (2) istart < 0 is taken to mean 'read from the start' (istart = 0)
+ *      (3) iend < 0 means 'read to the end'
  *      (4) if baas == NULL, this is a no-op.
  * </pre>
  */

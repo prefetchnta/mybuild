@@ -37,6 +37,8 @@
  *           NUMA     *boxaMakeSizeIndicator()
  *           BOXA     *boxaSelectByArea()
  *           NUMA     *boxaMakeAreaIndicator()
+ *           BOXA     *boxaSelectByWHRatio()
+ *           NUMA     *boxaMakeWHRatioIndicator()
  *           BOXA     *boxaSelectWithIndicator()
  *
  *      Boxa permutation
@@ -211,7 +213,7 @@ BOXAA   *baad;
  * Notes:
  *      (1) The args specify constraints on the size of the
  *          components that are kept.
- *      (2) Uses box clones in the new boxa.
+ *      (2) Uses box copies in the new boxa.
  *      (3) If the selection type is L_SELECT_WIDTH, the input
  *          height is ignored, and v.v.
  *      (4) To keep small components, use relation = L_SELECT_IF_LT or
@@ -363,7 +365,7 @@ NUMA    *na;
  *
  * <pre>
  * Notes:
- *      (1) Uses box clones in the new boxa.
+ *      (1) Uses box copies in the new boxa.
  *      (2) To keep small components, use relation = L_SELECT_IF_LT or
  *          L_SELECT_IF_LTE.
  *          To keep large components, use relation = L_SELECT_IF_GT or
@@ -456,6 +458,112 @@ NUMA    *na;
 
 
 /*!
+ * \brief   boxaSelectByWHRatio()
+ *
+ * \param[in]    boxas
+ * \param[in]    ratio    width/height threshold value
+ * \param[in]    relation L_SELECT_IF_LT, L_SELECT_IF_GT,
+ *                        L_SELECT_IF_LTE, L_SELECT_IF_GTE
+ * \param[out]   pchanged [optional] 1 if changed; 0 if clone returned
+ * \return  boxad filtered set, or NULL on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) Uses box copies in the new boxa.
+ *      (2) To keep narrow components, use relation = L_SELECT_IF_LT or
+ *          L_SELECT_IF_LTE.
+ *          To keep wide components, use relation = L_SELECT_IF_GT or
+ *          L_SELECT_IF_GTE.
+ * </pre>
+ */
+BOXA *
+boxaSelectByWHRatio(BOXA      *boxas,
+                    l_float32  ratio,
+                    l_int32    relation,
+                    l_int32   *pchanged)
+{
+BOXA  *boxad;
+NUMA  *na;
+
+    PROCNAME("boxaSelectByWHRatio");
+
+    if (pchanged) *pchanged = FALSE;
+    if (!boxas)
+        return (BOXA *)ERROR_PTR("boxas not defined", procName, NULL);
+    if (boxaGetCount(boxas) == 0) {
+        L_WARNING("boxas is empty\n", procName);
+        return boxaCopy(boxas, L_COPY);
+    }
+    if (relation != L_SELECT_IF_LT && relation != L_SELECT_IF_GT &&
+        relation != L_SELECT_IF_LTE && relation != L_SELECT_IF_GTE)
+        return (BOXA *)ERROR_PTR("invalid relation", procName, NULL);
+
+        /* Compute the indicator array for saving components */
+    na = boxaMakeWHRatioIndicator(boxas, ratio, relation);
+
+        /* Filter to get output */
+    boxad = boxaSelectWithIndicator(boxas, na, pchanged);
+
+    numaDestroy(&na);
+    return boxad;
+}
+
+
+/*!
+ * \brief   boxaMakeWHRatioIndicator()
+ *
+ * \param[in]    boxa
+ * \param[in]    ratio    width/height threshold value
+ * \param[in]    relation L_SELECT_IF_LT, L_SELECT_IF_GT,
+ *                        L_SELECT_IF_LTE, L_SELECT_IF_GTE
+ * \return  na indicator array, or NULL on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) To keep narrow components, use relation = L_SELECT_IF_LT or
+ *          L_SELECT_IF_LTE.
+ *          To keep wide components, use relation = L_SELECT_IF_GT or
+ *          L_SELECT_IF_GTE.
+ * </pre>
+ */
+NUMA *
+boxaMakeWHRatioIndicator(BOXA      *boxa,
+                         l_float32  ratio,
+                         l_int32    relation)
+{
+l_int32    i, n, w, h, ival;
+l_float32  whratio;
+NUMA      *na;
+
+    PROCNAME("boxaMakeWHRatioIndicator");
+
+    if (!boxa)
+        return (NUMA *)ERROR_PTR("boxa not defined", procName, NULL);
+    if ((n = boxaGetCount(boxa)) == 0)
+        return (NUMA *)ERROR_PTR("boxa is empty", procName, NULL);
+    if (relation != L_SELECT_IF_LT && relation != L_SELECT_IF_GT &&
+        relation != L_SELECT_IF_LTE && relation != L_SELECT_IF_GTE)
+        return (NUMA *)ERROR_PTR("invalid relation", procName, NULL);
+
+    na = numaCreate(n);
+    for (i = 0; i < n; i++) {
+        ival = 0;
+        boxaGetBoxGeometry(boxa, i, NULL, NULL, &w, &h);
+        whratio = (l_float32)w / (l_float32)h;
+
+        if ((relation == L_SELECT_IF_LT && whratio < ratio) ||
+            (relation == L_SELECT_IF_GT && whratio > ratio) ||
+            (relation == L_SELECT_IF_LTE && whratio <= ratio) ||
+            (relation == L_SELECT_IF_GTE && whratio >= ratio))
+            ival = 1;
+        numaAddNumber(na, ival);
+    }
+
+    return na;
+}
+
+
+/*!
  * \brief   boxaSelectWithIndicator()
  *
  * \param[in]    boxas
@@ -465,8 +573,8 @@ NUMA    *na;
  *
  * <pre>
  * Notes:
- *      (1) Returns a boxa clone if no components are removed.
- *      (2) Uses box clones in the new boxa.
+ *      (1) Returns a copy of the boxa if no components are removed.
+ *      (2) Uses box copies in the new boxa.
  *      (3) The indicator numa has values 0 (ignore) and 1 (accept).
  * </pre>
  */
@@ -496,14 +604,14 @@ BOXA    *boxad;
 
     if (nsave == n) {
         if (pchanged) *pchanged = FALSE;
-        return boxaCopy(boxas, L_CLONE);
+        return boxaCopy(boxas, L_COPY);
     }
     if (pchanged) *pchanged = TRUE;
     boxad = boxaCreate(nsave);
     for (i = 0; i < n; i++) {
         numaGetIValue(na, i, &ival);
         if (ival == 0) continue;
-        box = boxaGetBox(boxas, i, L_CLONE);
+        box = boxaGetBox(boxas, i, L_COPY);
         boxaAddBox(boxad, box, L_INSERT);
     }
 
@@ -551,8 +659,8 @@ BOXA    *boxad;
 /*!
  * \brief   boxaPermuteRandom()
  *
- * \param[in]    boxad [optional] can be null or equal to boxas
- * \param[in]    boxas input boxa
+ * \param[in]    boxad [optional]   can be null or equal to boxas
+ * \param[in]    boxas              input boxa
  * \return  boxad with boxes permuted, or NULL on error
  *
  * <pre>
@@ -560,11 +668,12 @@ BOXA    *boxad;
  *      (1) If boxad is null, make a copy of boxas and permute the copy.
  *          Otherwise, boxad must be equal to boxas, and the operation
  *          is done in-place.
- *      (2) This does a random in-place permutation of the boxes,
+ *      (2) If boxas is empty, return an empty boxad.
+ *      (3) This does a random in-place permutation of the boxes,
  *          by swapping each box in turn with a random box.  The
  *          result is almost guaranteed not to have any boxes in their
  *          original position.
- *      (3) MSVC rand() has MAX_RAND = 2^15 - 1, so it will not do
+ *      (4) MSVC rand() has MAX_RAND = 2^15 - 1, so it will not do
  *          a proper permutation is the number of boxes exceeds this.
  * </pre>
  */
@@ -583,7 +692,8 @@ l_int32  i, n, index;
 
     if (!boxad)
         boxad = boxaCopy(boxas, L_COPY);
-    n = boxaGetCount(boxad);
+    if ((n = boxaGetCount(boxad)) == 0)
+        return boxad;
     index = (l_uint32)rand() % n;
     index = L_MAX(1, index);
     boxaSwapBoxes(boxad, 0, index);
@@ -945,7 +1055,7 @@ BOXA    *boxae, *boxao, *boxalfe, *boxalfo, *boxame, *boxamo, *boxad;
  *          just do this:
  *              boxam = boxaWindowedMedian(boxas, halfwin, debug);
  *              boxad = boxaModifyWithBoxa(boxas, boxam, subflag, maxdiff);
- *              boxaDestroy(\&boxam);
+ *              boxaDestroy(&boxam);
  * </pre>
  */
 BOXA *
@@ -1174,9 +1284,10 @@ PTA       *ptal, *ptat, *ptar, *ptab;
     }
     boxDestroy(&boxempty);
 
-    if (debug)
+    if (debug) {
         boxaPlotSides(boxad, NULL, NULL, NULL, NULL, NULL, NULL);
         boxaPlotSizes(boxad, NULL, NULL, NULL, NULL);
+    }
 
     ptaDestroy(&ptal);
     ptaDestroy(&ptat);
@@ -2338,6 +2449,7 @@ BOXA    *boxa;
             maxw = maxbw;
         if (maxbh > maxh)
             maxh = maxbh;
+        boxaDestroy(&boxa);
     }
 
     if (pminw) *pminw = minw;

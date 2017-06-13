@@ -1041,6 +1041,7 @@ PIX     *pixd;
     }
     pixCopyResolution(pixd, pixs);
     pixCopyColormap(pixd, pixs);
+    pixCopyText(pixd, pixs);
     pixRasterop(pixd, 0, 0, bw, bh, PIX_SRC, pixs, bx, by);
 
     if (pboxc)
@@ -1301,16 +1302,21 @@ PIX     *pixd;
  *
  * <pre>
  * Notes:
- *      (1) This makes an arbitrary 1-component mask with a centered frame.
- *          All input fractional distances are from the outside of the
- *          image to the frame boundary, in units of the image half-width
+ *      (1) This makes an arbitrary 1-component mask with a centered fg
+ *          frame, which can have both an inner and an outer boundary.
+ *          All input fractional distances are measured from the image
+ *          border to the frame boundary, in units of the image half-width
  *          for hf1 and hf2 and the image half-height for vf1 and vf2.
+ *          The distances to the outer frame boundary are given by hf1
+ *          and vf1; to the inner frame boundary, by hf2 and vf2.
  *          Input fractions are thus in [0.0 ... 1.0], with hf1 <= hf2
  *          and vf1 <= vf2.  Horizontal and vertical frame widths are
- *          independently specified.
- *      (2) Special case: to get a full fg mask, set all input values to 0.0.
- *          An empty fg mask has hf1 = vf1 = 1.0.
- *          A fg rectangle with no hole has hf2 == 1.0 or hv2 == 1.0.
+ *          thus independently specified.
+ *      (2) Special cases:
+ *           * full fg mask: hf1 = vf1 = 0.0, hf2 = vf2 = 1.0.
+ *           * empty fg (zero width) mask: set  hf1 = hf2  and vf1 = vf2.
+ *           * fg rectangle with no hole: set hf2 = vf2 = 1.0.
+ *           * frame touching outer boundary: set hf1 = vf1 = 0.0.
  *      (3) The vertical thickness of the horizontal mask parts
  *          is 0.5 * (vf2 - vf1) * h.  The horizontal thickness of the
  *          vertical mask parts is 0.5 * (hf2 - hf1) * w.
@@ -1341,11 +1347,11 @@ PIX     *pixd;
     pixd = pixCreate(w, h, 1);
 
         /* Special cases */
-    if (hf1 == 0.0 && hf2 == 0.0 && vf1 == 0.0 && vf2 == 0.0) {  /* full */
+    if (hf1 == 0.0 && vf1 == 0.0 && hf2 == 1.0 && vf2 == 1.0) {  /* full */
         pixSetAll(pixd);
         return pixd;
     }
-    if (hf1 == 1.0 && vf1 == 1.0) {  /* empty */
+    if (hf1 == hf2 && vf1 == vf2) {  /* empty */
         return pixd;
     }
 
@@ -2276,6 +2282,7 @@ l_float32  sum;
     data = pixGetData(pixs);
     wpl = pixGetWpl(pixs);
     sum = 0;
+    count = 0;
     if (direction == L_HORIZONTAL_LINE) {
         line = data + y1 * wpl;
         for (j = x1, count = 0; j <= x2; count++, j += factor) {
@@ -2809,7 +2816,7 @@ PIX       *pixd;
         return (PIX *)ERROR_PTR("pixs has a colormap", procName, NULL);
 
     pixGetDimensions(pixs, &w, &h, NULL);
-    pixd = pixCreateTemplateNoInit(pixs);
+    pixd = pixCreateTemplate(pixs);
     datas = pixGetData(pixs);
     datad = pixGetData(pixd);
     wpl = pixGetWpl(pixs);
@@ -2862,7 +2869,7 @@ PIX       *pixd;
         return (PIX *)ERROR_PTR("pixs has a colormap", procName, NULL);
 
     pixGetDimensions(pixs, &w, &h, NULL);
-    pixd = pixCreateTemplateNoInit(pixs);
+    pixd = pixCreateTemplate(pixs);
     lines8 = pixGetLinePtrs(pixs, NULL);
     lined8 = pixGetLinePtrs(pixd, NULL);
     for (j = 0; j < w; j++) {

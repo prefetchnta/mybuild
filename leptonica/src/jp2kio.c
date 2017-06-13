@@ -111,7 +111,11 @@
 /* --------------------------------------------*/
 
     /* Leptonica supports both 2.0 and 2.1. */
+#ifdef LIBJP2K_HEADER
 #include LIBJP2K_HEADER
+#else
+#include <openjpeg.h>
+#endif
 
     /* 2.0 didn't define OPJ_VERSION_MINOR. */
 #ifndef OPJ_VERSION_MINOR
@@ -576,6 +580,7 @@ opj_image_t       *image = NULL;
     }
 
         /* Convert to opj image format. */
+    pixSetPadBits(pixs, 0);
     image = pixConvertToOpjImage(pixs);
     pixDestroy(&pixs);
 

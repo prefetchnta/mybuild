@@ -7,7 +7,7 @@ Android (GCC 4.9.x ARMv7 -O2 API-14)
 Windows (Visual Studio 2010 X86 /MD)
 
     giflib-5.1.4            LIB                     https://sourceforge.net/projects/giflib/
-    leptonica-1.74.1        DLL (without libjp2k)   https://github.com/DanBloomberg/leptonica/releases
+    leptonica-1.74.4        DLL (without libjp2k)   https://github.com/DanBloomberg/leptonica/releases
     libjpeg-9b              LIB                     http://www.ijg.org/
     libpng-1.6.29           DLL                     http://www.libpng.org/pub/png/libpng.html
     libtesseract-3.05       DLL                     https://github.com/tesseract-ocr/tesseract/releases

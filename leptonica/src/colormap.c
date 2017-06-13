@@ -68,6 +68,8 @@
  *      Colormap conversion
  *           PIXCMAP    *pixcmapGrayToColor()
  *           PIXCMAP    *pixcmapColorToGray()
+ *           PIXCMAP    *pixcmapConvertTo4()
+ *           PIXCMAP    *pixcmapConvertTo8()
  *
  *      Colormap I/O
  *           l_int32     pixcmapRead()
@@ -115,16 +117,12 @@ PIXCMAP    *cmap;
     if (depth != 1 && depth != 2 && depth !=4 && depth != 8)
         return (PIXCMAP *)ERROR_PTR("depth not in {1,2,4,8}", procName, NULL);
 
-    if ((cmap = (PIXCMAP *)LEPT_CALLOC(1, sizeof(PIXCMAP))) == NULL)
-        return (PIXCMAP *)ERROR_PTR("cmap not made", procName, NULL);
+    cmap = (PIXCMAP *)LEPT_CALLOC(1, sizeof(PIXCMAP));
     cmap->depth = depth;
     cmap->nalloc = 1 << depth;
-    if ((cta = (RGBA_QUAD *)LEPT_CALLOC(cmap->nalloc, sizeof(RGBA_QUAD)))
-        == NULL)
-        return (PIXCMAP *)ERROR_PTR("cta not made", procName, NULL);
+    cta = (RGBA_QUAD *)LEPT_CALLOC(cmap->nalloc, sizeof(RGBA_QUAD));
     cmap->array = cta;
     cmap->n = 0;
-
     return cmap;
 }
 
@@ -244,11 +242,9 @@ PIXCMAP  *cmapd;
     if (cmaps->nalloc > 256)
         return (PIXCMAP *)ERROR_PTR("nalloc > 256", procName, NULL);
 
-    if ((cmapd = (PIXCMAP *)LEPT_CALLOC(1, sizeof(PIXCMAP))) == NULL)
-        return (PIXCMAP *)ERROR_PTR("cmapd not made", procName, NULL);
+    cmapd = (PIXCMAP *)LEPT_CALLOC(1, sizeof(PIXCMAP));
     nbytes = cmaps->nalloc * sizeof(RGBA_QUAD);
-    if ((cmapd->array = (void *)LEPT_CALLOC(1, nbytes)) == NULL)
-        return (PIXCMAP *)ERROR_PTR("cmap array not made", procName, NULL);
+    cmapd->array = (void *)LEPT_CALLOC(1, nbytes);
     memcpy(cmapd->array, cmaps->array, nbytes);
     cmapd->n = cmaps->n;
     cmapd->nalloc = cmaps->nalloc;
@@ -647,7 +643,7 @@ pixcmapGetDepth(PIXCMAP  *cmap)
  *
  * <pre>
  * Notes:
- *      (1) On error, \&mindepth is returned as 0.
+ *      (1) On error, &mindepth is returned as 0.
  * </pre>
  */
 l_int32
@@ -1506,6 +1502,78 @@ PIXCMAP   *cmapd;
 }
 
 
+/*!
+ * \brief   pixcmapConvertTo4()
+ *
+ * \param[in]    cmaps   colormap for 2 bpp pix
+ * \return  cmapd   (4 bpp)
+ *
+ * <pre>
+ * Notes:
+ *      (1) This converts a 2 bpp colormap to 4 bpp.  The colors
+ *          are the same; the output colormap entry array has size 16.
+ * </pre>
+ */
+PIXCMAP *
+pixcmapConvertTo4(PIXCMAP  *cmaps)
+{
+l_int32   i, n, rval, gval, bval;
+PIXCMAP  *cmapd;
+
+    PROCNAME("pixcmapConvertTo4");
+
+    if (!cmaps)
+        return (PIXCMAP *)ERROR_PTR("cmaps not defined", procName, NULL);
+    if (pixcmapGetDepth(cmaps) != 2)
+        return (PIXCMAP *)ERROR_PTR("cmaps not for 2 bpp pix", procName, NULL);
+
+    cmapd = pixcmapCreate(4);
+    n = pixcmapGetCount(cmaps);
+    for (i = 0; i < n; i++) {
+        pixcmapGetColor(cmaps, i, &rval, &gval, &bval);
+        pixcmapAddColor(cmapd, rval, gval, bval);
+    }
+    return cmapd;
+}
+
+
+/*!
+ * \brief   pixcmapConvertTo8()
+ *
+ * \param[in]    cmaps   colormap for 2 bpp or 4 bpp pix
+ * \return  cmapd   (8 bpp)
+ *
+ * <pre>
+ * Notes:
+ *      (1) This converts a 2 bpp or 4 bpp colormap to 8 bpp.  The colors
+ *          are the same; the output colormap entry array has size 256.
+ * </pre>
+ */
+PIXCMAP *
+pixcmapConvertTo8(PIXCMAP  *cmaps)
+{
+l_int32   i, n, depth, rval, gval, bval;
+PIXCMAP  *cmapd;
+
+    PROCNAME("pixcmapConvertTo8");
+
+    if (!cmaps)
+        return (PIXCMAP *)ERROR_PTR("cmaps not defined", procName, NULL);
+    depth = pixcmapGetDepth(cmaps);
+    if (depth == 8) return pixcmapCopy(cmaps);
+    if (depth != 2 && depth != 4)
+        return (PIXCMAP *)ERROR_PTR("cmaps not 2 or 4 bpp", procName, NULL);
+
+    cmapd = pixcmapCreate(8);
+    n = pixcmapGetCount(cmaps);
+    for (i = 0; i < n; i++) {
+        pixcmapGetColor(cmaps, i, &rval, &gval, &bval);
+        pixcmapAddColor(cmapd, rval, gval, bval);
+    }
+    return cmapd;
+}
+
+   
 /*-------------------------------------------------------------*
  *                         Colormap I/O                        *
  *-------------------------------------------------------------*/
@@ -1525,15 +1593,13 @@ PIXCMAP  *cmap;
 
     if (!filename)
         return (PIXCMAP *)ERROR_PTR("filename not defined", procName, NULL);
+
     if ((fp = fopenReadStream(filename)) == NULL)
         return (PIXCMAP *)ERROR_PTR("stream not opened", procName, NULL);
-
-    if ((cmap = pixcmapReadStream(fp)) == NULL) {
-        fclose(fp);
-        return (PIXCMAP *)ERROR_PTR("cmap not read", procName, NULL);
-    }
-
+    cmap = pixcmapReadStream(fp);
     fclose(fp);
+    if (!cmap)
+        return (PIXCMAP *)ERROR_PTR("cmap not read", procName, NULL);
     return cmap;
 }
 
@@ -1565,15 +1631,15 @@ PIXCMAP  *cmap;
     ignore = fscanf(fp, "Color    R-val    G-val    B-val   Alpha\n");
     ignore = fscanf(fp, "----------------------------------------\n");
 
-    if ((cmap = pixcmapCreate(depth)) == NULL)
-        return (PIXCMAP *)ERROR_PTR("cmap not made", procName, NULL);
+    cmap = pixcmapCreate(depth);
     for (i = 0; i < ncolors; i++) {
         if (fscanf(fp, "%3d       %3d      %3d      %3d      %3d\n",
-                        &index, &rval, &gval, &bval, &aval) != 5)
+                        &index, &rval, &gval, &bval, &aval) != 5) {
+            pixcmapDestroy(&cmap);
             return (PIXCMAP *)ERROR_PTR("invalid entry", procName, NULL);
+        }
         pixcmapAddRGBA(cmap, rval, gval, bval, aval);
     }
-
     return cmap;
 }
 

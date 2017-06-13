@@ -252,8 +252,10 @@ PIXCMAP  *cmap;
     if (d == 8) {  /* colormapped */
         cmap = pixGetColormap(pixd);
         extractRGBValues(val, &rval, &gval, &bval);
-        if (pixcmapAddNewColor(cmap, rval, gval, bval, &newindex))
+        if (pixcmapAddNewColor(cmap, rval, gval, bval, &newindex)) {
+            pixDestroy(&pixd);
             return (PIX *)ERROR_PTR("cmap full; can't add", procName, NULL);
+        }
     }
 
     for (i = 0; i < n; i++) {
@@ -388,7 +390,7 @@ PIXCMAP  *cmap;
         return (PIX *)ERROR_PTR("pixd not made", procName, NULL);
 
     cmap = pixcmapCreateRandom(8, 1, 1);
-    d = pixGetDepth(pixd);
+    d = pixGetDepth(pixd);  /* either 8 or 32 */
     if (d == 8)  /* colormapped */
         pixSetColormap(pixd, cmap);
 
@@ -605,17 +607,31 @@ PTAA     *ptaa;
 /*!
  * \brief   boxaaDisplay()
  *
- * \param[in]    baa
- * \param[in]    linewba line width to display boxa
- * \param[in]    linewb line width to display box
- * \param[in]    colorba color to display boxa
- * \param[in]    colorb color to display box
- * \param[in]    w of pix; use 0 if determined by baa
- * \param[in]    h of pix; use 0 if determined by baa
+ * \param[in]    pixs     [optional] 1 bpp
+ * \param[in]    baa      boxaa, typically from a 2d sort
+ * \param[in]    linewba  line width to display outline of each boxa
+ * \param[in]    linewb   line width to display outline of each box
+ * \param[in]    colorba  color to display boxa
+ * \param[in]    colorb   color to display box
+ * \param[in]    w    width of outupt pix; use 0 if determined by %pixs or %baa
+ * \param[in]    h    height of outupt pix; use 0 if determined by %pixs or %baa
  * \return  0 if OK, 1 on error
+ * 
+ * <pre>
+ * Notes:
+ *      (1) If %pixs exists, this renders the boxes over an 8 bpp version
+ *          of it.  Otherwise, it renders the boxes over an empty image
+ *          with a white background.
+ *      (2) If %pixs exists, the dimensions of %pixd are the same,
+ *          and input values of %w and %h are ignored.
+ *          If %pixs is NULL, the dimensions of %pixd are determined by
+ *            - %w and %h if both are > 0, or
+ *            - the minimum size required using all boxes in %baa.
+ * </pre>
  */
 PIX *
-boxaaDisplay(BOXAA    *baa,
+boxaaDisplay(PIX      *pixs,
+             BOXAA    *baa,
              l_int32   linewba,
              l_int32   linewb,
              l_uint32  colorba,
@@ -626,22 +642,32 @@ boxaaDisplay(BOXAA    *baa,
 l_int32   i, j, n, m, rbox, gbox, bbox, rboxa, gboxa, bboxa;
 BOX      *box;
 BOXA     *boxa;
-PIX      *pix;
+PIX      *pixd;
 PIXCMAP  *cmap;
 
     PROCNAME("boxaaDisplay");
 
     if (!baa)
         return (PIX *)ERROR_PTR("baa not defined", procName, NULL);
-    if (w == 0 || h == 0)
-        boxaaGetExtent(baa, &w, &h, NULL, NULL);
 
-    pix = pixCreate(w, h, 8);
-    cmap = pixcmapCreate(8);
-    pixSetColormap(pix, cmap);
+    if (w <= 0 || h <= 0) {
+        if (pixs)
+            pixGetDimensions(pixs, &w, &h, NULL);
+        else
+            boxaaGetExtent(baa, &w, &h, NULL, NULL);
+    }
+
+    if (pixs) {
+        pixd = pixConvertTo8(pixs, 1);
+        cmap = pixGetColormap(pixd);
+    } else {
+        pixd = pixCreate(w, h, 8);
+        cmap = pixcmapCreate(8);
+        pixSetColormap(pixd, cmap);
+        pixcmapAddColor(cmap, 255, 255, 255);
+    }
     extractRGBValues(colorb, &rbox, &gbox, &bbox);
     extractRGBValues(colorba, &rboxa, &gboxa, &bboxa);
-    pixcmapAddColor(cmap, 255, 255, 255);
     pixcmapAddColor(cmap, rbox, gbox, bbox);
     pixcmapAddColor(cmap, rboxa, gboxa, bboxa);
 
@@ -649,18 +675,18 @@ PIXCMAP  *cmap;
     for (i = 0; i < n; i++) {
         boxa = boxaaGetBoxa(baa, i, L_CLONE);
         boxaGetExtent(boxa, NULL, NULL, &box);
-        pixRenderBoxArb(pix, box, linewba, rboxa, gboxa, bboxa);
+        pixRenderBoxArb(pixd, box, linewba, rboxa, gboxa, bboxa);
         boxDestroy(&box);
         m = boxaGetCount(boxa);
         for (j = 0; j < m; j++) {
             box = boxaGetBox(boxa, j, L_CLONE);
-            pixRenderBoxArb(pix, box, linewb, rbox, gbox, bbox);
+            pixRenderBoxArb(pixd, box, linewb, rbox, gbox, bbox);
             boxDestroy(&box);
         }
         boxaDestroy(&boxa);
     }
 
-    return pix;
+    return pixd;
 }
 
 
@@ -897,7 +923,7 @@ PIXA    *pixas;
  *      (6) The flag %remainder specifies whether we take a final bounding
  *          box for anything left after the maximum number of allowed
  *          rectangle is extracted.
- *      (7) So if %maxcomps \> 0, it specifies that we want no more than
+ *      (7) So if %maxcomps > 0, it specifies that we want no more than
  *          the first %maxcomps rectangles that satisfy the input
  *          criteria.  After this, we can get a final rectangle that
  *          bounds everything left over by setting %remainder == 1.
@@ -907,7 +933,7 @@ PIXA    *pixas;
  *          break the original c.c. into several c.c.
  *      (9) Summing up:
  *            * If %maxcomp == 0, the splitting proceeds as far as possible.
- *            * If %maxcomp \> 0, the splitting stops when %maxcomps are
+ *            * If %maxcomp > 0, the splitting stops when %maxcomps are
  *                found, or earlier if no more components can be selected.
  *            * If %remainder == 1 and components remain that cannot be
  *                selected, they are returned as a single final rectangle;
@@ -1271,7 +1297,7 @@ success:
  * Notes:
  *      (1) For example, this can be used to generate a pixa of
  *          vertical strips of width 10 from an image, using:
- *             pixGetDimensions(pix, \&w, \&h, NULL);
+ *             pixGetDimensions(pix, &w, &h, NULL);
  *             boxa = makeMosaicStrips(w, h, L_SCAN_HORIZONTAL, 10);
  *             pixa = pixClipRectangles(pix, boxa);
  *          All strips except the last will be the same width.  The
@@ -1490,7 +1516,7 @@ PIXA     *pixa;
  * Notes:
  *      (1) This selects a box near the top (first) and left (second)
  *          of the image, from the set of all boxes that have
- *                area \>= %areaslop * (area of biggest box),
+ *                area >= %areaslop * (area of biggest box),
  *          where %areaslop is some fraction; say ~ 0.9.
  *      (2) For all boxes satisfying the above condition, select
  *          the left-most box that is within %yslop (say, 20) pixels
@@ -1520,8 +1546,10 @@ BOXA  *boxa1;
     yslop = L_MAX(0, yslop);
 
     boxa1 = pixConnCompBB(pixs, connectivity);
-    if (boxaGetCount(boxa1) == 0)
+    if (boxaGetCount(boxa1) == 0) {
+        boxaDestroy(&boxa1);
         return NULL;
+    }
     box = boxaSelectLargeULBox(boxa1, areaslop, yslop);
     boxaDestroy(&boxa1);
     return box;

@@ -47,6 +47,10 @@
  *      Finds the fraction of pixels with "color" that are not close to black
  *         l_int32    pixColorFraction()
  *
+ *      Determine if there are significant color regions that are
+ *      not background in a page image
+ *         l_int32    pixFindColorRegions()
+ *
  *      Finds the number of perceptually significant gray intensities
  *      in a grayscale image.
  *         l_int32    pixNumSignificantGrayColors()
@@ -484,7 +488,7 @@ PIXCMAP   *cmap;
  *                equal or exceed a threshold %threshdiff.
  *            (b) It must be at least %mindist (in an 8-connected way)
  *                from the nearest non-color pixel.
- *      (2) The distance constraint (b) is only applied if %mindist \> 1.
+ *      (2) The distance constraint (b) is only applied if %mindist > 1.
  *          For example, if %mindist == 2, the color pixels identified
  *          by (a) are eroded by a 3x3 Sel.  In general, the Sel size
  *          for erosion is 2 * (%mindist - 1) + 1.
@@ -725,6 +729,256 @@ l_uint32  *data, *line;
     }
     *ppixfract = (l_float32)npix / (l_float32)total;
     *pcolorfract = (l_float32)ncolor / (l_float32)npix;
+    return 0;
+}
+
+
+/* ----------------------------------------------------------------------- *
+ *     Determine if there are significant color regions in a page image    *
+ * ----------------------------------------------------------------------- */
+/*!
+ * \brief   pixFindColorRegions()
+ *
+ * \param[in]    pixs        32 bpp rgb
+ * \param[in]    pixm        [optional] 1 bpp mask image
+ * \param[in]    factor      subsample factor; integer >= 1
+ * \param[in]    lightthresh threshold for component average in lightest
+ *                           of 10 buckets; typ. 210; -1 for default
+ * \param[in]    darkthresh  threshold to eliminate dark pixels (e.g., text)
+ *                           from consideration; typ. 70; -1 for default.
+ * \param[in]    mindiff     minimum difference (b - r) and (g - r), used to
+ *                           find blue or green pixels; typ. 10; -1 for default
+ * \param[in]    colordiff   minimum difference in (max - min) component to
+ *                           qualify as a color pixel; typ. 90; -1 for default
+ * \param[in]    edgefract   fraction of image half-width and half-height
+ *                           for which color pixels are ignored; typ. 0.05.
+ * \param[out]   pcolorfract fraction of 'color' pixels found
+ * \param[out]   pcolormask1 [optional] mask over background color, if any
+ * \param[out]   pcolormask2 [optional] filtered mask over background color
+ * \param[out]   pixadb      [optional] debug intermediate results
+ * \return  0 if OK, 1 on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) This function tries to determine if there is a significant
+ *          color or darker region on a scanned page image, where part
+ *          of the image is background that is either white or reddish.
+ *          This also allows extraction of regions of colored pixels that
+ *          have a smaller red component than blue or green components.
+ *      (2) If %pixm exists, pixels under its fg are combined with
+ *          dark pixels to make a mask of pixels not to be considered
+ *          as color candidates.
+ *      (3) There are four thresholds.
+ *          * %lightthresh: compute the average value of each rgb pixel,
+ *            and make 10 buckets by value.  If the lightest bucket gray
+ *            value is below %lightthresh, the image is not considered
+ *            to have a light bg, and this returns 0.0 for %colorfract.
+ *          * %darkthresh: ignore pixels darker than this (typ. fg text).
+ *            We make a 1 bpp mask of these pixels, and then dilate it to
+ *            remove all vestiges of fg from their vicinity.
+ *          * %mindiff: consider pixels with either (b - r) or (g - r)
+ *            being at least this value, as having color.
+ *          * %colordiff: consider pixels where the (max - min) difference
+ *            of the pixel components exceeds this value, as having color.
+ *      (4) All components of color pixels that are touching the image
+ *          border are removed.  Additionally, all pixels within some
+ *          normalized distance %edgefract from the image border can
+ *          be removed.  This insures that dark pixels near the edge
+ *          of the image are not included.
+ *      (5) This returns in %pcolorfract the fraction of pixels that have
+ *          color and are not in the set consisting of an OR between
+ *          %pixm and the dilated dark pixel mask.
+ *      (6) No masks are returned unless light color pixels are found.
+ *          If colorfract > 0.0 and %pcolormask1 is defined, this returns
+ *          a 1 bpp mask with fg pixels over the color background.
+ *          This mask may have some holes in it.
+ *      (7) If colorfract > 0.0 and %pcolormask2 is defined, this returns
+ *          a version of colormask1 where small holes have been filled.
+ *      (8) To generate a boxa of rectangular regions from the overlap
+ *          of components in the filtered mask:
+ *                boxa1 = pixConnCompBB(colormask2, 8);
+ *                boxa2 = boxaCombineOverlaps(boxa1, NULL);
+ *          This is done here in debug mode.
+ * </pre>
+ */
+l_int32
+pixFindColorRegions(PIX        *pixs,
+                    PIX        *pixm,
+                    l_int32     factor,
+                    l_int32     lightthresh,
+                    l_int32     darkthresh,
+                    l_int32     mindiff,
+                    l_int32     colordiff,
+                    l_float32   edgefract,
+                    l_float32  *pcolorfract,
+                    PIX       **pcolormask1,
+                    PIX       **pcolormask2,
+                    PIXA       *pixadb)
+{
+l_int32    w, h, count, rval, gval, bval, aveval, proceed;
+l_float32  ratio;
+l_uint32  *carray;
+BOXA      *boxa1, *boxa2;
+PIX       *pix1, *pix2, *pix3, *pix4, *pix5, *pixm1, *pixm2, *pixm3;
+
+    PROCNAME("pixFindColorRegions");
+
+    if (pcolormask1) *pcolormask1 = NULL;
+    if (pcolormask2) *pcolormask2 = NULL;
+    if (!pcolorfract)
+        return ERROR_INT("&colorfract not defined", procName, 1);
+    *pcolorfract = 0.0;
+    if (!pixs || pixGetDepth(pixs) != 32)
+        return ERROR_INT("pixs not defined or not 32 bpp", procName, 1);
+    if (factor < 1) factor = 1;
+    if (lightthresh < 0) lightthresh = 210;  /* defaults */
+    if (darkthresh < 0) darkthresh = 70;
+    if (mindiff < 0) mindiff = 10;
+    if (colordiff < 0) colordiff = 90;
+    if (edgefract < 0.0 || edgefract > 1.0) edgefract = 0.05;
+
+        /* Check if pixm covers most of the image.  If so, just return. */
+    pixGetDimensions(pixs, &w, &h, NULL);
+    if (pixm) {
+        pixCountPixels(pixm, &count, NULL);
+        ratio = (l_float32)count / (w * h);
+        if (ratio > 0.7) {
+            if (pixadb) L_INFO("pixm has big fg: %f5.2\n", procName, ratio);
+            return 0;
+        }
+    }
+
+        /* Get the light background color.  Use the average component value
+         * and select the lightest of 10 buckets.  Require that it is
+         * reddish and, using lightthresh, not too dark. */
+    pixGetRankColorArray(pixs, 10, L_SELECT_AVERAGE, factor, &carray, 0, 0);
+    if (!carray)
+        return ERROR_INT("rank color array not made", procName, 1);
+    extractRGBValues(carray[9], &rval, &gval, &bval);
+    if (pixadb) L_INFO("lightest background color: (r,g,b) = (%d,%d,%d)\n",
+                       procName, rval, gval, bval);
+    proceed = TRUE;
+    if ((rval < bval - 2) || (rval < gval - 2)) {
+        if (pixadb) L_INFO("background not reddish\n", procName);
+        proceed = FALSE;
+    }
+    aveval = (rval + gval + bval) / 3;
+    if (aveval < lightthresh) {
+        if (pixadb) L_INFO("background too dark\n", procName);
+        proceed = FALSE;
+    }
+    if (pixadb) {
+        pix1 = pixDisplayColorArray(carray, 10, 120, 3, 6);
+        pixaAddPix(pixadb, pix1, L_INSERT);
+    }
+    LEPT_FREE(carray);
+    if (proceed == FALSE) return 0;
+
+        /* Make a mask pixm1 over the dark pixels in the image:
+         * convert to gray using the average of the components;
+         * threshold using darkthresh; do a small dilation;
+         * combine with pixm. */
+    pix1 = pixConvertRGBToGray(pixs, 0.33, 0.34, 0.33);
+    if (pixadb) pixaAddPix(pixadb, pix1, L_COPY);
+    pixm1 = pixThresholdToBinary(pix1, darkthresh);
+    pixDilateBrick(pixm1, pixm1, 7, 7);
+    if (pixadb) pixaAddPix(pixadb, pixm1, L_COPY);
+    if (pixm) {
+        pixOr(pixm1, pixm1, pixm);
+        if (pixadb) pixaAddPix(pixadb, pixm1, L_COPY);
+    }
+    pixDestroy(&pix1);
+
+        /* Make masks over pixels that are bluish, or greenish, or
+           have a very large color saturation (max - min) value. */
+    pixm2 = pixConvertRGBToBinaryArb(pixs, -1.0, 0.0, 1.0, mindiff,
+                                     L_SELECT_IF_GTE);  /* b - r */
+    if (pixadb) pixaAddPix(pixadb, pixm2, L_COPY);
+    pix1 = pixConvertRGBToBinaryArb(pixs, -1.0, 1.0, 0.0, mindiff,
+                                    L_SELECT_IF_GTE);  /* g - r */
+    if (pixadb) pixaAddPix(pixadb, pix1, L_COPY);
+    pixOr(pixm2, pixm2, pix1);
+    pixDestroy(&pix1);
+    pix1 = pixConvertRGBToGrayMinMax(pixs, L_CHOOSE_MAXDIFF);
+    pix2 = pixThresholdToBinary(pix1, colordiff);
+    pixInvert(pix2, pix2);
+    if (pixadb) pixaAddPix(pixadb, pix2, L_COPY);
+    pixOr(pixm2, pixm2, pix2);
+    if (pixadb) pixaAddPix(pixadb, pixm2, L_COPY);
+    pixDestroy(&pix1);
+    pixDestroy(&pix2);
+
+        /* Subtract the dark pixels represented by pixm1.
+         * pixm2 now holds all the color pixels of interest  */
+    pixSubtract(pixm2, pixm2, pixm1);
+    pixDestroy(&pixm1);
+    if (pixadb) pixaAddPix(pixadb, pixm2, L_COPY);
+
+        /* But we're not quite finished.  Remove pixels from any component
+         * that is touching the image border.  False color pixels can
+         * sometimes be found there if the image is much darker near
+         * the border, due to oxidation or reduced illumination.  Also
+         * remove any pixels within the normalized fraction %distfract
+         * of the image border. */
+    pixm3 = pixRemoveBorderConnComps(pixm2, 8);
+    pixDestroy(&pixm2);
+    if (edgefract > 0.0) {
+        pix2 = pixMakeFrameMask(w, h, edgefract, 1.0, edgefract, 1.0);
+        pixAnd(pixm3, pixm3, pix2);
+        pixDestroy(&pix2);
+    }
+    if (pixadb) pixaAddPix(pixadb, pixm3, L_COPY);
+
+        /* Get the fraction of light color pixels */
+    pixCountPixels(pixm3, &count, NULL);
+    *pcolorfract = (l_float32)count / (w * h);
+    if (pixadb) {
+        if (count == 0)
+            L_INFO("no light color pixels found\n", procName);
+        else
+            L_INFO("fraction of light color pixels = %5.3f\n", procName,
+                   *pcolorfract);
+    }
+
+        /* Debug: extract the color pixels from pixs */
+    if (pixadb && count > 0) {
+            /* Use pixm3 to extract the color pixels */
+        pix3 = pixCreateTemplate(pixs);
+        pixSetAll(pix3);
+        pixCombineMasked(pix3, pixs, pixm3);
+        pixaAddPix(pixadb, pix3, L_INSERT);
+
+            /* Use additional filtering to extract the color pixels */
+        pix3 = pixCloseSafeBrick(NULL, pixm3, 15, 15);
+        pixaAddPix(pixadb, pix3, L_INSERT);
+        pix5 = pixCreateTemplate(pixs);
+        pixSetAll(pix5);
+        pixCombineMasked(pix5, pixs, pix3);
+        pixaAddPix(pixadb, pix5, L_INSERT);
+
+            /* Get the combined bounding boxes of the mask components
+             * in pix3, and extract those pixels from pixs. */
+        boxa1 = pixConnCompBB(pix3, 8);
+        boxa2 = boxaCombineOverlaps(boxa1, NULL);
+        pix4 = pixCreateTemplate(pix3);
+        pixMaskBoxa(pix4, pix4, boxa2, L_SET_PIXELS);
+        pixaAddPix(pixadb, pix4, L_INSERT);
+        pix5 = pixCreateTemplate(pixs);
+        pixSetAll(pix5);
+        pixCombineMasked(pix5, pixs, pix4);
+        pixaAddPix(pixadb, pix5, L_INSERT);
+        boxaDestroy(&boxa1);
+        boxaDestroy(&boxa2);
+    }
+    pixaAddPix(pixadb, pixs, L_COPY);
+
+        /* Optional colormask returns */
+    if (pcolormask2 && count > 0)
+        *pcolormask2 = pixCloseSafeBrick(NULL, pixm3, 15, 15);
+    if (pcolormask1 && count > 0)
+        *pcolormask1 = pixm3;
+    else
+        pixDestroy(&pixm3);
     return 0;
 }
 
@@ -1022,7 +1276,7 @@ PIXCMAP   *cmap;
  *          number of colors differs from the number of entries
  *          in the colormap, a warning is issued.
  *      (2) Use %factor == 1 to find the actual number of colors.
- *          Use %factor \> 1 to quickly find the approximate number of colors.
+ *          Use %factor > 1 to quickly find the approximate number of colors.
  *      (3) For d = 2, 4 or 8 bpp grayscale, this returns the number
  *          of colors found in the image in 'ncolors'.
  *      (4) For d = 32 bpp (rgb), if the number of colors is
@@ -1129,7 +1383,7 @@ PIXCMAP   *cmap;
  * Notes:
  *      (1) This finds the %ncolors most populated cubes in rgb colorspace,
  *          where the cube size depends on %sigbits as
- *               cube side = (256 \>\> sigbits)
+ *               cube side = (256 >> sigbits)
  *      (2) The rgb color components are found at the center of the cube.
  *      (3) The output array of colors can be displayed using
  *               pixDisplayColorArray(array, ncolors, ...);
@@ -1483,8 +1737,8 @@ getRGBFromIndex(l_uint32  index,
  * <pre>
  * Notes:
  *      (1) Pixels are identified as red if they satisfy two conditions:
- *          (a) The components satisfy (R-B)/B \> %fthresh   (red or dark fg)
- *          (b) The red component satisfied R \> 128  (red or light bg)
+ *          (a) The components satisfy (R-B)/B > %fthresh   (red or dark fg)
+ *          (b) The red component satisfied R > 128  (red or light bg)
  *          Masks are generated for (a) and (b), and the intersection
  *          gives the pixels that are red but not either light bg or
  *          dark fg.

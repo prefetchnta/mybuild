@@ -106,8 +106,10 @@ BOXA    *boxad;
     if ((boxad = boxaCreate(n)) == NULL)
         return (BOXA *)ERROR_PTR("boxad not made", procName, NULL);
     for (i = 0; i < n; i++) {
-        if ((boxs = boxaGetBox(boxas, i, L_CLONE)) == NULL)
+        if ((boxs = boxaGetBox(boxas, i, L_CLONE)) == NULL) {
+            boxaDestroy(&boxad);
             return (BOXA *)ERROR_PTR("boxs not found", procName, NULL);
+        }
         boxd = boxTransform(boxs, shiftx, shifty, scalex, scaley);
         boxDestroy(&boxs);
         boxaAddBox(boxad, boxd, L_INSERT);
@@ -209,8 +211,10 @@ BOXA    *boxad;
     if ((boxad = boxaCreate(n)) == NULL)
         return (BOXA *)ERROR_PTR("boxad not made", procName, NULL);
     for (i = 0; i < n; i++) {
-        if ((boxs = boxaGetBox(boxas, i, L_CLONE)) == NULL)
+        if ((boxs = boxaGetBox(boxas, i, L_CLONE)) == NULL) {
+            boxaDestroy(&boxad);
             return (BOXA *)ERROR_PTR("boxs not found", procName, NULL);
+        }
         boxd = boxTransformOrdered(boxs, shiftx, shifty, scalex, scaley,
                                    xcen, ycen, angle, order);
         boxDestroy(&boxs);
@@ -469,8 +473,10 @@ BOXA    *boxad;
     if ((boxad = boxaCreate(n)) == NULL)
         return (BOXA *)ERROR_PTR("boxad not made", procName, NULL);
     for (i = 0; i < n; i++) {
-        if ((boxs = boxaGetBox(boxas, i, L_CLONE)) == NULL)
+        if ((boxs = boxaGetBox(boxas, i, L_CLONE)) == NULL) {
+            boxaDestroy(&boxad);
             return (BOXA *)ERROR_PTR("boxs not found", procName, NULL);
+        }
         boxd = boxRotateOrth(boxs, w, h, rotation);
         boxDestroy(&boxs);
         boxaAddBox(boxad, boxd, L_INSERT);
@@ -638,7 +644,9 @@ NUMA      *na, *naindex;
     }
 
         /* Get the sort index for data array */
-    if ((naindex = numaGetSortIndex(na, sortorder)) == NULL)
+    naindex = numaGetSortIndex(na, sortorder);
+    numaDestroy(&na);
+    if (!naindex)
         return (BOXA *)ERROR_PTR("naindex not made", procName, NULL);
 
         /* Build up sorted boxa using sort index */
@@ -648,7 +656,6 @@ NUMA      *na, *naindex;
         *pnaindex = naindex;
     else
         numaDestroy(&naindex);
-    numaDestroy(&na);
     return boxad;
 }
 
@@ -727,7 +734,9 @@ NUMA    *na, *naindex;
     }
 
         /* Get the sort index for data array */
-    if ((naindex = numaGetBinSortIndex(na, sortorder)) == NULL)
+    naindex = numaGetBinSortIndex(na, sortorder);
+    numaDestroy(&na);
+    if (!naindex)
         return (BOXA *)ERROR_PTR("naindex not made", procName, NULL);
 
         /* Build up sorted boxa using the sort index */
@@ -737,7 +746,6 @@ NUMA    *na, *naindex;
         *pnaindex = naindex;
     else
         numaDestroy(&naindex);
-    numaDestroy(&na);
     return boxad;
 }
 
@@ -808,7 +816,7 @@ BOXA    *boxad;
  *          is overlapping are joined.  After that, the boxes in each
  *          boxa are sorted horizontally, and finally the boxa are
  *          sorted vertically.
- *      (3) If delta1 \< 0, the first pass allows aggregation when
+ *      (3) If delta1 < 0, the first pass allows aggregation when
  *          boxes in the same boxa do not overlap vertically.
  *          The distance by which they can miss and still be aggregated
  *          is the absolute value |delta1|.   Similar for delta2 on
@@ -819,6 +827,10 @@ BOXA    *boxad;
  *          with an existing boxa can start a new one.
  *      (6) This can be used to identify lines of text from
  *          character or word bounding boxes.
+ *      (7) Typical values for the input parameters on 300 ppi text are:
+ *                 delta1 ~ 0
+ *                 delta2 ~ 0
+ *                 minh1 ~ 5
  * </pre>
  */
 BOXAA *
@@ -1458,7 +1470,7 @@ BOXA    *boxa, *boxa1;
  *          where each boxa has either 0 or 1 boxes, and it is necessary
  *          to maintain a 1:1 correspondence between the initial
  *          boxa array and the resulting box array.
- *      (3) If \&naindex is defined, we generate a Numa that gives, for
+ *      (3) If &naindex is defined, we generate a Numa that gives, for
  *          each box in the baa, the index of the boxa to which it belongs.
  * </pre>
  */
@@ -1725,6 +1737,7 @@ BOXA    *boxa;
     for (i = 0; i < n; i++) {
         boxa = boxaaGetBoxa(baa, i, L_CLONE);
         if ((m = boxaGetCount(boxa)) == 0) {
+            boxaDestroy(&boxa);
             L_WARNING("no boxes in boxa\n", procName);
             continue;
         }

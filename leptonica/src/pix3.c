@@ -46,6 +46,7 @@
  *           PIX        *pixPaintSelfThroughMask()
  *           PIX        *pixMakeMaskFromVal()
  *           PIX        *pixMakeMaskFromLUT()
+ *           PIX        *pixMakeArbMaskFromRGB()
  *           PIX        *pixSetUnderTransparency()
  *           PIX        *pixMakeAlphaFromMask()
  *           l_int32     pixGetColorNearMaskBoundary()
@@ -320,8 +321,10 @@ PIX       *pixmu, *pixc;
     pixRasterop(pixd, x, y, wm, hm, PIX_SRC & PIX_DST, pixmu, 0, 0);
 
         /* Generate image with requisite color */
-    if ((pixc = pixCreateTemplate(pixmu)) == NULL)
+    if ((pixc = pixCreateTemplate(pixmu)) == NULL) {
+        pixDestroy(&pixmu);
         return ERROR_INT("pixc not made", procName, 1);
+    }
     pixSetAllArbitrary(pixc, val);
 
         /* Invert stencil mask, and paint color color into stencil */
@@ -1037,6 +1040,49 @@ PIX       *pixd;
 
 
 /*!
+ * \brief   pixMakeArbMaskFromRGB()
+ *
+ * \param[in]    pixs        32 bpp RGB
+ * \param[in]    rc, gc, bc  arithmetic factors; can be negative
+ * \param[in]    thresh      lower threshold on weighted sum of components
+ * \return  pixd 1 bpp mask, or NULL on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) This generates a 1 bpp mask image, where a 1 is written in
+ *          the mask for each pixel in pixs that satisfies
+ *               rc * rval + gc * gval + bc * bval >= thresh
+ *          where rval is the red component, etc.
+ *      (2) Unlike with pixConvertToGray(), there are no constraints
+ *          on the color coefficients, which can be negative.  For
+ *          example, a mask that discriminates against red and in favor
+ *          of blue will have rc < 0.0 and bc > 0.0.
+ * </pre>
+ */
+PIX *
+pixMakeArbMaskFromRGB(PIX       *pixs,
+                      l_float32  rc,
+                      l_float32  gc,
+                      l_float32  bc,
+                      l_float32  thresh)
+{
+PIX  *pix1, *pix2;
+
+    PROCNAME("pixMakeArbMaskFromRGB");
+
+    if (!pixs || pixGetDepth(pixs) != 32)
+        return (PIX *)ERROR_PTR("pixs undefined or not 32 bpp", procName, NULL);
+
+    if ((pix1 = pixConvertRGBToGrayArb(pixs, rc, gc, bc)) == NULL)
+        return (PIX *)ERROR_PTR("pix1 not made", procName, NULL);
+    pix2 = pixThresholdToBinary(pix1, thresh);
+    pixInvert(pix2, pix2);
+    pixDestroy(&pix1);
+    return pix2;
+}
+
+
+/*!
  * \brief   pixSetUnderTransparency()
  *
  * \param[in]    pixs 32 bpp rgba
@@ -1744,9 +1790,9 @@ PIX      *pix;
     if (d != 1)
         return (NUMA *)ERROR_PTR("pixa not 1 bpp", procName, NULL);
 
-    tab = makePixelSumTab8();
     if ((na = numaCreate(n)) == NULL)
         return (NUMA *)ERROR_PTR("na not made", procName, NULL);
+    tab = makePixelSumTab8();
     for (i = 0; i < n; i++) {
         pix = pixaGetPix(pixa, i, L_CLONE);
         pixCountPixels(pix, &count, tab);
@@ -1786,11 +1832,7 @@ l_uint32  *data;
     if (!pix || pixGetDepth(pix) != 1)
         return ERROR_INT("pix not defined or not 1 bpp", procName, 1);
 
-    if (!tab8)
-        tab = makePixelSumTab8();
-    else
-        tab = tab8;
-
+    tab = (tab8) ? tab8 : makePixelSumTab8();
     pixGetDimensions(pix, &w, &h, NULL);
     wpl = pixGetWpl(pix);
     data = pixGetData(pix);
@@ -1821,8 +1863,7 @@ l_uint32  *data;
     }
     *pcount = sum;
 
-    if (!tab8)
-        LEPT_FREE(tab);
+    if (!tab8) LEPT_FREE(tab);
     return 0;
 }
 
@@ -1951,14 +1992,11 @@ NUMA     *na;
     if (!pix || pixGetDepth(pix) != 1)
         return (NUMA *)ERROR_PTR("pix undefined or not 1 bpp", procName, NULL);
 
-    if (!tab8)
-        tab = makePixelSumTab8();
-    else
-        tab = tab8;
-
     h = pixGetHeight(pix);
     if ((na = numaCreate(h)) == NULL)
         return (NUMA *)ERROR_PTR("na not made", procName, NULL);
+
+    tab = (tab8) ? tab8 : makePixelSumTab8();
     for (i = 0; i < h; i++) {
         pixCountPixelsInRow(pix, i, &count, tab);
         numaAddNumber(na, count);
@@ -2045,11 +2083,7 @@ l_uint32  *line;
     endbits = w & 31;
     endmask = (endbits == 0) ? 0 : (0xffffffffU << (32 - endbits));
 
-    if (!tab8)
-        tab = makePixelSumTab8();
-    else
-        tab = tab8;
-
+    tab = (tab8) ? tab8 : makePixelSumTab8();
     sum = 0;
     for (j = 0; j < fullwords; j++) {
         word = line[j];
@@ -2071,8 +2105,7 @@ l_uint32  *line;
     }
     *pcount = sum;
 
-    if (!tab8)
-        LEPT_FREE(tab);
+    if (!tab8) LEPT_FREE(tab);
     return 0;
 }
 
@@ -2162,11 +2195,7 @@ l_uint32  *line, *data;
     if (!pix || pixGetDepth(pix) != 1)
         return ERROR_INT("pix not defined or not 1 bpp", procName, 1);
 
-    if (!tab8)
-        tab = makePixelSumTab8();
-    else
-        tab = tab8;
-
+    tab = (tab8) ? tab8 : makePixelSumTab8();
     pixGetDimensions(pix, &w, &h, NULL);
     wpl = pixGetWpl(pix);
     data = pixGetData(pix);
@@ -2197,14 +2226,12 @@ l_uint32  *line, *data;
         }
         if (sum > thresh) {
             *pabove = 1;
-            if (!tab8)
-                LEPT_FREE(tab);
+            if (!tab8) LEPT_FREE(tab);
             return 0;
         }
     }
 
-    if (!tab8)
-        LEPT_FREE(tab);
+    if (!tab8) LEPT_FREE(tab);
     return 0;
 }
 

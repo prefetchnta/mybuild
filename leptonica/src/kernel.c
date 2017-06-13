@@ -113,8 +113,10 @@ L_KERNEL  *kel;
         return (L_KERNEL *)ERROR_PTR("kel not made", procName, NULL);
     kel->sy = height;
     kel->sx = width;
-    if ((kel->data = create2dFloatArray(height, width)) == NULL)
+    if ((kel->data = create2dFloatArray(height, width)) == NULL) {
+        LEPT_FREE(kel);
         return (L_KERNEL *)ERROR_PTR("data not allocated", procName, NULL);
+    }
 
     return kel;
 }
@@ -492,12 +494,8 @@ l_float32  **array;
     if ((array = (l_float32 **)LEPT_CALLOC(sy, sizeof(l_float32 *))) == NULL)
         return (l_float32 **)ERROR_PTR("ptr array not made", procName, NULL);
 
-    for (i = 0; i < sy; i++) {
-        if ((array[i] = (l_float32 *)LEPT_CALLOC(sx, sizeof(l_float32)))
-            == NULL)
-            return (l_float32 **)ERROR_PTR("array not made", procName, NULL);
-    }
-
+    for (i = 0; i < sy; i++)
+        array[i] = (l_float32 *)LEPT_CALLOC(sx, sizeof(l_float32));
     return array;
 }
 
@@ -524,8 +522,10 @@ L_KERNEL  *kel;
 
     if ((fp = fopenReadStream(fname)) == NULL)
         return (L_KERNEL *)ERROR_PTR("stream not opened", procName, NULL);
-    if ((kel = kernelReadStream(fp)) == NULL)
+    if ((kel = kernelReadStream(fp)) == NULL) {
+        fclose(fp);
         return (L_KERNEL *)ERROR_PTR("kel not returned", procName, NULL);
+    }
     fclose(fp);
 
     return kel;
@@ -690,6 +690,7 @@ NUMA      *na;
     na = parseStringForNumbers(kdata, " \t\n");
     n = numaGetCount(na);
     if (n != w * h) {
+        kernelDestroy(&kel);
         numaDestroy(&na);
         fprintf(stderr, "w = %d, h = %d, num ints = %d\n", w, h, n);
         return (L_KERNEL *)ERROR_PTR("invalid integer data", procName, NULL);
@@ -775,7 +776,7 @@ L_KERNEL  *kel;
     nlines = sarrayGetCount(sa);
 
         /* Find the first data line. */
-    for (i = 0; i < nlines; i++) {
+    for (i = 0, first = 0; i < nlines; i++) {
         line = sarrayGetString(sa, i, L_NOCOPY);
         if (line[0] != '#') {
             first = i;
@@ -785,11 +786,15 @@ L_KERNEL  *kel;
 
         /* Find the kernel dimensions and origin location. */
     line = sarrayGetString(sa, first, L_NOCOPY);
-    if (sscanf(line, "%d %d", &h, &w) != 2)
+    if (sscanf(line, "%d %d", &h, &w) != 2) {
+        sarrayDestroy(&sa);
         return (L_KERNEL *)ERROR_PTR("error reading h,w", procName, NULL);
+    }
     line = sarrayGetString(sa, first + 1, L_NOCOPY);
-    if (sscanf(line, "%d %d", &cy, &cx) != 2)
+    if (sscanf(line, "%d %d", &cy, &cx) != 2) {
+        sarrayDestroy(&sa);
         return (L_KERNEL *)ERROR_PTR("error reading cy,cx", procName, NULL);
+    }
 
         /* Extract the data.  This ends when we reach eof, or when we
          * encounter a line of data that is either a null string or
@@ -1022,7 +1027,8 @@ NUMA *
 parseStringForNumbers(const char  *str,
                       const char  *seps)
 {
-char      *newstr, *head, *tail;
+char      *newstr, *head;
+char      *tail = NULL;
 l_float32  val;
 NUMA      *na;
 
@@ -1208,7 +1214,7 @@ makeGaussianKernelSep(l_int32    halfheight,
  *      (4) The halfwidth and halfheight are typically equal, and
  *          are typically several times larger than the standard deviation.
  *      (5) The ratio is the ratio of standard deviations of the wide
- *          to narrow gaussian.  It must be \>= 1.0; 1.0 is a no-op.
+ *          to narrow gaussian.  It must be >= 1.0; 1.0 is a no-op.
  *      (6) Because the kernel is a null sum, it must be invoked without
  *          normalization in pixConvolve().
  * </pre>

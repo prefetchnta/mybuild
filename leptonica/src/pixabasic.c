@@ -165,17 +165,16 @@ PIXA  *pixa;
     if (n <= 0)
         n = INITIAL_PTR_ARRAYSIZE;
 
-    if ((pixa = (PIXA *)LEPT_CALLOC(1, sizeof(PIXA))) == NULL)
-        return (PIXA *)ERROR_PTR("pixa not made", procName, NULL);
+    pixa = (PIXA *)LEPT_CALLOC(1, sizeof(PIXA));
     pixa->n = 0;
     pixa->nalloc = n;
     pixa->refcount = 1;
-
-    if ((pixa->pix = (PIX **)LEPT_CALLOC(n, sizeof(PIX *))) == NULL)
-        return (PIXA *)ERROR_PTR("pix ptrs not made", procName, NULL);
-    if ((pixa->boxa = boxaCreate(n)) == NULL)
-        return (PIXA *)ERROR_PTR("boxa not made", procName, NULL);
-
+    pixa->pix = (PIX **)LEPT_CALLOC(n, sizeof(PIX *));
+    pixa->boxa = boxaCreate(n);
+    if (!pixa->pix || !pixa->boxa) {
+        pixaDestroy(&pixa);
+        return (PIXA *)ERROR_PTR("pix or boxa not made", procName, NULL);
+    }
     return pixa;
 }
 
@@ -202,7 +201,7 @@ pixaCreateFromPix(PIX     *pixs,
                   l_int32  cellh)
 {
 l_int32  w, h, d, nw, nh, i, j, index;
-PIX     *pix, *pixt;
+PIX     *pix1, *pix2;
 PIXA    *pixa;
 
     PROCNAME("pixaCreateFromPix");
@@ -215,23 +214,25 @@ PIXA    *pixa;
     if ((pixa = pixaCreate(n)) == NULL)
         return (PIXA *)ERROR_PTR("pixa not made", procName, NULL);
     pixGetDimensions(pixs, &w, &h, &d);
-    if ((pixt = pixCreate(cellw, cellh, d)) == NULL)
-        return (PIXA *)ERROR_PTR("pixt not made", procName, NULL);
+    if ((pix1 = pixCreate(cellw, cellh, d)) == NULL) {
+        pixaDestroy(&pixa);
+        return (PIXA *)ERROR_PTR("pix1 not made", procName, NULL);
+    }
 
     nw = (w + cellw - 1) / cellw;
     nh = (h + cellh - 1) / cellh;
     for (i = 0, index = 0; i < nh; i++) {
         for (j = 0; j < nw && index < n; j++, index++) {
-            pixRasterop(pixt, 0, 0, cellw, cellh, PIX_SRC, pixs,
+            pixRasterop(pix1, 0, 0, cellw, cellh, PIX_SRC, pixs,
                    j * cellw, i * cellh);
-            if (d == 1 && !pixClipToForeground(pixt, &pix, NULL))
-                pixaAddPix(pixa, pix, L_INSERT);
+            if (d == 1 && !pixClipToForeground(pix1, &pix2, NULL))
+                pixaAddPix(pixa, pix2, L_INSERT);
             else
-                pixaAddPix(pixa, pixt, L_COPY);
+                pixaAddPix(pixa, pix1, L_COPY);
         }
     }
 
-    pixDestroy(&pixt);
+    pixDestroy(&pix1);
     return pixa;
 }
 
@@ -337,7 +338,7 @@ pixaSplitPix(PIX      *pixs,
              l_uint32  bordercolor)
 {
 l_int32  w, h, d, cellw, cellh, i, j;
-PIX     *pixt;
+PIX     *pix1;
 PIXA    *pixa;
 
     PROCNAME("pixaSplitPix");
@@ -356,21 +357,23 @@ PIXA    *pixa;
 
     for (i = 0; i < ny; i++) {
         for (j = 0; j < nx; j++) {
-            if ((pixt = pixCreate(cellw + 2 * borderwidth,
-                                  cellh + 2 * borderwidth, d)) == NULL)
-                return (PIXA *)ERROR_PTR("pixt not made", procName, NULL);
-            pixCopyColormap(pixt, pixs);
+            if ((pix1 = pixCreate(cellw + 2 * borderwidth,
+                                  cellh + 2 * borderwidth, d)) == NULL) {
+                pixaDestroy(&pixa);
+                return (PIXA *)ERROR_PTR("pix1 not made", procName, NULL);
+            }
+            pixCopyColormap(pix1, pixs);
             if (borderwidth == 0) {  /* initialize full image to white */
                 if (d == 1)
-                    pixClearAll(pixt);
+                    pixClearAll(pix1);
                 else
-                    pixSetAll(pixt);
+                    pixSetAll(pix1);
             } else {
-                pixSetAllArbitrary(pixt, bordercolor);
+                pixSetAllArbitrary(pix1, bordercolor);
             }
-            pixRasterop(pixt, borderwidth, borderwidth, cellw, cellh,
+            pixRasterop(pix1, borderwidth, borderwidth, cellw, cellh,
                         PIX_SRC, pixs, j * cellw, i * cellh);
-            pixaAddPix(pixa, pixt, L_INSERT);
+            pixaAddPix(pixa, pix1, L_INSERT);
         }
     }
 
@@ -1452,7 +1455,7 @@ pixaInitFull(PIXA  *pixa,
              BOX   *box)
 {
 l_int32  i, n;
-PIX     *pixt;
+PIX     *pix1;
 
     PROCNAME("pixaInitFull");
 
@@ -1463,10 +1466,10 @@ PIX     *pixt;
     pixa->n = n;
     for (i = 0; i < n; i++) {
         if (pix)
-            pixt = pixCopy(NULL, pix);
+            pix1 = pixCopy(NULL, pix);
         else
-            pixt = pixCreate(1, 1, 1);
-        pixaReplacePix(pixa, i, pixt, NULL);
+            pix1 = pixCreate(1, 1, 1);
+        pixaReplacePix(pixa, i, pix1, NULL);
     }
     if (box)
         boxaInitFull(pixa->boxa, box);
@@ -2398,15 +2401,13 @@ PIXA  *pixa;
 
     if (!filename)
         return (PIXA *)ERROR_PTR("filename not defined", procName, NULL);
+
     if ((fp = fopenReadStream(filename)) == NULL)
         return (PIXA *)ERROR_PTR("stream not opened", procName, NULL);
-
-    if ((pixa = pixaReadStream(fp)) == NULL) {
-        fclose(fp);
-        return (PIXA *)ERROR_PTR("pixa not read", procName, NULL);
-    }
-
+    pixa = pixaReadStream(fp);
     fclose(fp);
+    if (!pixa)
+        return (PIXA *)ERROR_PTR("pixa not read", procName, NULL);
     return pixa;
 }
 
@@ -2520,7 +2521,8 @@ l_int32
 pixaWrite(const char  *filename,
           PIXA        *pixa)
 {
-FILE  *fp;
+l_int32  ret;
+FILE    *fp;
 
     PROCNAME("pixaWrite");
 
@@ -2535,9 +2537,10 @@ FILE  *fp;
 
     if ((fp = fopenWriteStream(filename, "wb")) == NULL)
         return ERROR_INT("stream not opened", procName, 1);
-    if (pixaWriteStream(fp, pixa))
-        return ERROR_INT("pixa not written to stream", procName, 1);
+    ret = pixaWriteStream(fp, pixa);
     fclose(fp);
+    if (ret)
+        return ERROR_INT("pixa not written to stream", procName, 1);
     return 0;
 }
 
@@ -2776,15 +2779,13 @@ PIXAA  *paa;
 
     if (!filename)
         return (PIXAA *)ERROR_PTR("filename not defined", procName, NULL);
+
     if ((fp = fopenReadStream(filename)) == NULL)
         return (PIXAA *)ERROR_PTR("stream not opened", procName, NULL);
-
-    if ((paa = pixaaReadStream(fp)) == NULL) {
-        fclose(fp);
-        return (PIXAA *)ERROR_PTR("paa not read", procName, NULL);
-    }
-
+    paa = pixaaReadStream(fp);
     fclose(fp);
+    if (!paa)
+        return (PIXAA *)ERROR_PTR("paa not read", procName, NULL);
     return paa;
 }
 
@@ -2828,18 +2829,23 @@ PIXAA   *paa;
 
     if ((paa = pixaaCreate(n)) == NULL)
         return (PIXAA *)ERROR_PTR("paa not made", procName, NULL);
-    if ((boxa = boxaReadStream(fp)) == NULL)
+    if ((boxa = boxaReadStream(fp)) == NULL) {
+        pixaaDestroy(&paa);
         return (PIXAA *)ERROR_PTR("boxa not made", procName, NULL);
+    }
     boxaDestroy(&paa->boxa);
     paa->boxa = boxa;
 
     for (i = 0; i < n; i++) {
         if ((fscanf(fp, "\n\n --------------- pixa[%d] ---------------\n",
                     &ignore)) != 1) {
+            pixaaDestroy(&paa);
             return (PIXAA *)ERROR_PTR("text reading", procName, NULL);
         }
-        if ((pixa = pixaReadStream(fp)) == NULL)
+        if ((pixa = pixaReadStream(fp)) == NULL) {
+            pixaaDestroy(&paa);
             return (PIXAA *)ERROR_PTR("pixa not read", procName, NULL);
+        }
         pixaaAddPixa(paa, pixa, L_INSERT);
     }
 
@@ -2892,7 +2898,8 @@ l_int32
 pixaaWrite(const char  *filename,
            PIXAA       *paa)
 {
-FILE  *fp;
+l_int32  ret;
+FILE    *fp;
 
     PROCNAME("pixaaWrite");
 
@@ -2907,10 +2914,10 @@ FILE  *fp;
 
     if ((fp = fopenWriteStream(filename, "wb")) == NULL)
         return ERROR_INT("stream not opened", procName, 1);
-    if (pixaaWriteStream(fp, paa))
-        return ERROR_INT("paa not written to stream", procName, 1);
+    ret = pixaaWriteStream(fp, paa);
     fclose(fp);
-
+    if (ret)
+        return ERROR_INT("paa not written to stream", procName, 1);
     return 0;
 }
 

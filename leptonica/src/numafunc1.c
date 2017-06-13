@@ -50,6 +50,7 @@
  *          NUMA        *numaAddBorder()
  *          NUMA        *numaAddSpecifiedBorder()
  *          NUMA        *numaRemoveBorder()
+ *          l_int32      numaCountNonzeroRuns()
  *          l_int32      numaGetNonzeroRange()
  *          l_int32      numaGetCountRelativeToZero()
  *          NUMA        *numaClipToInterval()
@@ -938,6 +939,43 @@ NUMA       *nad;
 
 
 /*!
+ * \brief   numaCountNonzeroRuns()
+ *
+ * \param[in]    na      e.g., of pixel counts in rows or columns
+ * \param[out]   pcount  number of nonzero runs
+ * \return  0 if OK, 1 on error
+ */
+l_int32
+numaCountNonzeroRuns(NUMA     *na,
+                     l_int32  *pcount)
+{
+l_int32  n, i, val, count, inrun;
+
+    PROCNAME("numaCountNonzeroRuns");
+
+    if (!pcount)
+        return ERROR_INT("&count not defined", procName, 1);
+    *pcount = 0;
+    if (!na)
+        return ERROR_INT("na not defined", procName, 1);
+    n = numaGetCount(na);
+    count = 0;
+    inrun = FALSE;
+    for (i = 0; i < n; i++) {
+        numaGetIValue(na, i, &val);
+        if (!inrun && val > 0) {
+            count++;
+            inrun = TRUE;
+        } else if (inrun && val == 0) {
+            inrun = FALSE;
+        }
+    }
+    *pcount = count;
+    return 0;
+}
+
+
+/*!
  * \brief   numaGetNonzeroRange()
  *
  * \param[in]    na source numa
@@ -1051,7 +1089,7 @@ numaClipToInterval(NUMA    *nas,
                    l_int32  last)
 {
 l_int32    n, i, truelast;
-l_float32  val;
+l_float32  val, startx, delx;
 NUMA      *nad;
 
     PROCNAME("numaClipToInterval");
@@ -1071,7 +1109,8 @@ NUMA      *nad;
         numaGetFValue(nas, i, &val);
         numaAddNumber(nad, val);
     }
-
+    numaGetParameters(nas, &startx, &delx);
+    numaSetParameters(nad, startx + first * delx, delx);
     return nad;
 }
 
@@ -1698,6 +1737,8 @@ l_float32  *fax, *fay;
         *pyval = fay[0];
         return 0;
     }
+    im = 0;
+    dell = 0.0;
     for (i = 1; i < nx; i++) {
         delu = fax[i] - xval;
         if (delu >= 0.0) {  /* we've passed it */
@@ -1912,8 +1953,11 @@ NUMA       *nasx, *nasy, *nadx, *nady;
     fay = numaGetFArray(nasy, L_NOCOPY);
 
         /* Get array of indices into fax for interpolated locations */
-    if ((index = (l_int32 *)LEPT_CALLOC(npts, sizeof(l_int32))) == NULL)
+    if ((index = (l_int32 *)LEPT_CALLOC(npts, sizeof(l_int32))) == NULL) {
+        numaDestroy(&nasx);
+        numaDestroy(&nasy);
         return ERROR_INT("ind not made", procName, 1);
+    }
     del = (x1 - x0) / (npts - 1.0);
     for (i = 0, j = 0; j < nx && i < npts; i++) {
         xval = x0 + i * del;
@@ -1982,10 +2026,10 @@ NUMA       *nasx, *nasy, *nadx, *nady;
 /*!
  * \brief   numaFitMax()
  *
- * \param[in]    na  numa of ordinate values, to fit a max to
- * \param[out]   pmaxval max value
- * \param[in]    naloc [optional] associated numa of abscissa values
- * \param[out]   pmaxloc abscissa value that gives max value in na;
+ * \param[in]    na       numa of ordinate values, to fit a max to
+ * \param[out]   pmaxval  max value
+ * \param[in]    naloc    [optional] associated numa of abscissa values
+ * \param[out]   pmaxloc  abscissa value that gives max value in na;
  *                   if naloc == null, this is given as an interpolated
  *                   index value
  * \return  0 if OK; 1 on error
@@ -2024,8 +2068,8 @@ l_float32  x1, x2, x3, y1, y2, y3, c1, c2, c3, a, b, xmax, ymax;
 
     PROCNAME("numaFitMax");
 
-    *pmaxval = *pmaxloc = 0.0;  /* init */
-
+    if (pmaxval) *pmaxval = 0.0;
+    if (pmaxloc) *pmaxloc = 0.0;
     if (!na)
         return ERROR_INT("na not defined", procName, 1);
     if (!pmaxval)
@@ -2038,7 +2082,6 @@ l_float32  x1, x2, x3, y1, y2, y3, c1, c2, c3, a, b, xmax, ymax;
         if (n != numaGetCount(naloc))
             return ERROR_INT("na and naloc of unequal size", procName, 1);
     }
-
     numaGetMax(na, &smaxval, &imaxloc);
 
         /* Simple case: max is at end point */
@@ -2478,7 +2521,7 @@ l_float32  minval, maxval;
  * <pre>
  * Notes:
  *      (1) Set naout = nain for in-place; otherwise, set naout = NULL.
- *      (2) Source: Shell sort, modified from K\&R, 2nd edition, p.62.
+ *      (2) Source: Shell sort, modified from K&R, 2nd edition, p.62.
  *          Slow but simple O(n logn) sort.
  * </pre>
  */
@@ -2592,8 +2635,10 @@ NUMA       *naisort;
     n = numaGetCount(na);
     if ((array = numaGetFArray(na, L_COPY)) == NULL)
         return (NUMA *)ERROR_PTR("array not made", procName, NULL);
-    if ((iarray = (l_float32 *)LEPT_CALLOC(n, sizeof(l_float32))) == NULL)
+    if ((iarray = (l_float32 *)LEPT_CALLOC(n, sizeof(l_float32))) == NULL) {
+        LEPT_FREE(array);
         return (NUMA *)ERROR_PTR("iarray not made", procName, NULL);
+    }
     for (i = 0; i < n; i++)
         iarray[i] = i;
 

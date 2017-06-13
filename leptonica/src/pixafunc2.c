@@ -53,8 +53,9 @@
  *           PIXA     *pixaConvertTo8Color()
  *           PIXA     *pixaConvertTo32()
  *
- *      Pixa constrained selection
+ *      Pixa constrained selection and pdf generation
  *           PIXA     *pixaConstrainedSelect()
+ *           l_int32   pixaSelectToPdf()
  *
  *      Pixa display into multiple tiles
  *           PIXA     *pixaDisplayMultiTiled()
@@ -298,8 +299,10 @@ PIXA    *pixat;
     }
 
         /* Make the output pix and set the background color */
-    if ((pixd = pixCreate(w, h, maxdepth)) == NULL)
+    if ((pixd = pixCreate(w, h, maxdepth)) == NULL) {
+        pixaDestroy(&pixat);
         return (PIX *)ERROR_PTR("pixd not made", procName, NULL);
+    }
     if ((maxdepth == 1 && bgcolor > 0) ||
         (maxdepth == 2 && bgcolor >= 0x3) ||
         (maxdepth == 4 && bgcolor >= 0xf) ||
@@ -332,16 +335,18 @@ PIXA    *pixat;
 /*!
  * \brief   pixaDisplayRandomCmap()
  *
- * \param[in]    pixa of 1 bpp components, with boxa
- * \param[in]    w, h if set to 0, determines the size from the
- *                    b.b. of the components in pixa
- * \return  pix 8 bpp, cmapped, with random colors on the components,
- *              or NULL on error
+ * \param[in]    pixa   1 bpp regions, with boxa delineating those regions.
+ * \param[in]    w, h   if set to 0, determines the size from the
+ *                      b.b. of the components in pixa
+ * \return  pix   8 bpp, cmapped, with random colors assigned to each region,
+ *                or NULL on error.
  *
  * <pre>
  * Notes:
  *      (1) This uses the boxes to place each pix in the rendered composite.
- *      (2) By default, the background color is: black, cmap index 0.
+ *          The fg of each pix in %pixa, such as a single connected
+ *          component or a line of text, is given a random color.
+ *      (2) By default, the background color is black (cmap index 0).
  *          This can be changed by pixcmapResetColor()
  * </pre>
  */
@@ -976,7 +981,7 @@ PIXA     *pixan;
  *
  * <pre>
  * Notes:
- *      (1) This renders a pixa to a single image with 3 columns of
+ *      (1) This renders a pixa to a single image with &nx columns of
  *          subimages.  The background color is white, and each row
  *          is tiled such that the top of each pix is aligned and
  *          each pix is separated by 'spacing' from the next one.
@@ -1076,7 +1081,7 @@ PIXA     *pixa1, *pixa2;
 
         /* Render the output pix */
     boxaGetExtent(boxa, &w, &h, NULL);
-    pixd = pixaDisplay(pixa2, w, h);
+    pixd = pixaDisplay(pixa2, w + spacing, h + spacing);
     pixSetResolution(pixd, res, res);
 
         /* Save the boxa in the text field of the output pix */
@@ -1180,8 +1185,10 @@ PIXA      *pixan;
         /* Determine the size of each row and of pixd */
     wd = tilewidth * ncols + spacing * (ncols + 1);
     nrows = (n + ncols - 1) / ncols;
-    if ((rowht = (l_int32 *)LEPT_CALLOC(nrows, sizeof(l_int32))) == NULL)
+    if ((rowht = (l_int32 *)LEPT_CALLOC(nrows, sizeof(l_int32))) == NULL) {
+        pixaDestroy(&pixan);
         return (PIX *)ERROR_PTR("rowht array not made", procName, NULL);
+    }
     maxht = 0;
     ninrow = 0;
     irow = 0;
@@ -1516,8 +1523,10 @@ PIXA    *pixa;
     pixaDestroy(&pixa);
     pixDestroy(&pixt);
 
-    if ((pixd = pixCreate(w, h, d)) == NULL)
+    if ((pixd = pixCreate(w, h, d)) == NULL) {
+        boxaDestroy(&boxa1);
         return (PIX *)ERROR_PTR("pixd not made", procName, NULL);
+    }
 
     x = y = 0;
     for (i = 0; i < n; i++) {
@@ -1627,8 +1636,10 @@ PIXA     *pixa;
     }
     width = (use_maxw) ? maxw : lmaxw;
 
-    if ((pixd = pixCreate(width, y, maxdepth)) == NULL)
+    if ((pixd = pixCreate(width, y, maxdepth)) == NULL) {
+        numaDestroy(&nah);
         return (PIX *)ERROR_PTR("pixd not made", procName, NULL);
+    }
 
         /* Now layout the pix by pixa */
     y = yspace;
@@ -1935,9 +1946,8 @@ PIXA    *pixad;
     if (!pixas)
         return (PIXA *)ERROR_PTR("pixas not defined", procName, NULL);
     n = pixaGetCount(pixas);
-    if (last == -1)
-        last = n - 1;
     first = L_MAX(0, first);
+    last = (last < 0) ? n - 1 : L_MIN(n - 1, last);
     if (last < first)
         return (PIXA *)ERROR_PTR("last < first!", procName, NULL);
     if (nmax < 1)
@@ -1953,6 +1963,93 @@ PIXA    *pixad;
     }
     numaDestroy(&na);
     return pixad;
+}
+
+
+/*!
+ * \brief   pixaSelectToPdf()
+ *
+ * \param[in]    pixas
+ * \param[in]    first     first index to choose; >= 0
+ * \param[in]    last      biggest possible index to reach;
+ *                         use -1 to go to the end; otherwise, last >= first
+ * \param[in]    res       override the resolution of each input image, in ppi;
+ *                         use 0 to respect the resolution embedded in the input
+ * \param[in]    scalefactor   scaling factor applied to each image; > 0.0
+ * \param[in]    type      encoding type (L_JPEG_ENCODE, L_G4_ENCODE,
+ *                         L_FLATE_ENCODE, or 0 for default
+ * \param[in]    quality   used for JPEG only; 0 for default (75)
+ * \param[in]    color     of numbers added to each image (e.g., 0xff000000)
+ * \param[in]    fontsize  to print number below each image.  The valid set
+ *                         is {4,6,8,10,12,14,16,18,20}.  Use 0 to disable.
+ * \param[in]    fileout   pdf file of all images
+ * \return  0 if OK, 1 on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) This writes a pdf of the selected images from %pixas, one to
+ *          a page.  They are optionally scaled and annotated with the
+ *          index printed to the left of the image.
+ *      (2) If the input images are 1 bpp and you want the numbers to be
+ *          in color, first promote each pix to 8 bpp with a colormap:
+ *                pixa1 = pixaConvertTo8(pixas, 1);
+ *          and then call this function with the specified color
+ * </pre>
+ */
+l_int32
+pixaSelectToPdf(PIXA        *pixas,
+                l_int32      first,
+                l_int32      last,
+                l_int32      res,
+                l_float32    scalefactor,
+                l_int32      type,
+                l_int32      quality,
+                l_uint32     color,
+                l_int32      fontsize,
+                const char  *fileout)
+{
+l_int32    n, n1;
+L_BMF     *bmf;
+NUMA      *na;
+PIXA      *pixa1, *pixa2;
+
+    PROCNAME("pixaSelectToPdf");
+
+    if (!pixas)
+        return ERROR_INT("pixas not defined", procName, 1);
+    if (type < 0 || type > L_FLATE_ENCODE) {
+        L_WARNING("invalid compression type; using default\n", procName);
+        type = 0;
+    }
+    if (!fileout)
+        return ERROR_INT("fileout not defined", procName, 1);
+
+        /* Select from given range */
+    n = pixaGetCount(pixas);
+    first = L_MAX(0, first);
+    last = (last < 0) ? n - 1 : L_MIN(n - 1, last);
+    if (first > last) {
+        L_ERROR("first = %d > last = %d\n", procName, first, last);
+        return 1;
+    }
+    pixa1 = pixaSelectRange(pixas, first, last, L_CLONE);
+
+        /* Optionally add index numbers */
+    n1 = pixaGetCount(pixa1);
+    bmf = (fontsize <= 0) ? NULL : bmfCreate(NULL, fontsize);
+    if (bmf) {
+        na = numaMakeSequence(first, 1.0, last - first + 1);
+        pixa2 = pixaAddTextNumber(pixa1, bmf, na, color, L_ADD_LEFT);
+        numaDestroy(&na);
+    } else {
+        pixa2 = pixaCopy(pixa1, L_CLONE);
+    }
+    pixaDestroy(&pixa1);
+    bmfDestroy(&bmf);
+
+    pixaConvertToPdf(pixa2, res, scalefactor, type, quality, NULL, fileout);
+    pixaDestroy(&pixa2);
+    return 0;
 }
 
 

@@ -1091,13 +1091,10 @@ NUMA  *na;
 
     if ((fp = fopenReadStream(filename)) == NULL)
         return (NUMA *)ERROR_PTR("stream not opened", procName, NULL);
-
-    if ((na = numaReadStream(fp)) == NULL) {
-        fclose(fp);
-        return (NUMA *)ERROR_PTR("na not read", procName, NULL);
-    }
-
+    na = numaReadStream(fp);
     fclose(fp);
+    if (!na)
+        return (NUMA *)ERROR_PTR("na not read", procName, NULL);
     return na;
 }
 
@@ -1185,7 +1182,8 @@ l_int32
 numaWrite(const char  *filename,
           NUMA        *na)
 {
-FILE  *fp;
+l_int32  ret;
+FILE    *fp;
 
     PROCNAME("numaWrite");
 
@@ -1196,8 +1194,10 @@ FILE  *fp;
 
     if ((fp = fopenWriteStream(filename, "w")) == NULL)
         return ERROR_INT("stream not opened", procName, 1);
-    numaWriteStream(fp, na);
+    ret = numaWriteStream(fp, na);
     fclose(fp);
+    if (ret)
+        return ERROR_INT("na not written to stream", procName, 1);
     return 0;
 }
 
@@ -1778,13 +1778,10 @@ NUMAA  *naa;
 
     if ((fp = fopenReadStream(filename)) == NULL)
         return (NUMAA *)ERROR_PTR("stream not opened", procName, NULL);
-
-    if ((naa = numaaReadStream(fp)) == NULL) {
-        fclose(fp);
-        return (NUMAA *)ERROR_PTR("naa not read", procName, NULL);
-    }
-
+    naa = numaaReadStream(fp);
     fclose(fp);
+    if (!naa)
+        return (NUMAA *)ERROR_PTR("naa not read", procName, NULL);
     return naa;
 }
 
@@ -1871,7 +1868,8 @@ l_int32
 numaaWrite(const char  *filename,
            NUMAA       *naa)
 {
-FILE  *fp;
+l_int32  ret;
+FILE    *fp;
 
     PROCNAME("numaaWrite");
 
@@ -1882,9 +1880,10 @@ FILE  *fp;
 
     if ((fp = fopenWriteStream(filename, "w")) == NULL)
         return ERROR_INT("stream not opened", procName, 1);
-    numaaWriteStream(fp, naa);
+    ret = numaaWriteStream(fp, naa);
     fclose(fp);
-
+    if (ret)
+        return ERROR_INT("naa not written to stream", procName, 1);
     return 0;
 }
 

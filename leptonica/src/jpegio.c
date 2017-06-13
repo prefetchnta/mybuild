@@ -798,7 +798,7 @@ JSAMPROW                     rowbuffer;
 PIX                         *pix;
 struct jpeg_compress_struct  cinfo;
 struct jpeg_error_mgr        jerr;
-const char                  *text;
+char                        *text;
 jmp_buf                      jmpbuf;  /* must be local to the function */
 
     PROCNAME("pixWriteStreamJpeg");
@@ -830,6 +830,7 @@ jmp_buf                      jmpbuf;  /* must be local to the function */
     }
     if (!pix)
         return ERROR_INT("pix not made", procName, 1);
+    pixSetPadBits(pix, 0);
 
     rewind(fp);
     rowbuffer = NULL;
@@ -901,8 +902,16 @@ jmp_buf                      jmpbuf;  /* must be local to the function */
 
     jpeg_start_compress(&cinfo, TRUE);
 
-    if ((text = pixGetText(pix)))
+        /* Cap the text the length limit, 65533, for JPEG_COM payload.
+         * Just to be safe, subtract 100 to cover the Adobe name space.  */
+    if ((text = pixGetText(pix)) != NULL) {
+        if (strlen(text) > 65433) {
+            L_WARNING("text is %lu bytes; clipping to 65433\n",
+                   procName, (unsigned long)strlen(text));
+            text[65433] = '\0';
+        }
         jpeg_write_marker(&cinfo, JPEG_COM, (const JOCTET *)text, strlen(text));
+    }
 
         /* Allocate row buffer */
     spp = cinfo.input_components;

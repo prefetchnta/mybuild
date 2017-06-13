@@ -136,7 +136,7 @@ ALL_LIBS =	$(LEPTLIB) -ltiff -ljpeg -lpng -lz -lm
 
 SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		alltests_reg.c alphaops_reg.c alphaxform_reg.c \
-		bilateral1_reg.c bilateral2_reg.c \
+		baseline_reg.c bilateral1_reg.c bilateral2_reg.c \
 		bilinear_reg.c binarize_reg.c \
 		binmorph1_reg.c binmorph2_reg.c \
 		binmorph3_reg.c binmorph4_reg.c binmorph5_reg.c \
@@ -167,8 +167,8 @@ SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		jbclass_reg.c jp2kio_reg.c jpegio_reg.c kernel_reg.c \
 		label_reg.c lineremoval_reg.c locminmax_reg.c \
 		logicops_reg.c lowaccess_reg.c \
-		maze_reg.c morphseq_reg.c multitype_reg.c \
-		nearline_reg.c newspaper_reg.c \
+		maze_reg.c morphseq_reg.c mtiff_reg.c \
+		multitype_reg.c nearline_reg.c newspaper_reg.c \
 		numa1_reg.c numa2_reg.c \
 		overlap_reg.c pageseg_reg.c paint_reg.c paintmask_reg.c \
 		pdfseg_reg.c pixa1_reg.c pixa2_reg.c \
@@ -190,8 +190,7 @@ SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		translate_reg.c warper_reg.c webpio_reg.c \
 		wordboxes_reg.c writetext_reg.c xformbox_reg.c \
 		adaptmap_dark.c arabic_lines.c arithtest.c \
-		autogentest1.c autogentest2.c \
-		barcodetest.c baselinetest.c \
+		autogentest1.c autogentest2.c barcodetest.c \
 		binarizefiles.c binarize_set.c bincompare.c \
 		blendcmaptest.c buffertest.c \
 		byteatest.c ccbordtest.c cctest1.c \
@@ -202,14 +201,14 @@ SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		convertformat.c \
 		convertsegfilestopdf.c convertsegfilestops.c \
 		converttogray.c converttopdf.c converttops.c \
-		cornertest.c croptest.c croptext.c \
+		cornertest.c corrupttest.c croptest.c croptext.c \
 		dewarprules.c dewarptest1.c dewarptest2.c \
 		dewarptest3.c dewarptest4.c dewarptest5.c \
 		digitprep1.c displayboxa.c displayboxes_on_pixa.c \
 		displaypix.c displaypixa.c \
 		dwalineargen.c falsecolortest.c \
 		fcombautogen.c fhmtautogen.c \
-		fileinfo.c findbinding.c \
+		fileinfo.c findbinding.c find_colorregions.c \
 		findpattern1.c findpattern2.c findpattern3.c \
 		flipselgen.c fmorphautogen.c \
 		fpixcontours.c gammatest.c \
@@ -221,7 +220,7 @@ SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		livre_makefigs.c livre_orient.c \
 		livre_pageseg.c livre_seedgen.c livre_tophat.c \
 		maketile.c maptest.c misctest1.c \
-		modifyhuesat.c morphtest1.c mtifftest.c \
+		modifyhuesat.c morphtest1.c \
 		numaranktest.c otsutest1.c otsutest2.c \
 		pagesegtest1.c pagesegtest2.c \
 		partitiontest.c pdfiotest.c percolatetest.c \
@@ -229,6 +228,8 @@ SRC =		adaptmap_reg.c adaptnorm_reg.c affine_reg.c \
 		printimage.c printsplitimage.c printtiff.c \
 		quadtreetest.c rbtreetest.c \
 		recog_bootnum.c recogsort.c recogtest1.c \
+		recogtest2.c recogtest3.c \
+		recogtest4.c recogtest5.c recogtest6.c \
 		reducetest.c removecmap.c \
 		renderfonts.c rotatefastalt.c \
 		rotateorthtest1.c rotatetest1.c \
@@ -310,6 +311,9 @@ alphaops_reg:	alphaops_reg.o $(LEPTLIB)
 
 alphaxform_reg:	alphaxform_reg.o $(LEPTLIB)
 	$(CC) -o alphaxform_reg alphaxform_reg.o $(ALL_LIBS) $(EXTRALIBS)
+
+baseline_reg:	baseline_reg.o $(LEPTLIB)
+	$(CC) -o baseline_reg baseline_reg.o $(ALL_LIBS) $(EXTRALIBS)
 
 bilateral1_reg:	bilateral1_reg.o $(LEPTLIB)
 	$(CC) -o bilateral1_reg bilateral1_reg.o $(ALL_LIBS) $(EXTRALIBS)
@@ -527,6 +531,9 @@ maze_reg:	maze_reg.o $(LEPTLIB)
 morphseq_reg:	morphseq_reg.o $(LEPTLIB)
 	$(CC) -o morphseq_reg morphseq_reg.o $(ALL_LIBS) $(EXTRALIBS)
 
+mtiff_reg:	mtiff_reg.o $(LEPTLIB)
+	$(CC) -o mtiff_reg mtiff_reg.o $(ALL_LIBS) $(EXTRALIBS)
+
 multitype_reg:	multitype_reg.o $(LEPTLIB)
 	$(CC) -o multitype_reg multitype_reg.o $(ALL_LIBS) $(EXTRALIBS)
 
@@ -707,9 +714,6 @@ autogentest2:	autogentest2.o autogen.137.o $(LEPTLIB)
 barcodetest:	barcodetest.o $(LEPTLIB)
 	$(CC) -o barcodetest barcodetest.o $(ALL_LIBS) $(EXTRALIBS)
 
-baselinetest:	baselinetest.o $(LEPTLIB)
-	$(CC) -o baselinetest baselinetest.o $(ALL_LIBS) $(EXTRALIBS)
-
 binarizefiles:	binarizefiles.o $(LEPTLIB)
 	$(CC) -o binarizefiles binarizefiles.o $(ALL_LIBS) $(EXTRALIBS)
 
@@ -782,6 +786,9 @@ converttops:	converttops.o $(LEPTLIB)
 cornertest:	cornertest.o $(LEPTLIB)
 	$(CC) -o cornertest cornertest.o $(ALL_LIBS) $(EXTRALIBS)
 
+corrupttest:	corrupttest.o $(LEPTLIB)
+	$(CC) -o corrupttest corrupttest.o $(ALL_LIBS) $(EXTRALIBS)
+
 croptest:	croptest.o $(LEPTLIB)
 	$(CC) -o croptest croptest.o $(ALL_LIBS) $(EXTRALIBS)
 
@@ -835,6 +842,9 @@ fileinfo:	fileinfo.o $(LEPTLIB)
 
 findbinding:	findbinding.o $(LEPTLIB)
 	$(CC) -o findbinding findbinding.o $(ALL_LIBS) $(EXTRALIBS)
+
+find_colorregions:	find_colorregions.o $(LEPTLIB)
+	$(CC) -o find_colorregions find_colorregions.o $(ALL_LIBS) $(EXTRALIBS)
 
 findpattern1:	findpattern1.o $(LEPTLIB)
 	$(CC) -o findpattern1 findpattern1.o $(ALL_LIBS) $(EXTRALIBS)
@@ -932,9 +942,6 @@ modifyhuesat:	modifyhuesat.o $(LEPTLIB)
 morphtest1:	morphtest1.o $(LEPTLIB)
 	$(CC) -o morphtest1 morphtest1.o $(ALL_LIBS) $(EXTRALIBS)
 
-mtifftest:	mtifftest.o $(LEPTLIB)
-	$(CC) -o mtifftest mtifftest.o $(ALL_LIBS) $(EXTRALIBS)
-
 numaranktest:	numaranktest.o $(LEPTLIB)
 	$(CC) -o numaranktest numaranktest.o $(ALL_LIBS) $(EXTRALIBS)
 
@@ -991,6 +998,21 @@ recogsort:	recogsort.o $(LEPTLIB)
 
 recogtest1:	recogtest1.o $(LEPTLIB)
 	$(CC) -o recogtest1 recogtest1.o $(ALL_LIBS) $(EXTRALIBS)
+
+recogtest2:	recogtest2.o $(LEPTLIB)
+	$(CC) -o recogtest2 recogtest2.o $(ALL_LIBS) $(EXTRALIBS)
+
+recogtest3:	recogtest3.o $(LEPTLIB)
+	$(CC) -o recogtest3 recogtest3.o $(ALL_LIBS) $(EXTRALIBS)
+
+recogtest4:	recogtest4.o $(LEPTLIB)
+	$(CC) -o recogtest4 recogtest4.o $(ALL_LIBS) $(EXTRALIBS)
+
+recogtest5:	recogtest5.o $(LEPTLIB)
+	$(CC) -o recogtest5 recogtest5.o $(ALL_LIBS) $(EXTRALIBS)
+
+recogtest6:	recogtest6.o $(LEPTLIB)
+	$(CC) -o recogtest6 recogtest6.o $(ALL_LIBS) $(EXTRALIBS)
 
 reducetest:	reducetest.o $(LEPTLIB)
 	$(CC) -o reducetest reducetest.o $(ALL_LIBS) $(EXTRALIBS)

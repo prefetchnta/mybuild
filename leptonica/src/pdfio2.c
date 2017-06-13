@@ -63,6 +63,7 @@
  *     Helper functions for generating the output pdf string
  *          static l_int32       l_generatePdf()
  *          static void          generateFixedStringsPdf()
+ *          static char         *generateEscapeString()
  *          static void          generateMediaboxPdf()
  *          static l_int32       generatePageStringPdf()
  *          static l_int32       generateContentStringPdf()
@@ -109,6 +110,7 @@ static L_COMP_DATA  *pixGenerateG4Data(PIX *pixs, l_int32 ascii85flag);
 static l_int32       l_generatePdf(l_uint8 **pdata, size_t *pnbytes,
                                    L_PDF_DATA  *lpd);
 static void          generateFixedStringsPdf(L_PDF_DATA *lpd);
+static char         *generateEscapeString(const char  *str);
 static void          generateMediaboxPdf(L_PDF_DATA *lpd);
 static l_int32       generatePageStringPdf(L_PDF_DATA *lpd);
 static l_int32       generateContentStringPdf(L_PDF_DATA *lpd);
@@ -468,8 +470,7 @@ l_int32
 convertTiffMultipageToPdf(const char  *filein,
                           const char  *fileout)
 {
-l_int32  i, npages, istiff;
-PIX     *pix;
+l_int32  istiff;
 PIXA    *pixa;
 FILE    *fp;
 
@@ -478,21 +479,11 @@ FILE    *fp;
     if ((fp = fopenReadStream(filein)) == NULL)
         return ERROR_INT("file not found", procName, 1);
     istiff = fileFormatIsTiff(fp);
-    if (!istiff) {
-        fclose(fp);
-        return ERROR_INT("file not tiff format", procName, 1);
-    }
-    tiffGetCount(fp, &npages);
     fclose(fp);
+    if (!istiff)
+        return ERROR_INT("file not tiff format", procName, 1);
 
-    pixa = pixaCreate(npages);
-    for (i = 0; i < npages; i++) {
-        if ((pix = pixReadTiff(filein, i)) == NULL) {
-            pixaDestroy(&pixa);
-            return ERROR_INT("pix not made", procName, 1);
-        }
-        pixaAddPix(pixa, pix, L_INSERT);
-    }
+    pixa = pixaReadMultipageTiff(filein);
     pixaConvertToPdf(pixa, 0, 1.0, 0, 0, "weasel2", fileout);
     pixaDestroy(&pixa);
     return 0;
@@ -505,7 +496,7 @@ FILE    *fp;
 /*!
  * \brief   l_generateCIDataForPdf()
  *
- * \param[in]    fname
+ * \param[in]    fname [optional]; can be null
  * \param[in]    pix [optional]; can be null
  * \param[in]    quality for jpeg if transcoded; 75 is standard
  * \param[out]   pcid compressed data
@@ -513,11 +504,15 @@ FILE    *fp;
  *
  * <pre>
  * Notes:
- *      (1) Given an image file and optionally a pix raster of that data,
+ *      (1) You must set either filename or pix.
+ *      (2) Given an image file and optionally a pix raster of that data,
  *          this provides a CID that is compatible with PDF, preferably
  *          without transcoding.
- *      (2) The pix is included for efficiency, in case transcoding
+ *      (3) The pix is included for efficiency, in case transcoding
  *          is required and the pix is available to the caller.
+ *      (4) We don't try to open files named "stdin" or "-" for Tesseract
+ *          compatibility reasons. We may remove this restriction
+ *          in the future.
  * </pre>
  */
 l_int32
@@ -534,25 +529,33 @@ PIX          *pixt;
 
     if (!pcid)
         return ERROR_INT("&cid not defined", procName, 1);
-    *pcid = NULL;
-    if (!fname)
-        return ERROR_INT("fname not defined", procName, 1);
+    *pcid = cid = NULL;
+    if (!fname && !pix)
+        return ERROR_INT("neither fname nor pix are defined", procName, 1);
 
-    findFileFormat(fname, &format);
-    if (format == IFF_UNKNOWN)
-        L_WARNING("file %s format is unknown\n", procName, fname);
-    if (format == IFF_PS || format == IFF_LPDF) {
-        L_ERROR("file %s is unsupported format %d\n", procName, fname, format);
-        return 1;
+        /* If a compressed file is given that is not 'stdin', see if we
+         * can generate the pdf output without transcoding. */
+    if (fname && strcmp(fname, "-") && strcmp(fname, "stdin")) {
+        findFileFormat(fname, &format);
+        if (format == IFF_UNKNOWN)
+            L_WARNING("file %s format is unknown\n", procName, fname);
+        if (format == IFF_PS || format == IFF_LPDF) {
+            L_ERROR("file %s is unsupported format %d\n",
+                  procName, fname, format);
+            return 1;
+        }
+        if (format == IFF_JFIF_JPEG) {
+            cid = l_generateJpegData(fname, 0);
+        } else if (format == IFF_JP2) {
+            cid = l_generateJp2kData(fname);
+        } else if (format == IFF_PNG) {
+            cid = l_generateFlateDataPdf(fname, pix);
+        }
+
     }
 
-    if (format == IFF_JFIF_JPEG) {
-        cid = l_generateJpegData(fname, 0);
-    } else if (format == IFF_JP2) {
-        cid = l_generateJp2kData(fname);
-    } else if (format == IFF_PNG) {  /* use Jeff's special function for png */
-        cid = l_generateFlateDataPdf(fname, pix);
-    } else {  /* any other format ... */
+        /* Otherwise, use the pix to generate the pdf output */
+    if  (!cid) {
         if (!pix)
             pixt = pixRead(fname);
         else
@@ -564,7 +567,7 @@ PIX          *pixt;
         pixDestroy(&pixt);
     }
     if (!cid) {
-        L_ERROR("file %s format is %d; unreadable\n", procName, fname, format);
+        L_ERROR("totally kerflummoxed\n", procName);
         return 1;
     }
     *pcid = cid;
@@ -1530,6 +1533,8 @@ char     buf[L_SMALLBUF];
 char    *version, *datestr;
 SARRAY  *sa;
 
+    PROCNAME("generateFixedStringsPdf");
+
         /* Accumulate data for the header and objects 1-3 */
     lpd->id = stringNew("%PDF-1.5\n");
     l_dnaAddNumber(lpd->objsize, strlen(lpd->id));
@@ -1559,8 +1564,14 @@ SARRAY  *sa;
     }
     sarrayAddString(sa, (char *)buf, L_COPY);
     if (lpd->title) {
-        snprintf(buf, sizeof(buf), "/Title (%s)\n", lpd->title);
-        sarrayAddString(sa, (char *)buf, L_COPY);
+        char *hexstr;
+        if ((hexstr = generateEscapeString(lpd->title)) != NULL) {
+            snprintf(buf, sizeof(buf), "/Title %s\n", hexstr);
+            sarrayAddString(sa, (char *)buf, L_COPY);
+        } else {
+            L_ERROR("title string is not ascii\n", procName);
+        }
+        LEPT_FREE(hexstr);
     }
     sarrayAddString(sa, (char *)">>\n"
                                 "endobj\n", L_COPY);
@@ -1581,6 +1592,51 @@ SARRAY  *sa;
                                 "endstream\n"
                                 "endobj\n");
     return;
+}
+
+
+/*!
+ * \brief   generateEscapeString()
+ *
+ * \param[in]   str   input string
+ * \return   hex escape string, or null on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) If the input string is not ascii, returns null.
+ *      (2) This takes an input ascii string and generates a hex
+ *          ascii output string with 4 bytes out for each byte in.
+ *          The feff code at the beginning tells the pdf interpreter
+ *          that the data is to be interpreted as big-endian, 4 bytes
+ *          at a time.  For ascii, the first two bytes are 0 and the
+ *          last two bytes are less than 0x80.
+ */
+static char  *
+generateEscapeString(const char  *str)
+{
+char     smallbuf[8];
+char    *buffer;
+l_int32  i, nchar, buflen;
+
+    PROCNAME("generateEscapeString");
+
+    if (!str)
+        return (char *)ERROR_PTR("str not defined", procName, NULL);
+    nchar = strlen(str);
+    for (i = 0; i < nchar; i++) {
+        if (str[i] > 127)
+            return (char *)ERROR_PTR("str not all ascii", procName, NULL);
+    }
+
+    buflen = 4 * nchar + 10;
+    buffer = (char *)LEPT_CALLOC(buflen, sizeof(char));
+    stringCat(buffer, buflen, "<feff");
+    for (i = 0; i < nchar; i++) {
+        snprintf(smallbuf, sizeof(smallbuf), "%04x", str[i]);
+        stringCat(buffer, buflen, smallbuf);
+    }
+    stringCat(buffer, buflen, ">");
+    return buffer;
 }
 
 

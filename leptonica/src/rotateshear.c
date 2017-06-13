@@ -103,7 +103,7 @@
  *  lost at the edges than when using pixRotationBySampling(), which
  *  only loses pixels because they are rotated out of the image.
  *  For larger rotations, use pixRotationBySampling() or, for
- *  more accuracy when d \> 1 bpp, pixRotateAM().
+ *  more accuracy when d > 1 bpp, pixRotateAM().
  *
  *  For small angles, when comparing the quality of rotation by
  *  sampling and by shear, you can see that rotation by sampling
@@ -129,7 +129,7 @@
  *      this will use 2-shear rotations, because 3-shears cause more
  *      visible artifacts in straight lines and, for small angles, the
  *      distortion in asperity ratio is small.
- *    * For d \> 1, shear is faster than sampling, which is faster than
+ *    * For d > 1, shear is faster than sampling, which is faster than
  *      area mapping.  However, area mapping gives the best results.
  *  These results are used in selecting the rotation methods in
  *  pixRotateShear().
@@ -268,9 +268,10 @@ PIX  *pix1, *pix2, *pixd;
 
     if ((pix1 = pixHShear(NULL, pixs, ycen, angle, incolor)) == NULL)
         return (PIX *)ERROR_PTR("pix1 not made", procName, NULL);
-    if ((pixd = pixVShear(NULL, pix1, xcen, angle, incolor)) == NULL)
-        return (PIX *)ERROR_PTR("pixd not made", procName, NULL);
+    pixd = pixVShear(NULL, pix1, xcen, angle, incolor);
     pixDestroy(&pix1);
+    if (!pixd)
+        return (PIX *)ERROR_PTR("pixd not made", procName, NULL);
 
     if (pixGetDepth(pixs) == 32 && pixGetSpp(pixs) == 4) {
         pix1 = pixGetRGBComponent(pixs, L_ALPHA_CHANNEL);
@@ -341,8 +342,10 @@ PIX       *pix1, *pix2, *pixd;
     hangle = atan(sin(angle));
     if ((pixd = pixVShear(NULL, pixs, xcen, angle / 2., incolor)) == NULL)
         return (PIX *)ERROR_PTR("pixd not made", procName, NULL);
-    if ((pix1 = pixHShear(NULL, pixd, ycen, hangle, incolor)) == NULL)
+    if ((pix1 = pixHShear(NULL, pixd, ycen, hangle, incolor)) == NULL) {
+        pixDestroy(&pixd);
         return (PIX *)ERROR_PTR("pix1 not made", procName, NULL);
+    }
     pixVShear(pixd, pix1, xcen, angle / 2., incolor);
     pixDestroy(&pix1);
 

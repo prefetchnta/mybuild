@@ -44,6 +44,9 @@
  *           NUMA       *pixGetCmapHistogram()
  *           NUMA       *pixGetCmapHistogramMasked()
  *           NUMA       *pixGetCmapHistogramInRect()
+ *           l_int32     pixCountRGBColors()
+ *           L_AMAP     *pixGetColorAmapHistogram()
+ *           l_int32     amapGetCountForColor()
  *           l_int32     pixGetRankValue()
  *           l_int32     pixGetRankValueMaskedRGB()
  *           l_int32     pixGetRankValueMasked()
@@ -812,6 +815,109 @@ NUMA       *na;
     }
 
     return na;
+}
+
+
+/*!
+ * \brief   pixCountRGBColors()
+ *
+ * \param[in]    pixs    rgb or rgba
+ * \return  ncolors, or -1 on error
+ */
+l_int32
+pixCountRGBColors(PIX  *pixs)
+{
+l_int32  ncolors;
+L_AMAP  *amap;
+
+    PROCNAME("pixCountRGBColors");
+
+    if (!pixs || pixGetDepth(pixs) != 32)
+        return ERROR_INT("pixs not defined or not 32 bpp", procName, -1);
+    amap = pixGetColorAmapHistogram(pixs, 1);
+    ncolors = l_amapSize(amap);
+    l_amapDestroy(&amap);
+    return ncolors;
+}
+
+
+/*!
+ * \brief   pixGetColorAmapHistogram()
+ *
+ * \param[in]    pixs    rgb or rgba
+ * \param[in]    factor  subsampling factor; integer >= 1
+ * \return  amap, or NULL on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) This generates an ordered map from pixel value to histogram count.
+ *      (2) Use amapGetCountForColor() to use the map to look up a count.
+ * </pre>
+ */
+L_AMAP  *
+pixGetColorAmapHistogram(PIX     *pixs,
+                         l_int32  factor)
+{
+l_int32    i, j, w, h, wpl;
+l_uint32  *data, *line;
+L_AMAP    *amap;
+RB_TYPE    key, value;
+RB_TYPE   *pval;
+
+    PROCNAME("pixGetColorAmapHistogram");
+
+    if (!pixs)
+        return (L_AMAP *)ERROR_PTR("pixs not defined", procName, NULL);
+    if (pixGetDepth(pixs) != 32)
+        return (L_AMAP *)ERROR_PTR("pixs not 32 bpp", procName, NULL);
+    pixGetDimensions(pixs, &w, &h, NULL);
+    data = pixGetData(pixs);
+    wpl = pixGetWpl(pixs);
+    amap = l_amapCreate(L_UINT_TYPE);
+    for (i = 0; i < h; i += factor) {
+        line = data + i * wpl;
+        for (j = 0; j < w; j += factor) {
+            key.utype = line[j];
+            pval = l_amapFind(amap, key);
+            if (!pval)
+                value.itype = 1;
+            else
+                value.itype = 1 + pval->itype;
+            l_amapInsert(amap, key, value);
+        }
+    }
+
+    return amap;
+}
+
+
+/*!
+ * \brief   amapGetCountForColor()
+ *
+ * \param[in]    amap    map from pixel value to count
+ * \param[in]    val     rgb or rgba pixel value
+ * \return  count, or -1 on error
+ *
+ * <pre>
+ * Notes:
+ *      (1) The ordered map is made by pixGetColorAmapHistogram().
+ * </pre>
+ */
+l_int32
+amapGetCountForColor(L_AMAP   *amap,
+                     l_uint32  val)
+{
+RB_TYPE   key;
+RB_TYPE  *pval;
+
+    PROCNAME("amapGetCountForColor");
+
+    if (!amap)
+        return ERROR_INT("amap not defined", procName, -1);
+ 
+    key.utype = val;
+    pval = l_amapFind(amap, key);
+    return (pval) ? pval->itype : 0;
 }
 
 
@@ -2187,25 +2293,26 @@ PIX       *pixt;
 /*!
  * \brief   pixGetRankColorArray()
  *
- * \param[in]    pixs 32 bpp or cmapped
- * \param[in]    nbins number of equal population bins; must be > 1
- * \param[in]    type color selection flag
- * \param[in]    factor subsampling factor; integer >= 1
- * \param[out]   pcarray array of colors, ranked by intensity
+ * \param[in]    pixs      32 bpp or cmapped
+ * \param[in]    nbins     number of equal population bins; must be > 1
+ * \param[in]    type      color selection flag
+ * \param[in]    factor    subsampling factor; integer >= 1
+ * \param[out]   pcarray   array of colors, ranked by intensity
  * \param[in]    debugflag 1 to display color squares and plots of color
  *                         components; 2 to write them as png to file
- * \param[in]    fontsize [optional] 0 for no debug; for debug, valid set
- *                        is {4,6,8,10,12,14,16,18,20}.  Ignored if
- *                        debugflag == 0.  fontsize == 6 is typical.
+ * \param[in]    fontsize  [optional] 0 for no debug; for debug, valid set
+ *                         is {4,6,8,10,12,14,16,18,20}.  Ignored if
+ *                         debugflag == 0.  fontsize == 6 is typical.
  * \return  0 if OK, 1 on error
  *
  * <pre>
  * Notes:
  *      (1) The color selection flag is one of: L_SELECT_RED, L_SELECT_GREEN,
- *          L_SELECT_BLUE, L_SELECT_MIN, L_SELECT_MAX, L_SELECT_AVERAGE.
- *      (2) Then it finds the histogram of the selected component in each
+ *          L_SELECT_BLUE, L_SELECT_MIN, L_SELECT_MAX, L_SELECT_AVERAGE,
+ *          L_SELECT_HUE, L_SELECT_SATURATION.
+ *      (2) Then it finds the histogram of the selected color type in each
  *          RGB pixel.  For each of the %nbins sets of pixels,
- *          ordered by this component value, find the average color,
+ *          ordered by this color type value, find the average RGB color,
  *          and return this as a "rank color" array.  The output array
  *          has %nbins colors.
  *      (3) Set the subsampling factor > 1 to reduce the amount of
@@ -2251,7 +2358,8 @@ PIXCMAP   *cmap;
         return ERROR_INT("pixs neither 32 bpp nor cmapped", procName, 1);
     if (type != L_SELECT_RED && type != L_SELECT_GREEN &&
         type != L_SELECT_BLUE && type != L_SELECT_MIN &&
-        type != L_SELECT_MAX && type != L_SELECT_AVERAGE)
+        type != L_SELECT_MAX && type != L_SELECT_AVERAGE &&
+        type != L_SELECT_HUE && type != L_SELECT_SATURATION)
         return ERROR_INT("invalid type", procName, 1);
     if (debugflag > 0) {
         if (fontsize < 0 || fontsize > 20 || fontsize & 1 || fontsize == 2)
@@ -2277,8 +2385,12 @@ PIXCMAP   *cmap;
         pixg = pixConvertRGBToGrayMinMax(pixc, L_CHOOSE_MIN);
     else if (type == L_SELECT_MAX)
         pixg = pixConvertRGBToGrayMinMax(pixc, L_CHOOSE_MAX);
-    else  /* L_SELECT_AVERAGE */
+    else if (type == L_SELECT_AVERAGE)
         pixg = pixConvertRGBToGray(pixc, 0.34, 0.33, 0.33);
+    else if (type == L_SELECT_HUE)
+        pixg = pixConvertRGBToHue(pixc);
+    else  /* L_SELECT_SATURATION */
+        pixg = pixConvertRGBToSaturation(pixc);
     if ((na = pixGetGrayHistogram(pixg, 1)) == NULL) {
         pixDestroy(&pixc);
         pixDestroy(&pixg);

@@ -241,7 +241,8 @@ pixWrite(const char  *fname,
          PIX         *pix,
          l_int32      format)
 {
-FILE  *fp;
+l_int32  ret;
+FILE    *fp;
 
     PROCNAME("pixWrite");
 
@@ -285,11 +286,10 @@ FILE  *fp;
 
 #endif  /* WRITE_AS_NAMED */
 
-    if (pixWriteStream(fp, pix, format)) {
-        fclose(fp);
-        return ERROR_INT("pix not written to stream", procName, 1);
-    }
+    ret = pixWriteStream(fp, pix, format);
     fclose(fp);
+    if (ret)
+        return ERROR_INT("pix not written to stream", procName, 1);
     return 0;
 }
 
@@ -1120,7 +1120,7 @@ PIX     *pix1, *pix2, *pix3, *pix4;
     } else if (newrow == 1) {
         top = bottom + space;
         left = 0;
-    } else if (n > 0) {
+    } else {  /* n > 0 */
         pixaGetBoxGeometry(pixa, n - 1, &bx, &by, &bw, NULL);
         top = by;
         left = bx + bw + space;

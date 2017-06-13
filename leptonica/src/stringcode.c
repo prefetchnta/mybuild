@@ -102,7 +102,7 @@ struct L_GenAssoc
 };
 
     /*! Number of serializable data types */
-static const l_int32  l_ntypes = 20;
+static const l_int32  l_ntypes = 19;
     /*! Serializable data types */
 static const struct L_GenAssoc l_assoc[] = {
     {0,  "INVALID",     "invalid",     "invalid",        "invalid"         },
@@ -124,8 +124,7 @@ static const struct L_GenAssoc l_assoc[] = {
     {16, "PTA",         "Pta",         "ptaRead",        "ptaReadMem"      },
     {17, "PTAA",        "Ptaa",        "ptaaRead",       "ptaaReadMem"     },
     {18, "RECOG",       "Recog",       "recogRead",      "recogReadMem"    },
-    {19, "RECOGA",      "Recoga",      "recogaRead",     "recogaReadMem"   },
-    {20, "SARRAY",      "Sarray",      "sarrayRead",     "sarrayReadMem"   }
+    {19, "SARRAY",      "Sarray",      "sarrayRead",     "sarrayReadMem"   }
 };
 
 static l_int32 l_getIndexFromType(const char *type, l_int32 *pindex);
@@ -149,8 +148,8 @@ static char *l_genDescrString(const char *filein, l_int32 ifunc, l_int32 itype);
  * Notes:
  *      (1) This struct exists to build two files containing code for
  *          any number of data objects.  The two files are named
- *             autogen.\<fileno\>.c
- *             autogen.\<fileno\>.h
+ *             autogen.<fileno>.c
+ *             autogen.<fileno>.h
  * </pre>
  */
 L_STRCODE *
@@ -216,8 +215,8 @@ L_STRCODE  *strcode;
  *      (1) The %filein has one filename on each line.
  *          Comment lines begin with "#".
  *      (2) The output is 2 files:
- *             autogen.\<fileno\>.c
- *             autogen.\<fileno\>.h
+ *             autogen.<fileno>.c
+ *             autogen.<fileno>.h
  * </pre>
  */
 l_int32
@@ -278,8 +277,8 @@ L_STRCODE   *strcode;
  * <pre>
  * Notes:
  *      (1) The generated function name is
- *            l_autodecode_\<fileno\>()
- *          where \<fileno\> is the index label for the pair of output files.
+ *            l_autodecode_<fileno>()
+ *          where <fileno> is the index label for the pair of output files.
  *      (2) To deserialize this data, the function is called with the
  *          argument 'ifunc', which increments each time strcodeGenerate()
  *          is called.
@@ -614,7 +613,7 @@ l_int32  i, found;
  * Notes:
  *      (1) This is used to identify the type of serialized file;
  *          the first word in the file is the structname.
- *      (2) For valid structname, %found == true and %index \> 0.
+ *      (2) For valid structname, %found == true and %index > 0.
  * </pre>
  */
 static l_int32

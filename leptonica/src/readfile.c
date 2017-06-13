@@ -200,12 +200,10 @@ PIX   *pix;
         L_ERROR("image file not found: %s\n", procName, filename);
         return NULL;
     }
-    if ((pix = pixReadStream(fp, 0)) == NULL) {
-        fclose(fp);
-        return (PIX *)ERROR_PTR("pix not read", procName, NULL);
-    }
+    pix = pixReadStream(fp, 0);
     fclose(fp);
-
+    if (!pix)
+        return (PIX *)ERROR_PTR("pix not read", procName, NULL);
     return pix;
 }
 
@@ -382,6 +380,14 @@ PIX      *pix;
             return (PIX *)ERROR_PTR("webp: no pix returned", procName, NULL);
         break;
 
+    case IFF_PS:
+        L_ERROR("PostScript reading is not supported\n", procName);
+        return NULL;
+
+    case IFF_LPDF:
+        L_ERROR("Pdf reading is not supported\n", procName);
+        return NULL;
+
     case IFF_SPIX:
         if ((pix = pixReadStreamSpix(fp)) == NULL)
             return (PIX *)ERROR_PTR("spix: no pix returned", procName, NULL);
@@ -518,6 +524,14 @@ PIX     *pix;
         bps = 8;
         break;
 
+    case IFF_PS:
+        if (pformat) *pformat = format;
+        return ERROR_INT("PostScript reading is not supported\n", procName, 1);
+
+    case IFF_LPDF:
+        if (pformat) *pformat = format;
+        return ERROR_INT("Pdf reading is not supported\n", procName, 1);
+
     case IFF_SPIX:
         ret = readHeaderSpix(filename, &w, &h, &bps, &spp, &iscmap);
         if (ret)
@@ -547,7 +561,7 @@ PIX     *pix;
  * \brief   findFileFormat()
  *
  * \param[in]    filename
- * \param[out]   pformat found format
+ * \param[out]   pformat    found format
  * \return  0 if OK, 1 on error or if format is not recognized
  */
 l_int32
@@ -733,6 +747,21 @@ l_uint16  twobytepw;
         return 0;
     }
 
+        /* Check for ps */
+    if (buf[0] == '%' && buf[1] == '!' && buf[2] == 'P' && buf[3] == 'S' &&
+        buf[4] == '-' && buf[5] == 'A' && buf[6] == 'd' && buf[7] == 'o' &&
+        buf[8] == 'b' && buf[9] == 'e') {
+        *pformat = IFF_PS;
+        return 0;
+    }
+
+        /* Check for pdf */
+    if (buf[0] == '%' && buf[1] == 'P' && buf[2] == 'D' && buf[3] == 'F' &&
+        buf[4] == '-' && buf[5] == '1') {
+        *pformat = IFF_LPDF;
+        return 0;
+    }
+
         /* Check for "spix" serialized pix */
     if (buf[0] == 's' && buf[1] == 'p' && buf[2] == 'i' && buf[3] == 'x') {
         *pformat = IFF_SPIX;
@@ -858,6 +887,14 @@ PIX     *pix;
         if ((pix = pixReadMemWebP(data, size)) == NULL)
             return (PIX *)ERROR_PTR("webp: no pix returned", procName, NULL);
         break;
+
+    case IFF_PS:
+        L_ERROR("PostScript reading is not supported\n", procName);
+        return NULL;
+
+    case IFF_LPDF:
+        L_ERROR("Pdf reading is not supported\n", procName);
+        return NULL;
 
     case IFF_SPIX:
         if ((pix = pixReadMemSpix(data, size)) == NULL)
@@ -999,6 +1036,14 @@ PIX     *pix;
         bps = 8;
         ret = readHeaderMemWebP(data, size, &w, &h, &spp);
         break;
+
+    case IFF_PS:
+        if (pformat) *pformat = format;
+        return ERROR_INT("PostScript reading is not supported\n", procName, 1);
+
+    case IFF_LPDF:
+        if (pformat) *pformat = format;
+        return ERROR_INT("Pdf reading is not supported\n", procName, 1);
 
     case IFF_SPIX:
         ret = sreadHeaderSpix((l_uint32 *)data, &w, &h, &bps,

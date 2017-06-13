@@ -34,19 +34,31 @@
  *   (2) Using these, as well as bootnum3.pa, it makes code for
  *       generating and compiling the the pixas, which are used by the
  *       boot digit recognizer.
- *       The output of the code generator is files such as bootnum101.*.
- *       These files are edited to combine the .c and .h files into
+ *       The output of the code generator is files such as autogen_101.*.
+ *       These files have been edited to combine the .c and .h files into
  *       a single .c file:
- *          bootnum101.*  -->  src/bootnumgen1.c
- *          bootnum102.*  -->  src/bootnumgen2.c
- *          bootnum103.*  -->  src/bootnumgen3.c
+ *          autogen_101.*  -->  src/bootnumgen1.c
+ *          autogen_102.*  -->  src/bootnumgen2.c
+ *          autogen_103.*  -->  src/bootnumgen3.c
+ *
+ *   To add another set of templates to bootnumgen1.c:
+ *      (a) Add a new .pa file: prog/recog/digits/digit_setN.pa (N > 15)
+ *      (b) Add code to MakeBootnum1() for this set, selecting with the
+ *          string those templates you want to use.
+ *      (c) Run recog_bootnum.
+ *          * This makes a new /tmp/lept/recog/digits/bootnum1.pa.
+ *            Replace prog/recog/digits/bootnum1.pa with this.
+ *          * This makes new files: /tmp/lept/auto/autogen.101.{h,c}.
+ *            The .h file is the only one we need to use.
+ *            Replace the encoded string in src/bootnumgen1.c with the
+ *            one in autogen.101.h, and recompile.
  */
 
 #include "allheaders.h"
 #include "bmfdata.h"
 
-PIXA  *MakeBootnum1(void);
-PIXA  *MakeBootnum2(void);
+static PIXA  *MakeBootnum1(void);
+static PIXA  *MakeBootnum2(void);
 
 l_int32 main(int    argc,
              char **argv)
@@ -88,7 +100,7 @@ L_STRCODE    *strc;
     pixDestroy(&pix1);
 
         /* Extend the bootnum1 pixa by erosion */
-    pixa3 = pixaExtendIterative(pixa1, L_MORPH_ERODE, 2, NULL, 1);
+    pixa3 = pixaExtendByMorph(pixa1, L_MORPH_ERODE, 2, NULL, 1);
     pix1 = pixaDisplayTiledWithText(pixa3, 1500, 1.0, 10, 2, 6, 0xff000000);
     pixDisplay(pix1, 100, 0);
     pixDestroy(&pix1);
@@ -96,9 +108,9 @@ L_STRCODE    *strc;
     pixaDestroy(&pixa3);
 
     /* ----------------------- Bootnum 2 --------------------- */
-        /* Make the bootnum pixa from the images */
-    L_INFO("the 4 errors below are due to bad input\n", "recog_bootnum");
-    pixa2 = MakeBootnum2();
+        /* Read bootnum 2 */
+    pixa2 = pixaRead("recog/digits/bootnum2.pa");
+    pixaWrite("/tmp/lept/recog/digits/bootnum2.pa", pixa2);
     pix1 = pixaDisplayTiledWithText(pixa2, 1500, 1.0, 10, 2, 6, 0xff000000);
     pixDisplay(pix1, 100, 700);
     pixDestroy(&pix1);
@@ -120,6 +132,7 @@ L_STRCODE    *strc;
     pixaDestroy(&pixa2);
 
     /* ----------------------- Bootnum 3 --------------------- */
+        /* Read bootnum 3 */
     pixa1 = pixaRead("recog/digits/bootnum3.pa");
     pix1 = pixaDisplayTiledWithText(pixa1, 1500, 1.0, 10, 2, 6, 0xff000000);
     pixDisplay(pix1, 1000, 0);
@@ -141,7 +154,7 @@ L_STRCODE    *strc;
     pixDestroy(&pix1);
 
         /* Extend the bootnum3 pixa twice by erosion */
-    pixa3 = pixaExtendIterative(pixa1, L_MORPH_ERODE, 2, NULL, 1);
+    pixa3 = pixaExtendByMorph(pixa1, L_MORPH_ERODE, 2, NULL, 1);
     pix1 = pixaDisplayTiledWithText(pixa3, 1500, 1.0, 10, 2, 6, 0xff000000);
     pixDisplay(pix1, 1000, 0);
     pixDestroy(&pix1);
@@ -151,10 +164,10 @@ L_STRCODE    *strc;
 #if 0
     pixa1 = l_bootnum_gen1();
 /*    pixa1 = pixaRead("recog/digits/bootnum1.pa"); */
-    pixaWrite("/tmp/junk.pa", pixa1);
-    pixa2 = pixaRead("/tmp/junk.pa");
-    pixaWrite("/tmp/junk1.pa", pixa2);
-    pixa3 = pixaRead("/tmp/junk1.pa");
+    pixaWrite("/tmp/lept/junk.pa", pixa1);
+    pixa2 = pixaRead("/tmp/lept/junk.pa");
+    pixaWrite("/tmp/lept/junk1.pa", pixa2);
+    pixa3 = pixaRead("/tmp/lept/junk1.pa");
     n = pixaGetCount(pixa3);
     for (i = 0; i < n; i++) {
         pix = pixaGetPix(pixa3, i, L_CLONE);
@@ -243,6 +256,20 @@ PIXA        *pixa1, *pixa2, *pixa3;
     pixaDestroy(&pixa1);
     pixaDestroy(&pixa2);
 
+    pixa1 = pixaRead("recog/digits/digit_set14.pa");
+    str = "1, 14, 24, 37, 53, 62, 74, 83, 98, 114";
+    pixa2 = pixaSelectWithString(pixa1, str, NULL);
+    pixaJoin(pixa3, pixa2, 0, -1);
+    pixaDestroy(&pixa1);
+    pixaDestroy(&pixa2);
+
+    pixa1 = pixaRead("recog/digits/digit_set15.pa");
+    str = "0, 1, 3, 5, 7, 8, 13, 25, 35";
+    pixa2 = pixaSelectWithString(pixa1, str, NULL);
+    pixaJoin(pixa3, pixa2, 0, -1);
+    pixaDestroy(&pixa1);
+    pixaDestroy(&pixa2);
+
     return pixa3;
 }
 
@@ -258,7 +285,7 @@ L_RECOG  *recog;
 SARRAY   *sa;
 
         /* Phase 1: generate recog from the digit data */
-    recog = recogCreate(20, 32, L_USE_ALL, 120, 1);
+    recog = recogCreate(0, 40, 0, 128, 1);
     sa = getSortedPathnamesInDirectory("recog/bootnums", "png", 0, 0);
     n = sarrayGetCount(sa);
     for (i = 0; i < n; i++) {
@@ -272,11 +299,11 @@ SARRAY   *sa;
             /* Convert to a set of 1 bpp, single character, labelled */
         pixGetDimensions(pix, &w, &h, NULL);
         box = boxCreate(0, 0, w, h);
-        recogTrainLabelled(recog, pix, box, NULL, 1, 0);
+        recogTrainLabeled(recog, pix, box, NULL, 0);
         pixDestroy(&pix);
         boxDestroy(&box);
     }
-    recogTrainingFinished(recog, 1);
+    recogTrainingFinished(&recog, 1, -1, -1.0);
     sarrayDestroy(&sa);
 
         /* Phase 2: generate pixa consisting of 1 bpp, single character pix */

@@ -42,24 +42,26 @@ project(leptonica C CXX)
 
 set(VERSION_MAJOR 1)
 set(VERSION_MINOR 74)
-set(VERSION_PATCH 1)
+set(VERSION_PATCH 4)
 set(VERSION_PLAIN ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
-find_package(GIF)
-find_package(JPEG)
-find_package(PNG)
-find_package(TIFF)
-find_package(ZLIB)
+option(BUILD_PROG "Build utility programs" OFF)
 
-find_package(PkgConfig)
+if(NOT EXISTS ${PROJECT_SOURCE_DIR}/.cppan)
+    find_package(GIF)
+    find_package(JPEG)
+    find_package(PNG)
+    find_package(TIFF)
+    find_package(ZLIB)
 
-if (PKG_CONFIG_FOUND)
-pkg_check_modules(WEBP libwebp)
-pkg_check_modules(JP2K libopenjp2)
-endif()
+    find_package(PkgConfig)
 
-if(EXISTS ${PROJECT_SOURCE_DIR}/cppan)
-    add_subdirectory(cppan)
+    if (PKG_CONFIG_FOUND)
+    pkg_check_modules(WEBP libwebp)
+    pkg_check_modules(JP2K libopenjp2)
+    endif()
+else()
+    add_subdirectory(.cppan)
 
     add_definitions(
         -DHAVE_LIBGIF=1
@@ -106,7 +108,7 @@ include(Configure)
 
 configure_file(${AUTOCONFIG_SRC} ${AUTOCONFIG} @ONLY)
 
-set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}/src")
+set(INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include" "${CMAKE_INSTALL_PREFIX}/include/leptonica")
 
 configure_file(
     ${CMAKE_SOURCE_DIR}/cmake/templates/LeptonicaConfig-version.cmake.in
@@ -131,5 +133,15 @@ add_subdirectory(prog)
 endif()
 
 add_subdirectory(src)
+
+get_target_property(leptonica_NAME leptonica NAME)
+get_target_property(leptonica_VERSION leptonica VERSION)
+get_target_property(leptonica_OUTPUT_NAME leptonica OUTPUT_NAME)
+configure_file(lept.pc.cmake ${CMAKE_CURRENT_BINARY_DIR}/lept.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lept.pc DESTINATION lib/pkgconfig)
+install(FILES
+    ${CMAKE_BINARY_DIR}/LeptonicaConfig.cmake
+    ${CMAKE_BINARY_DIR}/LeptonicaConfig-version.cmake
+    DESTINATION cmake)
 
 ###############################################################################

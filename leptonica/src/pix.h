@@ -797,7 +797,7 @@ enum {
 
 
 /*-------------------------------------------------------------------------*
- *                     Color component selection flags                     *
+ *                    Color component selection flags                      *
  *-------------------------------------------------------------------------*/
 
 /*! Color component selection flags */
@@ -807,7 +807,9 @@ enum {
     L_SELECT_BLUE = 3,          /*!< use blue component                    */
     L_SELECT_MIN = 4,           /*!< use min color component               */
     L_SELECT_MAX = 5,           /*!< use max color component               */
-    L_SELECT_AVERAGE = 6        /*!< use average of color components       */
+    L_SELECT_AVERAGE = 6,       /*!< use average of color components       */
+    L_SELECT_HUE = 7,           /*!< use hue value (in HSV color space)    */
+    L_SELECT_SATURATION = 8     /*!< use saturation value (in HSV space)   */
 };
 
 
@@ -819,10 +821,11 @@ enum {
 enum {
     L_LS_BYTE = 1,              /*!< use LSB                               */
     L_MS_BYTE = 2,              /*!< use MSB                               */
-    L_CLIP_TO_FF = 3,           /*!< use max(val, 255)                     */
-    L_LS_TWO_BYTES = 4,         /*!< use two LSB                           */
-    L_MS_TWO_BYTES = 5,         /*!< use two MSB                           */
-    L_CLIP_TO_FFFF = 6          /*!< use max(val, 65535)                   */
+    L_AUTO_BYTE = 3,            /*!< use LSB if max(val) < 256; else MSB   */
+    L_CLIP_TO_FF = 4,           /*!< use max(val, 255)                     */
+    L_LS_TWO_BYTES = 5,         /*!< use two LSB                           */
+    L_MS_TWO_BYTES = 6,         /*!< use two MSB                           */
+    L_CLIP_TO_FFFF = 7          /*!< use max(val, 65535)                   */
 };
 
 

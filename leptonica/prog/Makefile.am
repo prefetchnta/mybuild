@@ -10,15 +10,16 @@ INSTALL_PROGS = convertfilestopdf convertfilestops \
 	printimage printsplitimage printtiff \
 	splitimage2pdf xtractprotos
 
-AUTO_REG_PROGS = adaptmap_reg affine_reg alphaops_reg alphaxform_reg \
-	bilateral2_reg bilinear_reg binarize_reg blackwhite_reg \
+AUTO_REG_PROGS = adaptmap_reg affine_reg alphaops_reg \
+	alphaxform_reg baseline_reg bilateral2_reg \
+	bilinear_reg binarize_reg blackwhite_reg \
 	blend1_reg blend2_reg blend3_reg blend4_reg \
-	ccthin1_reg ccthin2_reg cmapquant_reg \
-	colorcontent_reg coloring_reg \
-	colorize_reg colormask_reg \
-	colormorph_reg colorquant_reg \
-	colorseg_reg colorspace_reg compare_reg compfilter_reg \
-	conncomp_reg convolve_reg dewarp_reg distance_reg \
+	boxa1_reg ccthin1_reg ccthin2_reg cmapquant_reg \
+	colorcontent_reg coloring_reg colorize_reg \
+	colormask_reg colormorph_reg colorquant_reg \
+	colorseg_reg colorspace_reg compare_reg \
+	compfilter_reg conncomp_reg conversion_reg \
+	convolve_reg dewarp_reg distance_reg \
 	dither_reg dna_reg dwamorph1_reg edge_reg enhance_reg \
 	expand_reg findcorners_reg findpattern_reg \
 	fpix1_reg fpix2_reg genfonts_reg \
@@ -27,10 +28,10 @@ AUTO_REG_PROGS = adaptmap_reg affine_reg alphaops_reg alphaxform_reg \
 	insert_reg ioformats_reg \
 	jbclass_reg jpegio_reg \
 	kernel_reg label_reg lineremoval_reg \
-	logicops_reg maze_reg multitype_reg \
+	logicops_reg maze_reg mtiff_reg multitype_reg \
 	nearline_reg newspaper_reg \
 	overlap_reg pageseg_reg paint_reg paintmask_reg \
-	pdfseg_reg pixa2_reg pixadisp_reg \
+	pdfseg_reg pixa2_reg pixadisp_reg pixcomp_reg \
 	pixserial_reg pngio_reg pnmio_reg \
 	projection_reg projective_reg \
 	psio_reg psioseg_reg \
@@ -57,16 +58,13 @@ endif
 
 MANUAL_REG_PROGS = alltests_reg adaptnorm_reg bilateral1_reg \
 	binmorph1_reg binmorph2_reg binmorph3_reg \
-	binmorph4_reg binmorph5_reg \
-	boxa1_reg boxa2_reg \
-	colorize_reg conversion_reg \
+	binmorph4_reg binmorph5_reg boxa2_reg \
 	dwamorph2_reg equal_reg extrema_reg \
 	fhmtauto_reg files_reg flipdetect_reg fmorphauto_reg \
 	grayfill_reg heap_reg locminmax_reg \
 	lowaccess_reg morphseq_reg \
 	numa1_reg numa2_reg pixa1_reg \
-	pixalloc_reg pixcomp_reg \
-	pixmem_reg pixtile_reg \
+	pixalloc_reg pixmem_reg pixtile_reg \
 	ptra1_reg ptra2_reg \
 	rasterop_reg smallpix_reg \
 	smoothedge_reg string_reg \
@@ -74,21 +72,20 @@ MANUAL_REG_PROGS = alltests_reg adaptnorm_reg bilateral1_reg \
 
 OTHER_PROGS = adaptmap_dark \
 	arabic_lines arithtest \
-	autogentest1 autogentest2 \
-	barcodetest baselinetest \
+	autogentest1 autogentest2 barcodetest \
 	binarizefiles binarize_set bincompare \
 	blendcmaptest buffertest \
 	byteatest ccbordtest cctest1 cleanpdf \
 	colorsegtest comparepages comparepixa \
 	comparetest concatpdf \
 	contrasttest converttogray \
-	cornertest croptest croptext \
+	cornertest corrupttest croptest croptext \
 	dewarprules dewarptest1 dewarptest2 \
 	dewarptest3 dewarptest4 dewarptest5 \
 	digitprep1 displayboxa displayboxes_on_pixa \
 	displaypix displaypixa \
 	dwalineargen falsecolortest \
-	fcombautogen fhmtautogen findbinding \
+	fcombautogen fhmtautogen findbinding find_colorregions \
 	findpattern1 findpattern2 findpattern3 \
 	flipselgen fmorphautogen \
 	fpixcontours gammatest \
@@ -100,14 +97,15 @@ OTHER_PROGS = adaptmap_dark \
 	livre_makefigs livre_orient \
 	livre_pageseg livre_seedgen livre_tophat \
 	maketile maptest misctest1 \
-	modifyhuesat morphtest1 mtifftest \
+	modifyhuesat morphtest1 \
 	numaranktest otsutest1 otsutest2 \
 	pagesegtest1 pagesegtest2 \
 	partitiontest pdfiotest percolatetest \
 	pixaatest pixafileinfo plottest \
 	quadtreetest rbtreetest \
 	recog_bootnum recogsort recogtest1 \
-	reducetest removecmap \
+	recogtest2 recogtest3 recogtest4 recogtest5 \
+	recogtest6 reducetest removecmap \
 	renderfonts rotatefastalt \
 	rotateorthtest1 rotatetest1 \
 	runlengthtest scaleandtile \

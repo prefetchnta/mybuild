@@ -343,7 +343,7 @@ L_DNAHASH  *dahash;
  *      (1) Generates a dna with unique values.
  *      (2) The dnahash is built up with dad to assure uniqueness.
  *          It can be used to find if an element is in the set:
- *              l_dnaFindValByHash(dad, dahash, val, \&index)
+ *              l_dnaFindValByHash(dad, dahash, val, &index)
  * </pre>
  */
 l_int32
@@ -410,9 +410,9 @@ L_DNAHASH  *dahash;
  *          and is needed for fast lookup.  It is a hash set, because
  *          the values are unique.
  *      (3) Lookup is simple:
- *              l_dnaFindValByHash(dav, dahash, val, \&index);
- *              if (index \>= 0)
- *                  l_dnaGetIValue(dac, index, \&icount);
+ *              l_dnaFindValByHash(dav, dahash, val, &index);
+ *              if (index >= 0)
+ *                  l_dnaGetIValue(dac, index, &icount);
  *              else
  *                  icount = 0;
  * </pre>

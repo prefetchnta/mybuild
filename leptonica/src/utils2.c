@@ -1866,7 +1866,8 @@ l_uint32  attributes;
 #ifndef _WIN32
         ret += mkdir(tmpdir, 0777);
 #else
-        ret += (CreateDirectory(tmpdir, NULL) ? 0 : 1);
+        if (CreateDirectory(tmpdir, NULL) == 0)
+            ret += (GetLastError () != ERROR_ALREADY_EXISTS);
 #endif
         LEPT_FREE(dir);
         dir = tmpdir;
@@ -1942,14 +1943,13 @@ char    *newpath;
         LEPT_FREE(fullname);
     }
 
-    ret = 0;
 #ifndef _WIN32
     realdir = genPathname("/tmp", subdir);
     ret = rmdir(realdir);
     LEPT_FREE(realdir);
 #else
     newpath = genPathname(dir, NULL);
-    remove(newpath);
+    ret = (RemoveDirectory(newpath) ? 0 : 1);
     LEPT_FREE(newpath);
 #endif  /* !_WIN32 */
 

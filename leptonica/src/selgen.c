@@ -465,10 +465,10 @@ SEL       *seld, *sel;
  *        the nearest fg boundary pixel, and ditto for bg elements.
  *        Valid inputs of hitdist and missdist are 0, 1, 2, 3 and 4.
  *        For example, a hitdist of 0 puts the hits at the fg boundary.
- *        Usually, the distances should be \> 0 avoid the effect of
+ *        Usually, the distances should be > 0 avoid the effect of
  *        noise at the boundary.
- *    (2) Set hitskip \< 0 if no hits are to be used.  Ditto for missskip.
- *        If both hitskip and missskip are \< 0, the sel would be empty,
+ *    (2) Set hitskip < 0 if no hits are to be used.  Ditto for missskip.
+ *        If both hitskip and missskip are < 0, the sel would be empty,
  *        and NULL is returned.
  *    (3) The 4 flags determine whether the sel is increased on that side
  *        to allow bg misses to be placed all along that boundary.
@@ -737,11 +737,14 @@ PTA      *pta;
 
     if ((pta = generatePtaLine(x1, y1, x2, y2)) == NULL)
         return (NUMA *)ERROR_PTR("pta not made", procName, NULL);
-    if ((npts = ptaGetCount(pta)) == 0)
+    if ((npts = ptaGetCount(pta)) == 0) {
+        ptaDestroy(&pta);
         return (NUMA *)ERROR_PTR("pta has no pts", procName, NULL);
-
-    if ((numa = numaCreate(0)) == NULL)
+    }
+    if ((numa = numaCreate(0)) == NULL) {
+        ptaDestroy(&pta);
         return (NUMA *)ERROR_PTR("numa not made", procName, NULL);
+    }
 
     for (i = 0; i < npts; i++) {
         ptaGetIPt(pta, i, &x, &y);

@@ -176,7 +176,7 @@ PIX       *pixv, *pixh;
     if (debugfile) {
         dew1 = dewarpaGetDewarp(dewa, pageno);
         dewarpDebug(dew1, "lept/dewapply", 0);
-        convertFilesToPdf("/tmp/lept/dewapply", NULL, 135, 1.0, 0, 0,
+        convertFilesToPdf("/tmp/lept/dewapply", NULL, 250, 1.0, 0, 0,
                          "Dewarp Apply Disparity", debugfile);
         fprintf(stderr, "pdf file: %s\n", debugfile);
     }
@@ -774,7 +774,7 @@ L_DEWARP  *dewt;
  *              relative to pixs.  Thus, (x,y) gives the amount of
  *              slope extension in (left, top).  The (right, bottom)
  *              extension is then determined by the size of pixs and
- *              (x,y); the values should never be \< 0.
+ *              (x,y); the values should never be < 0.
  *          (b) If the arrays exist and pixs is too large, the existing
  *              full res arrays are destroyed and new ones are made,
  *              again using (x,y) to determine the extension in the
@@ -949,8 +949,8 @@ FPIX      *fpixd;
  *          ends of textlines.
  *      (2) Usage:
  *            l_int32 xwid = [extra width to be added to fpix and image]
- *            FPix *fpix = fpixExtraHorizDisparity(dew-\>fullvdispar, 0, \&xwid);
- *            fpixLinearCombination(dew-\>fullhdispar, dew-\>fullhdispar,
+ *            FPix *fpix = fpixExtraHorizDisparity(dew->fullvdispar, 0, &xwid);
+ *            fpixLinearCombination(dew->fullhdispar, dew->fullhdispar,
  *                                  fpix, 1.0, 1.0);
  * </pre>
  */

@@ -1,4 +1,4 @@
-/* $Id: fax2tiff.c,v 1.25 2016-10-25 22:22:45 erouault Exp $ */
+/* $Id: fax2tiff.c,v 1.27 2017-04-27 19:50:01 erouault Exp $ */
 
 /*
  * Copyright (c) 1990-1997 Sam Leffler
@@ -283,10 +283,11 @@ main(int argc, char* argv[])
 		}
 #if defined(_WIN32) && defined(USE_WIN32_FILEIO)
                 client_data.fh = _get_osfhandle(fileno(in));
+                TIFFSetClientdata(faxTIFF, (thandle_t) client_data.fh);
 #else
                 client_data.fd = fileno(in);
+                TIFFSetClientdata(faxTIFF, (thandle_t) client_data.fd);
 #endif
-                TIFFSetClientdata(faxTIFF, (thandle_t) &client_data);
 		TIFFSetFileName(faxTIFF, (const char*)argv[optind]);
 		TIFFSetField(out, TIFFTAG_IMAGEWIDTH, xsize);
 		TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 1);
@@ -370,6 +371,10 @@ copyFaxFile(TIFF* tifin, TIFF* tifout)
 	int ok;
 
 	tifin->tif_rawdatasize = (tmsize_t)TIFFGetFileSize(tifin);
+	if (tifin->tif_rawdatasize == 0) {
+		TIFFError(tifin->tif_name, "Empty input file");
+		return (0);
+	}
 	tifin->tif_rawdata = _TIFFmalloc(tifin->tif_rawdatasize);
 	if (tifin->tif_rawdata == NULL) {
 		TIFFError(tifin->tif_name, "Not enough memory");

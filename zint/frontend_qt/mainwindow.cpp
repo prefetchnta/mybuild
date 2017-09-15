@@ -1,6 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2008 by BogDan Vatra <bogdan@licentia.eu>               *
- *   Copyright (C) 2009-2016 by Robin Stuart <rstuart114@gmail.com>        *
+ *   Copyright (C) 2009-2017 by Robin Stuart <rstuart114@gmail.com>        *
  *                                                                         *
  *   This program is free software: you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -26,6 +26,7 @@
 #include <QSettings>
 #include <QClipboard>
 #include <QMimeData>
+#include <QColor>
 
 #include "mainwindow.h"
 #include "datawindow.h"
@@ -36,7 +37,7 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags fl)
 		: QWidget(parent, fl),m_optionWidget(0)
 {
     
-    QCoreApplication::setOrganizationName("Zint");
+    QCoreApplication::setOrganizationName("zint");
     QCoreApplication::setOrganizationDomain("zint.org.uk");
     QCoreApplication::setApplicationName("Barcode Studio");
     
@@ -104,6 +105,7 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags fl)
 		"Telepen",
 		"Telepen Numeric",
 		"UK Plessey",
+                "UPNQR",
 		"Universal Product Code (UPC-A)",
 		"Universal Product Code (UPC-E)",
 		"USPS Intelligent Mail"
@@ -128,6 +130,13 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags fl)
 		bstyle->setItemText(i,bstyle_text[i]);
 	}
 	bstyle->setCurrentIndex(settings.value("studio/symbology", 10).toInt());
+        txtData->setText(settings.value("studio/data", "Your Data Here!").toString());
+        txtComposite->setText(settings.value("studio/composite_text", "Your Data Here!").toString());
+        heightb->setValue(settings.value("studio/appearance/height", 50).toInt());
+        bwidth->setValue(settings.value("studio/appearance/border", 50).toInt());
+        spnWhitespace->setValue(settings.value("studio/appearance/whitespace", 0).toInt());
+        spnScale->setValue(settings.value("studio/appearance/scale", 1.0).toFloat());
+        btype->setCurrentIndex(settings.value("studio/appearance/border_type", 0).toInt());
 	change_options();
         scene->addItem(&m_bc);
 	update_preview();
@@ -150,7 +159,8 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags fl)
 	connect(btnMoreData, SIGNAL(clicked( bool )), SLOT(open_data_dialog()));
 	connect(btnSequence, SIGNAL(clicked( bool )), SLOT(open_sequence_dialog()));
 	connect(chkHRTHide, SIGNAL(stateChanged( int )), SLOT(update_preview()));
-    connect(btnCopy, SIGNAL(clicked( bool )), SLOT(copy_to_clipboard()));
+    connect(btnCopySVG, SIGNAL(clicked( bool )), SLOT(copy_to_clipboard_svg()));
+    connect(btnCopyBMP, SIGNAL(clicked( bool )), SLOT(copy_to_clipboard_bmp()));
 }
 
 MainWindow::~MainWindow()
@@ -164,6 +174,13 @@ MainWindow::~MainWindow()
     settings.setValue("studio/paper/red", m_bgcolor.red());
     settings.setValue("studio/paper/green", m_bgcolor.green());
     settings.setValue("studio/paper/blue", m_bgcolor.blue());
+    settings.setValue("studio/data", txtData->text());
+    settings.setValue("studio/composite_text", txtComposite->toPlainText());
+    settings.setValue("studio/appearance/height", heightb->value());
+    settings.setValue("studio/appearance/border", bwidth->value());
+    settings.setValue("studio/appearance/whitespace", spnWhitespace->value());
+    settings.setValue("studio/appearance/scale", spnScale->value());
+    settings.setValue("studio/appearance/border_type", btype->currentIndex());
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event)
@@ -181,32 +198,68 @@ void MainWindow::reset_view()
 
 bool MainWindow::save()
 {
-	bool status;
-	
+        QSettings settings;
+        QFileDialog save_dialog;
+        QString filename;
+        QString suffix;
+
+        save_dialog.setAcceptMode(QFileDialog::AcceptSave);
+        save_dialog.setWindowTitle("Save Barcode Image");
+        save_dialog.setDirectory(settings.value("studio/default_dir", QDir::toNativeSeparators(QDir::homePath())).toString());
+        
 #ifdef NO_PNG
-	QString fileName = QFileDialog::getSaveFileName(this,
-			tr("Save Barcode Image"), ".",
-			   tr("Encapsulated Post Script (*.eps);;Graphics Interchange Format (*.gif);;Scalable Vector Graphic (*.svg);;Windows Bitmap (*.bmp);;ZSoft PC Painter Image (*.pcx);;Extended Metafile (*.emf);;Tagged Image File Format (*.tif)"));
+        suffix = settings.value("studio/default_suffix", "gif").toString();
+        save_dialog.setNameFilter(tr("Encapsulated Post Script (*.eps);;Graphics Interchange Format (*.gif);;Scalable Vector Graphic (*.svg);;Windows Bitmap (*.bmp);;ZSoft PC Painter Image (*.pcx);;Extended Metafile (*.emf);;Tagged Image File Format (*.tif)"));
 #else
-	QString fileName = QFileDialog::getSaveFileName(this,
-			tr("Save Barcode Image"), ".",
-			   tr("Portable Network Graphic (*.png);;Encapsulated Post Script (*.eps);;Graphics Interchange Format (*.gif);;Scalable Vector Graphic (*.svg);;Windows Bitmap (*.bmp);;ZSoft PC Painter Image (*.pcx);;Extended Metafile (*.emf);;Tagged Image File Format (*.tif)"));
+        suffix = settings.value("studio/default_suffix", "png").toString();
+        save_dialog.setNameFilter(tr("Portable Network Graphic (*.png);;Encapsulated Post Script (*.eps);;Graphics Interchange Format (*.gif);;Scalable Vector Graphic (*.svg);;Windows Bitmap (*.bmp);;ZSoft PC Painter Image (*.pcx);;Extended Metafile (*.emf);;Tagged Image File Format (*.tif)"));
 #endif
-	
-	if (fileName.isEmpty())
-		return false;
-	
-	status = m_bc.bc.save_to_file(fileName);
-	if(status == false) {
+        
+        if (QString::compare(suffix, "png", Qt::CaseInsensitive) == 0)
+            save_dialog.selectNameFilter("Portable Network Graphic (*.png)");
+        if (QString::compare(suffix, "eps", Qt::CaseInsensitive) == 0)
+            save_dialog.selectNameFilter("Encapsulated Post Script (*.eps)");
+        if (QString::compare(suffix, "gif", Qt::CaseInsensitive) == 0)
+            save_dialog.selectNameFilter("Graphics Interchange Format (*.gif)");
+        if (QString::compare(suffix, "svg", Qt::CaseInsensitive) == 0)
+            save_dialog.selectNameFilter("Scalable Vector Graphic (*.svg)");
+        if (QString::compare(suffix, "bmp", Qt::CaseInsensitive) == 0)
+            save_dialog.selectNameFilter("Windows Bitmap (*.bmp)");
+        if (QString::compare(suffix, "pcx", Qt::CaseInsensitive) == 0)
+            save_dialog.selectNameFilter("ZSoft PC Painter Image (*.pcx)");
+        if (QString::compare(suffix, "emf", Qt::CaseInsensitive) == 0)
+            save_dialog.selectNameFilter("Extended Metafile (*.emf)");
+        if (QString::compare(suffix, "tif", Qt::CaseInsensitive) == 0)
+            save_dialog.selectNameFilter("Tagged Image File Format (*.tif)");
+        
+        if (save_dialog.exec()) {
+            filename = save_dialog.selectedFiles().at(0);
+            if ((filename.lastIndexOf(".") == -1) || (filename.lastIndexOf(".") < (filename.length() - 5))) {
+                suffix = save_dialog.selectedNameFilter();
+                suffix = suffix.mid((suffix.lastIndexOf(".") + 1), 3);
+                filename.append(".");
+                filename.append(suffix);
+            } else {
+                suffix = filename.right(filename.length() - (filename.lastIndexOf('.') + 1));
+            }
+        } else {
+            return false;
+        }
+
+	if(m_bc.bc.save_to_file(filename) == false) {
 		QMessageBox::critical(this,tr("Save Error"),m_bc.bc.error_message());
+                return false;
 	}
-	return status;
+        
+        settings.setValue("studio/default_dir", filename.mid(0, filename.lastIndexOf(QDir::separator())));
+        settings.setValue("studio/default_suffix", suffix);
+	return true;
 }
 
 void MainWindow::about()
 {
 	QMessageBox::about(this, tr("About Zint"),
-               tr("<h2>Zint Barcode Studio 2.6.0</h2>"
+               tr("<h2>Zint Barcode Studio 2.6.1</h2>"
 					   "<p>A free barcode generator"
                        "<p>Instruction manual is available at the project homepage:<br>"
                        "<a href=\"http://www.zint.org.uk\">http://www.zint.org.uk</a>"
@@ -249,14 +302,24 @@ int MainWindow::open_sequence_dialog()
 
 void MainWindow::on_fgcolor_clicked()
 {
-	m_fgcolor=QColorDialog::getColor(m_fgcolor,this);
-	update_preview();
+    QColor temp = m_fgcolor;
+	m_fgcolor=QColorDialog::getColor(m_fgcolor,this,"Set foreground colour");
+        if (m_fgcolor.isValid()) {
+            update_preview();
+        } else {
+            m_fgcolor = temp;
+        }
 }
 
 void MainWindow::on_bgcolor_clicked()
 {
-	m_bgcolor=QColorDialog::getColor(m_bgcolor,this);
-	update_preview();
+    QColor temp = m_bgcolor;
+	m_bgcolor=QColorDialog::getColor(m_bgcolor,this,"Set background colour");
+        if (m_bgcolor.isValid()) {
+            update_preview();
+        } else {
+            m_bgcolor = temp;
+        }
 }
 
 void MainWindow::change_print_scale()
@@ -270,14 +333,14 @@ void MainWindow::quit_now()
 	close();
 }
 
-void MainWindow::copy_to_clipboard()
+void MainWindow::copy_to_clipboard_svg()
 {
     QClipboard *clipboard = QGuiApplication::clipboard();
     QMimeData *data = new QMimeData;
     QString filename = ".zint.svg";
     double scale = spnScale->value();
 
-    spnScale->setValue(10);
+    spnScale->setValue(5);
 
     if (!m_bc.bc.save_to_file(filename)) {
             return;
@@ -289,6 +352,22 @@ void MainWindow::copy_to_clipboard()
     QFile::remove(filename);
 
     spnScale->setValue(scale);
+}
+
+void MainWindow::copy_to_clipboard_bmp()
+{
+    QClipboard *clipboard = QGuiApplication::clipboard();
+    QMimeData *data = new QMimeData;
+    QString filename = ".zint.bmp";
+
+    if (!m_bc.bc.save_to_file(filename)) {
+            return;
+    }
+
+    data->setImageData(QImage(filename));
+    clipboard->setMimeData(data, QClipboard::Clipboard);
+
+    QFile::remove(filename);
 }
 
 void MainWindow::change_options()

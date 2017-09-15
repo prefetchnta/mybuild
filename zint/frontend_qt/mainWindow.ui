@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>701</width>
-    <height>724</height>
+    <width>704</width>
+    <height>743</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -308,8 +308,8 @@ Remember to place [square brackets] around AI data</string>
                    <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Sans Serif'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Your Data Here!&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Noto Sans [monotype]'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'Sans Serif';&quot;&gt;Your Data Here!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                   </property>
                   <property name="acceptRichText">
                    <bool>false</bool>
@@ -561,7 +561,7 @@ p, li { white-space: pre-wrap; }
    </item>
    <item>
     <layout class="QGridLayout" name="gridLayout_2">
-     <item row="0" column="0">
+     <item row="1" column="0">
       <widget class="QPushButton" name="btnAbout">
        <property name="minimumSize">
         <size>
@@ -577,7 +577,7 @@ p, li { white-space: pre-wrap; }
        </property>
       </widget>
      </item>
-     <item row="0" column="4">
+     <item row="1" column="5">
       <widget class="QPushButton" name="btnSave">
        <property name="minimumSize">
         <size>
@@ -593,7 +593,7 @@ p, li { white-space: pre-wrap; }
        </property>
       </widget>
      </item>
-     <item row="0" column="5">
+     <item row="1" column="6">
       <widget class="QPushButton" name="btnExit">
        <property name="minimumSize">
         <size>
@@ -606,7 +606,7 @@ p, li { white-space: pre-wrap; }
        </property>
       </widget>
      </item>
-     <item row="0" column="1">
+     <item row="1" column="1">
       <spacer name="horizontalSpacer_2">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -619,8 +619,8 @@ p, li { white-space: pre-wrap; }
        </property>
       </spacer>
      </item>
-     <item row="0" column="2">
-      <widget class="QPushButton" name="btnCopy">
+     <item row="1" column="3">
+      <widget class="QPushButton" name="btnCopySVG">
        <property name="minimumSize">
         <size>
          <width>100</width>
@@ -631,7 +631,20 @@ p, li { white-space: pre-wrap; }
         <string>Copy to clipboard</string>
        </property>
        <property name="text">
-        <string>&amp;Copy</string>
+        <string>Copy S&amp;VG</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="2">
+      <widget class="QPushButton" name="btnCopyBMP">
+       <property name="minimumSize">
+        <size>
+         <width>100</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>&amp;Copy BMP</string>
        </property>
       </widget>
      </item>

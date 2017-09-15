@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2016-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -111,7 +111,11 @@ int tif_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     }
     
     if (free_memory > 0xffff0000) {
-        strcpy(symbol->errtxt, "Output file size too big (T00)");
+#ifdef _MSC_VER
+        free(strip_offset);
+        free(strip_bytes);
+#endif
+        strcpy(symbol->errtxt, "670: Output file size too big");
         return ZINT_ERROR_MEMORY;
     }
 
@@ -119,14 +123,14 @@ int tif_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     if (symbol->output_options & BARCODE_STDOUT) {
 #ifdef _MSC_VER
         if (-1 == _setmode(_fileno(stdout), _O_BINARY)) {
-            strcpy(symbol->errtxt, "Can't open output file");
+            strcpy(symbol->errtxt, "671: Can't open output file");
             return ZINT_ERROR_FILE_ACCESS;
         }
 #endif
         tif_file = stdout;
     } else {
         if (!(tif_file = fopen(symbol->outfile, "wb"))) {
-            strcpy(symbol->errtxt, "Can't open output file (T01)");
+            strcpy(symbol->errtxt, "672: Can't open output file");
             return ZINT_ERROR_FILE_ACCESS;
         }
     }
@@ -275,6 +279,11 @@ int tif_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     } else {
         fclose(tif_file);
     }
+    
+#ifdef _MSC_VER
+    free(strip_offset);
+    free(strip_bytes);
+#endif
     
     return 0;
 }

@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008-2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -69,7 +69,7 @@ static inline char convert_pattern(char data, int shift) {
 
 /* Adds Reed-Solomon error correction to auspost */
 void rs_error(char data_pattern[]) {
-    int reader, triple_writer = 0;
+    size_t reader, triple_writer = 0;
     char triple[31], inv_triple[31];
     unsigned char result[5];
 
@@ -138,16 +138,16 @@ int australia_post(struct zint_symbol *symbol, unsigned char source[], int lengt
                 error_number = is_sane(NEON, source, length);
                 break;
             default:
-                strcpy(symbol->errtxt, "Auspost input is wrong length (D01)");
+                strcpy(symbol->errtxt, "401: Auspost input is wrong length");
                 return ZINT_ERROR_TOO_LONG;
         }
         if (error_number == ZINT_ERROR_INVALID_DATA) {
-            strcpy(symbol->errtxt, "Invalid characters in data (D02)");
+            strcpy(symbol->errtxt, "402: Invalid characters in data");
             return error_number;
         }
     } else {
         if (length > 8) {
-            strcpy(symbol->errtxt, "Auspost input is too long (D03)");
+            strcpy(symbol->errtxt, "403: Auspost input is too long");
             return ZINT_ERROR_TOO_LONG;
         }
         switch (symbol->symbology) {
@@ -169,7 +169,7 @@ int australia_post(struct zint_symbol *symbol, unsigned char source[], int lengt
     h = strlen(localstr);
     error_number = is_sane(GDSET, (unsigned char *) localstr, h);
     if (error_number == ZINT_ERROR_INVALID_DATA) {
-        strcpy(symbol->errtxt, "Invalid characters in data (D04)");
+        strcpy(symbol->errtxt, "404: Invalid characters in data");
         return error_number;
     }
 
@@ -178,7 +178,7 @@ int australia_post(struct zint_symbol *symbol, unsigned char source[], int lengt
     dpid[8] = '\0';
     error_number = is_sane(NEON, (unsigned char *) dpid, strlen(dpid));
     if (error_number == ZINT_ERROR_INVALID_DATA) {
-        strcpy(symbol->errtxt, "Invalid characters in DPID (D05)");
+        strcpy(symbol->errtxt, "405: Invalid characters in DPID");
         return error_number;
     }
 

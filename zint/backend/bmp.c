@@ -122,14 +122,18 @@ int bmp_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     if ((symbol->output_options & BARCODE_STDOUT) != 0) {
 #ifdef _MSC_VER
         if (-1 == _setmode(_fileno(stdout), _O_BINARY)) {
-            strcpy(symbol->errtxt, "Can't open output file");
+            strcpy(symbol->errtxt, "600: Can't open output file");
+            free(bitmap_file_start);
+            free(bitmap);
             return ZINT_ERROR_FILE_ACCESS;
         }
 #endif
         bmp_file = stdout;
     } else {
         if (!(bmp_file = fopen(symbol->outfile, "wb"))) {
-            strcpy(symbol->errtxt, "Can't open output file (F00)");
+            free(bitmap_file_start);
+            free(bitmap);
+            strcpy(symbol->errtxt, "601: Can't open output file");
             return ZINT_ERROR_FILE_ACCESS;
         }
     }

@@ -1,7 +1,7 @@
 /***************************************************************************
  *   Copyright (C) 2008 by BogDan Vatra                                    *
  *   bogdan@licentia.eu                                                    *
- *   Copyright (C) 2010-2016 Robin Stuart                                  *
+ *   Copyright (C) 2010-2017 Robin Stuart                                  *
  *                                                                         *
  *   This program is free software: you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -30,7 +30,7 @@ namespace Zint {
         m_symbol = BARCODE_CODE128;
         m_height = 50;
         m_border = NO_BORDER;
-        m_borderWidth = 1;
+        m_borderWidth = 0;
         m_securityLevel = -1;
         m_pdf417CodeWords = 928;
         m_fgColor = Qt::black;
@@ -44,6 +44,8 @@ namespace Zint {
         m_dot_size = 4.0 / 5.0;
         target_size_horiz = 0;
         target_size_vert = 0;
+        m_width = 0;
+        m_whitespace = 0;
     }
 
     QZint::~QZint() {
@@ -94,7 +96,7 @@ namespace Zint {
             case 4: m_border = BOX;
                 break;
         }
-        m_borderWidth = (BorderType) m_zintSymbol->border_width;
+        m_borderWidth = m_zintSymbol->border_width;
         m_whitespace = m_zintSymbol->whitespace_width;
     }
 
@@ -194,8 +196,8 @@ namespace Zint {
     }
 
     void QZint::setBorderWidth(int boderWidth) {
-        if (boderWidth < 1 || boderWidth > 16)
-            boderWidth = 1;
+        if (boderWidth < 0 || boderWidth > 16)
+            boderWidth = 0;
         m_borderWidth = boderWidth;
     }
 
@@ -273,12 +275,10 @@ namespace Zint {
         QByteArray bgcol = bg_colour_hash.right(6).toLatin1();
         strcpy(m_zintSymbol->fgcolour, fgcol.data());
         strcpy(m_zintSymbol->bgcolour, bgcol.data());
-        int error = ZBarcode_Encode(m_zintSymbol, (unsigned char*) bstr.data(), bstr.length());
-        if (error > ZINT_WARN_INVALID_OPTION)
+        int error = ZBarcode_Encode_and_Print(m_zintSymbol, (unsigned char*) bstr.data(), bstr.length(), 0);
+        if (error > ZINT_WARN_INVALID_OPTION) {
             m_lastError = m_zintSymbol->errtxt;
-        error = ZBarcode_Print(m_zintSymbol, 0);
-        if (error > ZINT_WARN_INVALID_OPTION)
-            m_lastError = m_zintSymbol->errtxt;
+        }
         if (error == 0) {
             return true;
         } else {
@@ -347,8 +347,8 @@ namespace Zint {
         qreal gwidth = m_zintSymbol->width;
         qreal gheight = m_zintSymbol->height;
         if (m_zintSymbol->symbology == BARCODE_MAXICODE) {
-            gwidth = (33.0 * maxi_width) + xoffset + xoffset;
-            gheight = (32.0 * maxi_width) + yoffset + yoffset;
+            gwidth = (33.0 * maxi_width);
+            gheight = (32.0 * maxi_width);
         }
 
         if (m_zintSymbol->output_options & BARCODE_DOTTY_MODE) {
@@ -394,19 +394,19 @@ namespace Zint {
             switch (m_border) {
                 case BOX:
                     painter.fillRect(0, m_borderWidth, m_borderWidth, m_zintSymbol->height, QBrush(m_fgColor));
-                    painter.fillRect(m_zintSymbol->width + xoffset + xoffset + m_borderWidth, m_borderWidth, m_borderWidth, m_zintSymbol->height, QBrush(m_fgColor));
-                    painter.fillRect(0, 0, m_zintSymbol->width + xoffset + xoffset + m_borderWidth + m_borderWidth, m_borderWidth, QBrush(m_fgColor));
-                    painter.fillRect(0, m_zintSymbol->height + m_borderWidth, m_zintSymbol->width + xoffset + xoffset + m_borderWidth + m_borderWidth, m_borderWidth, QBrush(m_fgColor));
+                    painter.fillRect(m_zintSymbol->width + m_zintSymbol->whitespace_width + m_zintSymbol->whitespace_width + m_borderWidth, m_borderWidth, m_borderWidth, m_zintSymbol->height, QBrush(m_fgColor));
+                    painter.fillRect(0, 0, m_zintSymbol->width + m_zintSymbol->whitespace_width + m_zintSymbol->whitespace_width + m_borderWidth + m_borderWidth, m_borderWidth, QBrush(m_fgColor));
+                    painter.fillRect(0, m_zintSymbol->height + m_borderWidth, m_zintSymbol->width + m_zintSymbol->whitespace_width + m_zintSymbol->whitespace_width + m_borderWidth + m_borderWidth, m_borderWidth, QBrush(m_fgColor));
                     painter.translate(m_borderWidth + m_zintSymbol->whitespace_width, m_borderWidth);
                     yoffset = m_borderWidth;
                     break;
                 case BIND:
                     if (m_zintSymbol->symbology != BARCODE_CODABLOCKF) {
-                        painter.fillRect(0, 0, m_zintSymbol->width + xoffset + xoffset, m_borderWidth, QBrush(m_fgColor));
-                        painter.fillRect(0, m_zintSymbol->height, m_zintSymbol->width + xoffset + xoffset, m_borderWidth, QBrush(m_fgColor));
+                        painter.fillRect(0, 0, m_zintSymbol->width + m_zintSymbol->whitespace_width + m_zintSymbol->whitespace_width, m_borderWidth, QBrush(m_fgColor));
+                        painter.fillRect(0, m_zintSymbol->height, m_zintSymbol->width + m_zintSymbol->whitespace_width + m_zintSymbol->whitespace_width, m_borderWidth, QBrush(m_fgColor));
                     } else {
-                        painter.fillRect(xoffset, 0, m_zintSymbol->width, m_borderWidth, QBrush(m_fgColor));
-                        painter.fillRect(xoffset, m_zintSymbol->height, m_zintSymbol->width, m_borderWidth, QBrush(m_fgColor));
+                        painter.fillRect(m_zintSymbol->whitespace_width, 0, m_zintSymbol->width, m_borderWidth, QBrush(m_fgColor));
+                        painter.fillRect(m_zintSymbol->whitespace_width, m_zintSymbol->height, m_zintSymbol->width, m_borderWidth, QBrush(m_fgColor));
                     }
                     painter.translate(m_zintSymbol->whitespace_width, m_borderWidth);
                     yoffset = m_borderWidth;
@@ -415,7 +415,6 @@ namespace Zint {
                 default:
                     painter.translate(m_zintSymbol->whitespace_width, 0);
                     break;
-                    ;
             }
         }
 

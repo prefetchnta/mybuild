@@ -1,6 +1,6 @@
 /*
     Zint Barcode Generator - the open source barcode generator
-    Copyright (C) 2009-2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -29,20 +29,25 @@
 ExportWindow::ExportWindow()
 {
     QSettings settings;
-	setupUi(this);
-	linDestPath->setText(QDir::toNativeSeparators(QDir::homePath()));
-	
-	connect(btnCancel, SIGNAL( clicked( bool )), SLOT(quit_now()));
-	connect(btnOK, SIGNAL( clicked( bool )), SLOT(process()));
-	connect(btnDestPath, SIGNAL( clicked( bool )), SLOT(get_directory()));
+    setupUi(this);
 
+    linDestPath->setText(settings.value("studio/export/destination", QDir::toNativeSeparators(QDir::homePath())).toString());
+    linPrefix->setText(settings.value("studio/export/file_prefix", "bcs_").toString());
+    cmbFileName->setCurrentIndex(settings.value("studio/export/name_format", 0).toInt());
     cmbFileFormat->setCurrentIndex(settings.value("studio/export/filetype", 0).toInt());
+    
+    connect(btnCancel, SIGNAL( clicked( bool )), SLOT(quit_now()));
+    connect(btnOK, SIGNAL( clicked( bool )), SLOT(process()));
+    connect(btnDestPath, SIGNAL( clicked( bool )), SLOT(get_directory()));
 }
 
 ExportWindow::~ExportWindow()
 {
     QSettings settings;
 
+    settings.setValue("studio/export/destination", linDestPath->text());
+    settings.setValue("studio/export/file_prefix", linPrefix->text());
+    settings.setValue("studio/export/name_format", cmbFileName->currentIndex());
     settings.setValue("studio/export/filetype", cmbFileFormat->currentIndex());
 }
 
@@ -53,18 +58,21 @@ void ExportWindow::quit_now()
 
 void ExportWindow::get_directory()
 {
-	QString directory;
-	QFileDialog fdialog;
-	
-	fdialog.setFileMode(QFileDialog::Directory);
-	
-	if(fdialog.exec()) {
-		directory = fdialog.selectedFiles().at(0);
-	} else {
-		return;
-	}
-	
-	linDestPath->setText(QDir::toNativeSeparators(directory));
+    QSettings settings;
+    QString directory;
+    QFileDialog fdialog;
+
+    fdialog.setFileMode(QFileDialog::Directory);
+    fdialog.setDirectory(settings.value("studio/default_dir", QDir::toNativeSeparators(QDir::homePath())).toString());
+
+    if(fdialog.exec()) {
+        directory = fdialog.selectedFiles().at(0);
+    } else {
+        return;
+    }
+
+    linDestPath->setText(QDir::toNativeSeparators(directory));
+    settings.setValue("studio/default_dir", directory);
 }
 
 void ExportWindow::process()
@@ -72,6 +80,7 @@ void ExportWindow::process()
 	QString fileName;
 	QString dataString;
 	QString suffix;
+        QString Feedback;
 	int lines, i, j, inputpos, datalen;
 	
 	lines = output_data.count(QChar('\n'), Qt::CaseInsensitive);
@@ -97,10 +106,12 @@ void ExportWindow::process()
 		case 7: suffix = ".tif"; break;
 #endif
     }
-	
+        txtFeedback->clear();
+        Feedback = "";
+        
 	for(i = 0; i < lines; i++) {
 		datalen = 0;
-		for(j = inputpos; ((output_data[j] != '\n') && (j < output_data.length())); j++) {
+		for(j = inputpos; ((j < output_data.length()) && (output_data[j] != '\n') ); j++) {
 			datalen++;
 		}
 		dataString = output_data.mid(inputpos, datalen);
@@ -152,8 +163,17 @@ void ExportWindow::process()
 				break;
 		}
 		barcode->bc.setText(dataString.toLatin1().data());
-		barcode->bc.save_to_file(fileName.toLatin1().data());
+                barcode->bc.save_to_file(fileName.toLatin1().data());
+                Feedback += "Line ";
+                Feedback += QString::number(i + 1);
+                Feedback += ": ";
+		if (barcode->bc.hasErrors()) {
+                    Feedback += barcode->bc.error_message();
+                    Feedback += "\n";
+                } else {
+                    Feedback += "Success\n";
+                }
+                txtFeedback->document()->setPlainText(Feedback);
 		inputpos += datalen + 1;
 	}
-	close();
 }

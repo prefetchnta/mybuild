@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008-2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-extern void binary_load(short int reg[], char data[], const unsigned int src_len);
+extern void binary_load(short int reg[], char data[], const size_t src_len);
 extern void binary_add(short int accumulator[], short int input_buffer[]);
 extern void binary_subtract(short int accumulator[], short int input_buffer[]);
 extern void shiftdown(short int buffer[]);

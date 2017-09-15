@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008-2016 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -49,7 +49,7 @@ static const char *MSITable[10] = {
 };
 
 /* Not MSI/Plessey but the older Plessey standard */
-int plessey(struct zint_symbol *symbol, unsigned char source[], int length) {
+int plessey(struct zint_symbol *symbol, unsigned char source[], const size_t length) { 
 
     unsigned int i, check;
     unsigned char *checkptr;
@@ -58,12 +58,12 @@ int plessey(struct zint_symbol *symbol, unsigned char source[], int length) {
     int error_number;
 
     if (length > 65) {
-        strcpy(symbol->errtxt, "Input too long (C70)");
+        strcpy(symbol->errtxt, "370: Input too long");
         return ZINT_ERROR_TOO_LONG;
     }
     error_number = is_sane(SSET, source, length);
     if (error_number == ZINT_ERROR_INVALID_DATA) {
-        strcpy(symbol->errtxt, "Invalid characters in data (C71)");
+        strcpy(symbol->errtxt, "371: Invalid characters in data");
         return error_number;
     }
     checkptr = (unsigned char *) calloc(1, length * 4 + 8);
@@ -110,13 +110,13 @@ int plessey(struct zint_symbol *symbol, unsigned char source[], int length) {
 }
 
 /* Plain MSI Plessey - does not calculate any check character */
-int msi_plessey(struct zint_symbol *symbol, unsigned char source[], int length) {
+int msi_plessey(struct zint_symbol *symbol, unsigned char source[], const size_t length) { 
 
-    unsigned int i;
+	size_t i;
     char dest[512]; /* 2 + 55 * 8 + 3 + 1 ~ 512 */
 
     if (length > 55) {
-        strcpy(symbol->errtxt, "Input too long (C72)");
+        strcpy(symbol->errtxt, "372: Input too long");
         return ZINT_ERROR_TOO_LONG;
     }
 
@@ -148,7 +148,7 @@ int msi_plessey_mod10(struct zint_symbol *symbol, unsigned char source[], int le
     error_number = 0;
 
     if (length > 18) {
-        strcpy(symbol->errtxt, "Input too long (C73)");
+        strcpy(symbol->errtxt, "373: Input too long");
         return ZINT_ERROR_TOO_LONG;
     }
 
@@ -216,7 +216,7 @@ int msi_plessey_mod1010(struct zint_symbol *symbol, unsigned char source[], cons
 
     if (src_len > 18) {
         /* No Entry Stack Smashers! limit because of str->number conversion*/
-        strcpy(symbol->errtxt, "Input too long (C74)");
+        strcpy(symbol->errtxt, "374: Input too long");
         return ZINT_ERROR_TOO_LONG;
     }
 
@@ -317,7 +317,7 @@ int msi_plessey_mod11(struct zint_symbol *symbol, unsigned char source[], const 
     error_number = 0;
 
     if (src_len > 55) {
-        strcpy(symbol->errtxt, "Input too long (C75)");
+        strcpy(symbol->errtxt, "375: Input too long");
         return ZINT_ERROR_TOO_LONG;
     }
 
@@ -368,7 +368,8 @@ int msi_plessey_mod11(struct zint_symbol *symbol, unsigned char source[], const 
  * Verified against http://www.bokai.com/BarcodeJSP/applet/BarcodeSampleApplet.htm */
 int msi_plessey_mod1110(struct zint_symbol *symbol, unsigned char source[], const unsigned int src_len) {
     /* Weighted using the IBM system */
-    unsigned long i, weight, x, check, wright, dau, pedwar, pump, h;
+    unsigned long i, weight, x, check, wright, dau, pedwar, pump;
+    size_t h;
     long si;
     char un[16], tri[16];
     int error_number;
@@ -379,7 +380,7 @@ int msi_plessey_mod1110(struct zint_symbol *symbol, unsigned char source[], cons
     error_number = 0;
 
     if (src_len > 18) {
-        strcpy(symbol->errtxt, "Input too long (C76)");
+        strcpy(symbol->errtxt, "376: Input too long");
         return ZINT_ERROR_TOO_LONG;
     }
 
@@ -465,7 +466,7 @@ int msi_handle(struct zint_symbol *symbol, unsigned char source[], int length) {
 
     error_number = is_sane(NEON, source, length);
     if (error_number != 0) {
-        strcpy(symbol->errtxt, "Invalid characters in input data (C77)");
+        strcpy(symbol->errtxt, "377: Invalid characters in input data");
         return ZINT_ERROR_INVALID_DATA;
     }
 

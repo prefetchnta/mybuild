@@ -115,7 +115,7 @@ int GetPossibleCharacterSet(unsigned char C)
  *  int CFollowing  The number of characters encodable in CodeC if we
  *          start here.
  */
-void CreateCharacterSetTable(CharacterSetTable T[], unsigned char *data, int dataLength)
+static void CreateCharacterSetTable(CharacterSetTable T[], unsigned char *data,const size_t dataLength)
 {
     int charCur;
     int runChar;
@@ -205,7 +205,7 @@ int RemainingDigits(CharacterSetTable *T, int charCur,int emptyColumns)
  *  Return value    Resulting row count
  */
 
-int Columns2Rows(CharacterSetTable *T, unsigned char *data, int dataLength,
+static int Columns2Rows(CharacterSetTable *T, unsigned char *data, const size_t dataLength,
         int * pRows, int * pUseColumns, int * pSet, int * pFillings)
 {
     int useColumns;     /* Usable Characters per line */
@@ -430,7 +430,7 @@ int Columns2Rows(CharacterSetTable *T, unsigned char *data, int dataLength,
 }
 /* Find columns if row count is given.
  */
-int Rows2Columns(CharacterSetTable *T, unsigned char *data, int dataLength,
+static int Rows2Columns(CharacterSetTable *T, unsigned char *data, const size_t dataLength,
         int * pRows, int * pUseColumns, int * pSet, int * pFillings)
 {
     int errorCur;
@@ -629,9 +629,8 @@ void SumASCII(uchar **ppOutPos, int Sum, int CharacterSet)
 
 /* Main function called by zint framework
  */
-int codablock(struct zint_symbol *symbol, unsigned char source[], int length) {
-    int charCur;
-    int dataLength;
+int codablock(struct zint_symbol *symbol,const unsigned char source[], const size_t length) {
+    size_t charCur,dataLength;
     int Error;
     int rows, columns, useColumns;
     int fillings;
@@ -653,18 +652,18 @@ int codablock(struct zint_symbol *symbol, unsigned char source[], int length) {
     /* option1: rows 0: automatic, 1..44 */
     rows = symbol->option_1;
     if (rows > 44) {
-        strcpy(symbol->errtxt, "Row parameter not in 0..44 (D10)");
+        strcpy(symbol->errtxt, "410: Row parameter not in 0..44");
         return ZINT_ERROR_INVALID_OPTION;
     }
     /* option_2: (usable data) columns: 0: automatic, 6..66 */
     columns = symbol->option_2;
     if ( ! (columns <= 0 || (columns >= 6 && columns <=66)) ) {
-        strcpy(symbol->errtxt, "Columns parameter not in 0,6..66 (D11)");
+        strcpy(symbol->errtxt, "411: Columns parameter not in 0,6..66");
         return ZINT_ERROR_INVALID_OPTION;
     }
     /* GS1 not implemented */
     if  (symbol->input_mode == GS1_MODE) {
-        strcpy(symbol->errtxt, "GS1 mode not supported (D12)");
+        strcpy(symbol->errtxt, "412: GS1 mode not supported");
         return ZINT_ERROR_INVALID_OPTION;
     }
 #ifndef _MSC_VER
@@ -726,14 +725,14 @@ int codablock(struct zint_symbol *symbol, unsigned char source[], int length) {
         Error=Columns2Rows(T,data,dataLength,&rows,&useColumns,pSet,&fillings);
     }
     if (Error != 0) {
-        strcpy(symbol->errtxt, "data string to long (D13)");
+        strcpy(symbol->errtxt, "413: Data string to long");
         return Error;
     }
     /* Checksum */
     Sum1=Sum2=0;
     if (rows>1)
     {
-        int charCur;
+        size_t charCur;
         for (charCur=0 ; charCur<dataLength ; charCur++) {
             Sum1=(Sum1 + (charCur%86+1)*data[charCur])%86;
             Sum2=(Sum2 + (charCur%86)*data[charCur])%86;

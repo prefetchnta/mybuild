@@ -111,10 +111,6 @@ int tif_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     }
     
     if (free_memory > 0xffff0000) {
-#ifdef _MSC_VER
-        free(strip_offset);
-        free(strip_bytes);
-#endif
         strcpy(symbol->errtxt, "670: Output file size too big");
         return ZINT_ERROR_MEMORY;
     }
@@ -279,11 +275,6 @@ int tif_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     } else {
         fclose(tif_file);
     }
-    
-#ifdef _MSC_VER
-    free(strip_offset);
-    free(strip_bytes);
-#endif
     
     return 0;
 }

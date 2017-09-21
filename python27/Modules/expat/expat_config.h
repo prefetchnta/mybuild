@@ -16,4 +16,8 @@
 #define XML_DTD 1
 #define XML_CONTEXT_BYTES 1024
 
+#ifdef __ANDROID__
+    #define XML_POOR_ENTROPY
+#endif
+
 #endif /* EXPAT_CONFIG_H */

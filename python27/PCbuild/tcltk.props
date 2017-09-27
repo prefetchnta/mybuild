@@ -38,6 +38,6 @@
     <BuildDirTop Condition="$(Configuration) == 'Debug'">Debug</BuildDirTop>
     <BuildDirTop Condition="$(TclMachine) != 'IX86'">$(BuildDirTop)_$(TclMachine)</BuildDirTop>
     <!-- This completely breaks building Tix for any toolset but v90 and should be fixed -->
-    <BuildDirTop>$(BuildDirTop)_VC10</BuildDirTop>
+    <BuildDirTop>$(BuildDirTop)_VC9</BuildDirTop>
   </PropertyGroup>
 </Project>

@@ -1,7 +1,7 @@
 
 Android (GCC 4.9.x ARMv7 -O2 API-14)
 
-    openssl-1.0.2k          LIB                     https://www.openssl.org/source/
+    openssl-1.0.2m          LIB                     https://www.openssl.org/source/
     python-2.7.14           LIB & EXE               https://www.python.org/downloads/
 
 Windows (Visual Studio 2010 X86 /MD)
@@ -13,7 +13,7 @@ Windows (Visual Studio 2010 X86 /MD)
     libtesseract-3.05       DLL                     https://github.com/tesseract-ocr/tesseract/releases
     libtiff-4.0.8           LIB & DLL               http://libtiff.maptools.org/
     libwebp-0.6.0           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/releases
-    openssl-1.0.2k          DLL (SSE2)              https://www.openssl.org/source/
+    openssl-1.0.2m          DLL (SSE2)              https://www.openssl.org/source/
     zint-2.6.2              DLL                     https://sourceforge.net/projects/zint/
     zlib-1.2.11             LIB & DLL               http://www.zlib.net/
     zxing-cpp-20161122      LIB                     https://github.com/glassechidna/zxing-cpp

@@ -211,11 +211,9 @@ static int Columns2Rows(CharacterSetTable *T, unsigned char *data, const size_t 
     int useColumns;     /* Usable Characters per line */
     int fillings;       /* Number of filling characters */
     int rowsCur;
-    int charCur;
     int runChar;
     int emptyColumns;   /* Number of codes still empty in line. */
     int emptyColumns2;  /* Alternative emptyColumns to compare */
-    int fOneLiner;      /* Flag if One Liner */
     int CPaires;        /* Number of digit pairs which may fit in the line */
     int characterSetCur;        /* Current Character Set */
 
@@ -225,10 +223,10 @@ static int Columns2Rows(CharacterSetTable *T, unsigned char *data, const size_t 
 
     /* >>> Loop until rowsCur<44 */
     do {
+        int charCur=0;
+        int fOneLiner=1;        /* First try one-Liner */
         memset(pSet,0,dataLength*sizeof(int));
-        charCur=0;
         rowsCur=0;
-        fOneLiner=1;        /* First try one-Liner */
 
         /* >>> Line and OneLiner-try Loop */
         do{
@@ -433,7 +431,6 @@ static int Columns2Rows(CharacterSetTable *T, unsigned char *data, const size_t 
 static int Rows2Columns(CharacterSetTable *T, unsigned char *data, const size_t dataLength,
         int * pRows, int * pUseColumns, int * pSet, int * pFillings)
 {
-    int errorCur;
     int rowsCur;
     int rowsRequested;  /* Number of requested rows */
     int backupRows = 0;
@@ -470,6 +467,7 @@ static int Rows2Columns(CharacterSetTable *T, unsigned char *data, const size_t 
     }
 
     for (;;) {
+        int errorCur;
         pTestList[testListSize] = testColumns;
         testListSize++;
         useColumns=testColumns; /* Make a copy because it may be modified */
@@ -711,7 +709,7 @@ int codablock(struct zint_symbol *symbol,const unsigned char source[], const siz
             if (columns > 64)
                 columns = 64;
                 #ifdef _DEBUG
-                printf("Auto column count for %d characters:%d\n",dataLength,columns);
+                printf("Auto column count for %zu characters:%d\n",dataLength,columns);
                 #endif
         }
     }
@@ -996,13 +994,15 @@ int codablock(struct zint_symbol *symbol,const unsigned char source[], const siz
         expand(symbol, dest);
         symbol->row_height[r] = 10;
     }
-    
+
     if (!(symbol->output_options & BARCODE_BIND)) {
         symbol->output_options += BARCODE_BIND;
     }
-        
+
     if (symbol->border_width < 2) {
         symbol->border_width = 2;
     }
     return 0;
 }
+
+

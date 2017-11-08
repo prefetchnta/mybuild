@@ -44,9 +44,12 @@
 -	No changes here, take 2.6 framework files
  2017-08-29 2.6.1 HaO
 -	Framework 2.6.1 extensions
--	EAN/UPC Codes with included check digit 
+-	EAN/UPC Codes with included check digit
 -	UPNQR Code
 -	Misspelled symbology: AztecRunes
+ 2017-10-23 2.6.2 HaO
+-	Framework 2.6.2 bugfixes
+-   Allow dll unload
 */
 
 #if defined(__WIN32__) || defined(_WIN32) || defined(WIN32)
@@ -86,7 +89,7 @@
 /*----------------------------------------------------------------------------*/
 /* > File option defines */
 
-#define VERSION "2.6.1"
+#define VERSION "2.6.2"
 
 /*----------------------------------------------------------------------------*/
 /* >>>>> Hepler defines */
@@ -96,6 +99,7 @@
 /*----------------------------------------------------------------------------*/
 /* >>>> External Prototypes (exports) */
 EXPORT int Zint_Init (Tcl_Interp *interp);
+EXPORT int Zint_Unload (Tcl_Interp *Interp, int Flags);
 /*----------------------------------------------------------------------------*/
 /* >>>> local prototypes */
 static int Zint(ClientData unused, Tcl_Interp *interp, int objc,
@@ -301,7 +305,9 @@ static char help_message[] = "zint tcl(stub,obj) dll\n"
     "(c) 2014-06-16 ELMICRON GmbH by Harald Oehlmann\n"
     " Generate barcode in tk images and in file output\n"
     "Usage:\n"
-    " zint encode option value...\n"
+    " zint encode data photo option value...\n"
+    "  data: data to encode in the symbol\n"
+    "  photo: a tcl photo image handle ('p' after 'image create photo p')\n"
     "  Available options:\n"
     "   -bind bool: bars above/below the code, size set by -border\n"
     "   -box bool: box around bar code, size set be -border\n"
@@ -319,7 +325,7 @@ static char help_message[] = "zint tcl(stub,obj) dll\n"
     "   -mode: Structured primary data mode (Maxicode, Composite)\n"
     "   -primary text: Structured primary data (Maxicode, Composite)\n"
     "   -scale double: Scale the image to this factor\n"
-    "   -format binary|unicode|gs1: input data format. Default:unicode"
+    "   -format binary|unicode|gs1: input data format. Default:unicode\n"
     "   -notext bool: no interpretation line\n"
     "   -square bool: force Data Matrix symbols to be square\n"
     "   -init bool: Create reader initialisation symbol (Code 128, Data Matrix)\n"
@@ -343,32 +349,40 @@ EXPORT BOOL WINAPI DllEntryPoint (HINSTANCE hInstance,
 #endif
 /*----------------------------------------------------------------------------*/
 /* Initialisation Procedures */
-EXPORT int Zint_Init (Tcl_Interp *Interp)
+EXPORT int Zint_Init (Tcl_Interp *interp)
 {
     /*------------------------------------------------------------------------*/
 #ifdef USE_TCL_STUBS
-    if (Tcl_InitStubs(Interp, "8.1", 0) == NULL)
+    if (Tcl_InitStubs(interp, "8.1", 0) == NULL)
 #else
-    if (Tcl_PkgRequire(Interp, "Tcl", "8.1", 0) == NULL)
+    if (Tcl_PkgRequire(interp, "Tcl", "8.1", 0) == NULL)
 #endif
     {
         return TCL_ERROR;
     }
     /*------------------------------------------------------------------------*/
 #ifdef USE_TK_STUBS
-    if (Tk_InitStubs(Interp, "8.1", 0) == NULL)
+    if (Tk_InitStubs(interp, "8.1", 0) == NULL)
 #else
-    if (Tcl_PkgRequire(Interp, "Tk", "8.1", 0) == NULL)
+    if (Tcl_PkgRequire(interp, "Tk", "8.1", 0) == NULL)
 #endif
     {
         return TCL_ERROR;
     }
     /*------------------------------------------------------------------------*/
-    Tcl_CreateObjCommand(Interp, "zint", Zint, (ClientData)NULL,
+    Tcl_CreateObjCommand(interp, "zint", Zint, (ClientData)NULL,
         (Tcl_CmdDeleteProc *)NULL);
-    Tcl_PkgProvide (Interp, "zint", version_string);
+    Tcl_PkgProvide (interp, "zint", version_string);
     /*------------------------------------------------------------------------*/
     return TCL_OK;
+}
+//------------------------------------------------------------------------------
+// >>>> Unload Procedures
+//------------------------------------------------------------------------------
+EXPORT int Zint_Unload (Tcl_Interp *Interp, int Flags)
+{
+	// Allow unload
+	return TCL_OK;
 }
 /*----------------------------------------------------------------------------*/
 /* >>>>> Called routine */
@@ -378,7 +392,6 @@ static int Zint(ClientData unused, Tcl_Interp *interp, int objc,
     Tcl_Obj *CONST objv[])
 {
     /* Option list and indexes */
-    char *subCmds[] = {"encode", "symbologies", "version", "help", NULL};
     enum iCommand {iEncode, iSymbologies, iVersion, iHelp};
     /* choice of option */
     int Index;
@@ -386,6 +399,7 @@ static int Zint(ClientData unused, Tcl_Interp *interp, int objc,
     /* > Check if option argument is given and decode it */
     if (objc > 1)
     {
+    char *subCmds[] = {"encode", "symbologies", "version", "help", NULL};
         if(Tcl_GetIndexFromObj(interp, objv[1], (const char **) subCmds,
             "option", 0, &Index)
             == TCL_ERROR)
@@ -837,3 +851,5 @@ static int Encode(Tcl_Interp *interp, int objc,
     }
     return TCL_OK;
 }
+
+

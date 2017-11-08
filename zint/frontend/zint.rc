@@ -16,9 +16,9 @@ VS_VERSION_INFO		VERSIONINFO
 
 #endif
 
-  FILEVERSION		2,6,1,0
+  FILEVERSION		2,3,0,0
 
-  PRODUCTVERSION	2,6,1,0
+  PRODUCTVERSION	2,3,0,0
 
   FILEFLAGSMASK		VS_FFI_FILEFLAGSMASK
 
@@ -52,7 +52,7 @@ BEGIN
 
       VALUE "FileDescription",	"zint barcode generator\0"
 
-      VALUE "FileVersion",	"2.6.1.0\0"
+      VALUE "FileVersion",	"2.3.0.0\0"
 
       VALUE "InternalName",	"zint.exe\0"
 
@@ -62,11 +62,11 @@ BEGIN
 
       VALUE "ProductName",	"zint\0"
 
-      VALUE "ProductVersion",	"2.6.1.0\0"
+      VALUE "ProductVersion",	"2.3.0.0\0"
 
       VALUE "License",  "GNU General Public License version 3\0"
 
-      VALUE "WWW", "http://www.sourceforge.net/projects/zint\0"
+      VALUE "WWW", "http://www.sourceforge.net/projects/zint\0"      
 
     END
 

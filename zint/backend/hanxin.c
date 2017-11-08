@@ -47,19 +47,19 @@
 /* Find which submode to use for a text character */
 int getsubmode(char input) {
     int submode = 2;
-    
+
     if ((input >= '0') && (input <= '9')) {
         submode = 1;
     }
-    
+
     if ((input >= 'A') && (input <= 'Z')) {
         submode = 1;
     }
-    
+
     if ((input >= 'a') && (input <= 'z')) {
         submode = 1;
     }
-    
+
     return submode;
 }
 
@@ -69,11 +69,11 @@ static int calculate_binlength(char mode[], int source[], const size_t length, i
     char lastmode = 't';
     int est_binlen = 0;
     int submode = 1;
-    
+
     if (eci != 3) {
         est_binlen += 12;
     }
-    
+
     i = 0;
     do {
         switch (mode[i]) {
@@ -220,7 +220,7 @@ int isFourByte(int glyph, int glyph2) {
             }
         }
     }
-    
+
     return valid;
 }
 
@@ -228,30 +228,29 @@ int isFourByte(int glyph, int glyph2) {
 static void hx_define_mode(char mode[], int source[], const size_t length) {
     size_t i;
     char lastmode = 't';
-    int done;
-    
+
     i = 0;
     do {
-        done = 0;
-        
+        int done = 0;
+
         if (isRegion1(source[i])) {
             mode[i] = '1';
             done = 1;
             i++;
         }
-        
+
         if ((done == 0) && (isRegion2(source[i]))) {
             mode[i] = '2';
             done = 1;
             i++;
         }
-        
+
         if ((done == 0) && (isDoubleByte(source[i]))) {
             mode[i] = 'd';
             done = 1;
             i++;
         }
-        
+
         if ((done == 0) && (i < length - 1)) {
             if (isFourByte(source[i], source[i + 1])) {
                 mode[i] = 'f';
@@ -289,48 +288,47 @@ static void hx_define_mode(char mode[], int source[], const size_t length) {
 /* Convert Text 1 sub-mode character to encoding value, as given in table 3 */
 int lookup_text1(char input) {
     int encoding_value = 0;
-    
+
     if ((input >= '0') && (input <= '9')) {
         encoding_value = input - '0';
     }
-    
+
     if ((input >= 'A') && (input <= 'Z')) {
         encoding_value = input - 'A' + 10;
     }
-    
+
     if ((input >= 'a') && (input <= 'z')) {
         encoding_value = input - 'a' + 36;
     }
-    
+
     return encoding_value;
 }
 
 /* Convert Text 2 sub-mode character to encoding value, as given in table 4 */
 int lookup_text2(char input) {
     int encoding_value = 0;
-    
+
     if ((input >= 0) && (input <= 27)) {
         encoding_value = input;
     }
-    
+
     if ((input >= ' ') && (input <= '/')) {
         encoding_value = input - ' ' + 28;
     }
-    
+
     if ((input >= '[') && (input <= 96)) {
         encoding_value = input - '[' + 51;
     }
-    
+
     if ((input >= '{') && (input <= 127)) {
         encoding_value = input - '{' + 57;
     }
-    
+
     return encoding_value;
 }
 
 /* Convert input data to binary stream */
 static void calculate_binary(char binary[], char mode[], int source[], const size_t length, const int eci, int debug) {
-    int block_length;
     int position = 0;
     int i, count, encoding_value;
     int first_byte, second_byte;
@@ -355,7 +353,7 @@ static void calculate_binary(char binary[], char mode[], int source[], const siz
     }
 
     do {
-        block_length = 0;
+        int block_length = 0;
         do {
             block_length++;
         } while (mode[position + block_length] == mode[position]);
@@ -373,19 +371,19 @@ static void calculate_binary(char binary[], char mode[], int source[], const siz
                 i = 0;
 
                 while (i < block_length) {
-                    int first = 0, second = 0, third = 0;
+                    int first = 0;
 
                     first = posn(NEON, (char) source[position + i]);
                     count = 1;
                     encoding_value = first;
 
                     if (i + 1 < block_length && mode[position + i + 1] == 'n') {
-                        second = posn(NEON, (char) source[position + i + 1]);
+                        int second = posn(NEON, (char) source[position + i + 1]);
                         count = 2;
                         encoding_value = (encoding_value * 10) + second;
 
                         if (i + 2 < block_length && mode[position + i + 2] == 'n') {
-                            third = posn(NEON, (char) source[position + i + 2]);
+                            int third = posn(NEON, (char) source[position + i + 2]);
                             count = 3;
                             encoding_value = (encoding_value * 10) + third;
                         }
@@ -659,7 +657,7 @@ void hx_place_finder_top_left(unsigned char* grid, int size) {
     int xp, yp;
     int x = 0, y = 0;
     char finder[] = {0x7F, 0x40, 0x5F, 0x50, 0x57, 0x57, 0x57};
-    
+
     for (xp = 0; xp < 7; xp++) {
         for (yp = 0; yp < 7; yp++) {
             if (finder[yp] & 0x40 >> xp) {
@@ -910,15 +908,14 @@ void hx_add_ecc(unsigned char fullstream[], unsigned char datastream[], int vers
     unsigned char data_block[180];
     unsigned char ecc_block[36];
     int i, j, block;
-    int batch_size, data_length, ecc_length;
     int input_position = -1;
     int output_position = -1;
     int table_d1_pos = ((version - 1) * 36) + ((ecc_level - 1) * 9);
 
     for (i = 0; i < 3; i++) {
-        batch_size = hx_table_d1[table_d1_pos + (3 * i)];
-        data_length = hx_table_d1[table_d1_pos + (3 * i) + 1];
-        ecc_length = hx_table_d1[table_d1_pos + (3 * i) + 2];
+        int batch_size = hx_table_d1[table_d1_pos + (3 * i)];
+        int data_length = hx_table_d1[table_d1_pos + (3 * i) + 1];
+        int ecc_length = hx_table_d1[table_d1_pos + (3 * i) + 2];
 
         for (block = 0; block < batch_size; block++) {
             for (j = 0; j < data_length; j++) {
@@ -945,7 +942,7 @@ void hx_add_ecc(unsigned char fullstream[], unsigned char datastream[], int vers
 void make_picket_fence(unsigned char fullstream[], unsigned char picket_fence[], int streamsize) {
     int i, start;
     int output_position = 0;
-    
+
     for (start = 0; start < 13; start++) {
         for (i = start; i < streamsize; i += 13) {
             if (i < streamsize) {
@@ -1220,7 +1217,7 @@ int hx_apply_bitmask(unsigned char *grid, int size) {
             }
         }
     }
-    
+
     return best_pattern;
 }
 
@@ -1228,13 +1225,11 @@ int hx_apply_bitmask(unsigned char *grid, int size) {
 int han_xin(struct zint_symbol *symbol, const unsigned char source[], size_t length) {
     int est_binlen;
     int ecc_level = symbol->option_1;
-    int i, j, version, posn = 0;
+    int i, j, version;
     int data_codewords = 0, size;
     int codewords;
     int bitmask;
-    int error_number;
     int bin_len;
-    int done;
     char function_information[36];
     unsigned char fi_cw[3] = {0, 0, 0};
     unsigned char fi_ecc[4];
@@ -1259,24 +1254,25 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], size_t len
             gbdata[i] = (int) source[i];
         }
     } else {
+        int posn;
         /* Convert Unicode input to GB-18030 */
-        error_number = utf8toutf16(symbol, source, utfdata, &length);
+        int error_number = utf8toutf16(symbol, source, utfdata, &length);
         if (error_number != 0) {
             return error_number;
         }
 
         posn = 0;
         for (i = 0; i < length; i++) {
-            done = 0;
+            int done = 0;
             gbdata[posn] = 0;
-            
+
             /* Single byte characters in range U+0000 -> U+007F */
             if (utfdata[i] <= 0x7f) {
                 gbdata[posn] = utfdata[i];
                 posn++;
                 done = 1;
             }
-            
+
             /* Two bytes characters in GB-2312 */
             if (done == 0) {
                 j = 0;
@@ -1289,7 +1285,7 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], size_t len
                     j++;
                 } while ((j < 7445) && (done == 0));
             }
-            
+
             /* Two byte characters in GB-18030 */
             if (done == 0) {
                 j = 0;
@@ -1316,13 +1312,13 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], size_t len
                     j++;
                 } while ((j < 6793) && (done == 0));
             }
-            
+
             /* Supplementary planes U+10000 -> U+1FFFF */
             if (done == 0) {
                 if (utfdata[i] >= 0x10000 && utfdata[i] < 0x110000) {
                     /* algorithm from libiconv-1.15\lib\gb18030.h */
                     int j, r3, r2, r1, r0;
-                    
+
                     j = utfdata[i] - 0x10000;
                     r3 = (j % 10) + 0x30; j = j / 10;
                     r2 = (j % 126) + 0x81; j = j / 126;
@@ -1334,7 +1330,7 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], size_t len
                     done = 1;
                 }
             }
-            
+
             /* Character not found */
             if (done == 0) {
                 strcpy(symbol->errtxt, "540: Unknown character in input data");
@@ -1411,7 +1407,7 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], size_t len
     if (symbol->option_2 > version) {
         version = symbol->option_2;
     }
-    
+
     if ((symbol->option_2 != 0) && (symbol->option_2 < version)) {
         strcpy(symbol->errtxt, "542: Input too long for selected symbol size");
         return ZINT_ERROR_TOO_LONG;
@@ -1574,3 +1570,5 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], size_t len
 
     return 0;
 }
+
+

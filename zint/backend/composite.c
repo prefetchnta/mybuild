@@ -65,7 +65,7 @@
 
 #define UINT unsigned short
 
-extern int general_rules(char field[], char type[]);
+extern int general_rules(char type[]);
 extern int eanx(struct zint_symbol *symbol, unsigned char source[], int length);
 extern int ean_128(struct zint_symbol *symbol, unsigned char source[], const size_t length);
 extern int rss14(struct zint_symbol *symbol, unsigned char source[], int length);
@@ -109,9 +109,10 @@ static void init928(void) {
 
 /* converts bit string to base 928 values, codeWords[0] is highest order */
 static int encode928(UINT bitString[], UINT codeWords[], int bitLng) {
-    int i, j, b, bitCnt, cwNdx, cwCnt, cwLng;
+    int i, j, b, cwNdx, cwLng;
     for (cwNdx = cwLng = b = 0; b < bitLng; b += 69, cwNdx += 7) {
-        bitCnt = _min(bitLng - b, 69);
+        int bitCnt = _min(bitLng - b, 69);
+        int cwCnt;
         cwLng += cwCnt = bitCnt / 10 + 1;
         for (i = 0; i < cwCnt; i++)
             codeWords[cwNdx + i] = 0; /* init 0 */
@@ -131,8 +132,8 @@ static int encode928(UINT bitString[], UINT codeWords[], int bitLng) {
 }
 
 /* CC-A 2D component */
-static int cc_a(struct zint_symbol *symbol, char source[], int cc_width) { 
-    int i, strpos, segment, bitlen, cwCnt, variant, rows;
+static int cc_a(struct zint_symbol *symbol, char source[], int cc_width) {
+    int i, segment, bitlen, cwCnt, variant, rows;
     int k, offset, j, total, rsCodeWords[8];
     int LeftRAPStart, RightRAPStart, CentreRAPStart, StartCluster;
     int LeftRAP, RightRAP, CentreRAP, Cluster, dummy[5];
@@ -162,7 +163,7 @@ static int cc_a(struct zint_symbol *symbol, char source[], int cc_width) {
     local_source[208] = '\0';
 
     for (segment = 0; segment < 13; segment++) {
-        strpos = segment * 16;
+        int strpos = segment * 16;
         for (i = 0; i < 16; i++) {
             if (local_source[strpos + i] == '1') {
                 bitStr[segment] += (0x8000 >> i);
@@ -334,8 +335,8 @@ static int cc_a(struct zint_symbol *symbol, char source[], int cc_width) {
 }
 
 /* CC-B 2D component */
-static int cc_b(struct zint_symbol *symbol, char source[], int cc_width) { 
-    int length, i, binloc;
+static int cc_b(struct zint_symbol *symbol, char source[], int cc_width) {
+    int length, i;
 #ifndef _MSC_VER
     unsigned char data_string[(strlen(source) / 8) + 3];
 #else
@@ -351,7 +352,7 @@ static int cc_b(struct zint_symbol *symbol, char source[], int cc_width) {
     length = strlen(source) / 8;
 
     for (i = 0; i < length; i++) {
-        binloc = i * 8;
+        int binloc = i * 8;
 
         data_string[i] = 0;
         for (p = 0; p < 8; p++) {
@@ -368,7 +369,7 @@ static int cc_b(struct zint_symbol *symbol, char source[], int cc_width) {
     chainemc[mclength] = 920;
     mclength++;
 
-    byteprocess(chainemc, &mclength, data_string, 0, length, 0);
+    byteprocess(chainemc, &mclength, data_string, 0, length);
 
     /* Now figure out which variant of the symbol to use and load values accordingly */
 
@@ -587,8 +588,8 @@ static int cc_b(struct zint_symbol *symbol, char source[], int cc_width) {
 }
 
 /* CC-C 2D component - byte compressed PDF417 */
-static int cc_c(struct zint_symbol *symbol, char source[], int cc_width, int ecc_level) { 
-    int length, i, p, binloc;
+static int cc_c(struct zint_symbol *symbol, char source[], int cc_width, int ecc_level) {
+    int length, i, p;
 #ifndef _MSC_VER
     unsigned char data_string[(strlen(source) / 8) + 4];
 #else
@@ -602,7 +603,7 @@ static int cc_c(struct zint_symbol *symbol, char source[], int cc_width, int ecc
     length = strlen(source) / 8;
 
     for (i = 0; i < length; i++) {
-        binloc = i * 8;
+        int binloc = i * 8;
 
         data_string[i] = 0;
         for (p = 0; p < 8; p++) {
@@ -619,7 +620,7 @@ static int cc_c(struct zint_symbol *symbol, char source[], int cc_width, int ecc
     chainemc[mclength] = 920; /* CC-C identifier */
     mclength++;
 
-    byteprocess(chainemc, &mclength, data_string, 0, length, 0);
+    byteprocess(chainemc, &mclength, data_string, 0, length);
 
     chainemc[0] = mclength;
 
@@ -729,7 +730,7 @@ static int cc_c(struct zint_symbol *symbol, char source[], int cc_width, int ecc
 
 static int calc_padding_cca(int binary_length, int cc_width) {
     int target_bitsize = 0;
-    
+
     switch (cc_width) {
         case 2:
             if (binary_length <= 167) {
@@ -789,13 +790,13 @@ static int calc_padding_cca(int binary_length, int cc_width) {
             }
             break;
         }
-    
+
         return target_bitsize;
 }
 
 int calc_padding_ccb(int binary_length, int cc_width) {
     int target_bitsize = 0;
-    
+
     switch (cc_width) {
         case 2:
             if (binary_length <= 336) {
@@ -888,7 +889,7 @@ int calc_padding_ccb(int binary_length, int cc_width) {
             }
             break;
     }
-    
+
     return target_bitsize;
 }
 
@@ -943,7 +944,7 @@ int calc_padding_ccc(int binary_length, int *cc_width, int lin_width, int *ecc) 
     }
 
     codewords_total = *(cc_width) * rows;
-    
+
     if (codewords_total > 928) { // PDF_MAX
         return 0;
     }
@@ -955,16 +956,14 @@ int calc_padding_ccc(int binary_length, int *cc_width, int lin_width, int *ecc) 
     target_bytesize += target_codewords % 5;
 
     target_bitsize = 8 * target_bytesize;
-    
+
     return target_bitsize;
 }
 
 static int cc_binary_string(struct zint_symbol *symbol, const char source[], char binary_string[], int cc_mode, int *cc_width, int *ecc, int lin_width) { /* Handles all data encodation from section 5 of ISO/IEC 24723 */
     int encoding_method, read_posn, d1, d2, alpha_pad;
     int i, j, ai_crop, fnc1_latch;
-    long int group_val;
     int ai90_mode, latch, remainder, binary_length;
-    char date_str[4];
 #ifndef _MSC_VER
     char general_field[strlen(source) + 1], general_field_type[strlen(source) + 1];
 #else
@@ -1006,7 +1005,9 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
             strcat(binary_string, "11");
             read_posn = 2;
         } else {
+            long int group_val;
             /* Production Date (11) or Expiration Date (17) */
+            char date_str[4];
             date_str[0] = source[2];
             date_str[1] = source[3];
             date_str[2] = '\0';
@@ -1048,9 +1049,7 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
 #else
         char* ninety = (char*) _alloca(strlen(source) + 1);
 #endif
-        char numeric_part[4];
-        int alpha, alphanum, numeric, test1, test2, test3, next_ai_posn;
-        int numeric_value, table3_letter;
+        int alpha, alphanum, numeric, test1, test2, test3;
 
         /* "This encodation method may be used if an element string with an AI
         90 occurs at the start of the data message, and if the data field
@@ -1122,6 +1121,10 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
         }
 
         if ((test1 != -1) && (test2 != 1) && (test3 == 0)) {
+            int next_ai_posn;
+            char numeric_part[4];
+            int numeric_value;
+            int table3_letter;
             /* Encodation method "11" can be used */
             strcat(binary_string, "11");
 
@@ -1191,7 +1194,7 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
                 /* Encoding can be done according to 5.2.2 c) 2) */
                 /* five bit binary string representing value before letter */
                 bin_append(numeric_value, 5, binary_string);
-                
+
                 /* followed by four bit representation of letter from Table 3 */
                 bin_append(table3_letter, 4, binary_string);
             } else {
@@ -1251,7 +1254,7 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
                 case '*':
                     bin_append(58, 6, binary_string);
                     break;
-                case ',': 
+                case ',':
                     bin_append(59, 6, binary_string);
                     break;
                 case '-':
@@ -1378,7 +1381,7 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
         }
     }
 
-    latch = general_rules(general_field, general_field_type);
+    latch = general_rules(general_field_type);
 
     i = 0;
     do {
@@ -1434,7 +1437,7 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
                     case '*':
                         bin_append(58, 6, binary_string);
                         break;
-                    case ',': 
+                    case ',':
                         bin_append(59, 6, binary_string);
                         break;
                     case '-':
@@ -1502,7 +1505,7 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
                 break;
         }
     } while (i + latch < (int) strlen(general_field));
-    
+
     binary_length = (int)strlen(binary_string);
     switch (cc_mode) {
         case 1:
@@ -1515,7 +1518,7 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
             target_bitsize = calc_padding_ccc(binary_length, cc_width, lin_width, ecc);
             break;
     }
-    
+
     if (target_bitsize == 0) {
         strcpy(symbol->errtxt, "442: Input too long for selected 2d component");
         return ZINT_ERROR_TOO_LONG;
@@ -1553,7 +1556,7 @@ static int cc_binary_string(struct zint_symbol *symbol, const char source[], cha
             target_bitsize = calc_padding_ccc(binary_length, cc_width, lin_width, ecc);
             break;
     }
-    
+
     if (target_bitsize == 0) {
         strcpy(symbol->errtxt, "444: Input too long for selected 2d component");
         return ZINT_ERROR_TOO_LONG;
@@ -1587,14 +1590,14 @@ int linear_dummy_run(unsigned char *source, int length) {
     struct zint_symbol *dummy;
     int error_number;
     int linear_width;
-    
+
     dummy = ZBarcode_Create();
     dummy->symbology = BARCODE_EAN128_CC;
     dummy->option_1 = 3;
     error_number = ean_128(dummy, source, length);
     linear_width = dummy->width;
     ZBarcode_Delete(dummy);
-    
+
     if (error_number == 0) {
         return linear_width;
     } else {
@@ -1618,7 +1621,7 @@ int composite(struct zint_symbol *symbol, unsigned char source[], int length) {
     struct zint_symbol *linear;
     int top_shift, bottom_shift;
     int linear_width = 0;
-    
+
     /* Perform sanity checks on input options first */
     error_number = 0;
     pri_len = (int)strlen(symbol->primary);
@@ -1631,7 +1634,7 @@ int composite(struct zint_symbol *symbol, unsigned char source[], int length) {
         strcpy(symbol->errtxt, "446: 2D component input data too long");
         return ZINT_ERROR_TOO_LONG;
     }
-    
+
     cc_mode = symbol->option_1;
     if ((cc_mode == 3) && (symbol->symbology != BARCODE_EAN128_CC)) {
         /* CC-C can only be used with a GS1-128 linear part */
@@ -1643,7 +1646,7 @@ int composite(struct zint_symbol *symbol, unsigned char source[], int length) {
     if (error_number != 0) {
         return error_number;
     }
-    
+
     if (symbol->symbology == BARCODE_EAN128_CC) {
         /* Do a test run of encoding the linear component to establish its width */
         linear_width = linear_dummy_run((unsigned char *) symbol->primary, pri_len);
@@ -1688,7 +1691,7 @@ int composite(struct zint_symbol *symbol, unsigned char source[], int length) {
         case BARCODE_RSS_EXPSTACK_CC: cc_width = 4;
             break;
     }
-    
+
     memset(binary_string, 0, bs);
 
     if (cc_mode < 1 || cc_mode > 3) {
@@ -1735,10 +1738,10 @@ int composite(struct zint_symbol *symbol, unsigned char source[], int length) {
     if (error_number != 0) {
         return ZINT_ERROR_ENCODING_PROBLEM;
     }
-    
+
     /* 2D component done, now calculate linear component */
     linear = ZBarcode_Create(); /* Symbol contains the 2D component and Linear contains the rest */
-    
+
     linear->symbology = symbol->symbology;
 
     if (linear->symbology != BARCODE_EAN128_CC) {
@@ -1870,3 +1873,5 @@ int composite(struct zint_symbol *symbol, unsigned char source[], int length) {
 
     return error_number;
 }
+
+

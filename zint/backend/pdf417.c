@@ -101,13 +101,13 @@ int quelmode(char codeascii) {
 
 /* 844 */
 void regroupe(int *indexliste) {
-    int i, j;
 
     /* bring together same type blocks */
     if (*(indexliste) > 1) {
-        i = 1;
+        int i = 1;
         while (i < *(indexliste)) {
             if (liste[1][i - 1] == liste[1][i]) {
+                int j;
                 /* bring together */
                 liste[0][i - 1] = liste[0][i - 1] + liste[0][i];
                 j = i + 1;
@@ -224,11 +224,9 @@ void pdfsmooth(int *indexliste) {
 }
 
 /* 547 */
-void textprocess(int *chainemc, int *mclength, char chaine[], int start, int length, int block) {
+void textprocess(int *chainemc, int *mclength, char chaine[], int start, int length) {
     int j, indexlistet, curtable, listet[2][5000], chainet[5000], wnet;
-    char codeascii;
 
-    codeascii = 0;
     wnet = 0;
 
     for (j = 0; j < 1000; j++) {
@@ -236,7 +234,7 @@ void textprocess(int *chainemc, int *mclength, char chaine[], int start, int len
     }
     /* listet will contain the table numbers and the value of each characters */
     for (indexlistet = 0; indexlistet < length; indexlistet++) {
-        codeascii = chaine[start + indexlistet];
+        char codeascii = chaine[start + indexlistet];
         switch (codeascii) {
             case '\t': listet[0][indexlistet] = 12;
                 listet[1][indexlistet] = 12;
@@ -417,17 +415,8 @@ void textprocess(int *chainemc, int *mclength, char chaine[], int start, int len
 }
 
 /* 671 */
-void byteprocess(int *chainemc, int *mclength, unsigned char chaine[], int start, int length, int block) {
+void byteprocess(int *chainemc, int *mclength, unsigned char chaine[], int start, int length) {
     int debug = 0;
-    int len = 0;
-    unsigned int chunkLen = 0;
-#if defined(_MSC_VER) && _MSC_VER == 1200
-    uint64_t mantisa = 0;
-    uint64_t total = 0;
-#else
-    uint64_t mantisa = 0ULL;
-    uint64_t total = 0ULL;
-#endif
 
     if (debug) printf("\nEntering byte mode at position %d\n", start);
 
@@ -438,6 +427,7 @@ void byteprocess(int *chainemc, int *mclength, unsigned char chaine[], int start
             printf("913 %d\n", chainemc[*mclength - 1]);
         }
     } else {
+        int len;
         /* select the switch for multiple of 6 bytes */
         if (length % 6 == 0) {
             chainemc[(*mclength)++] = 924;
@@ -447,8 +437,11 @@ void byteprocess(int *chainemc, int *mclength, unsigned char chaine[], int start
             if (debug) printf("901 ");
         }
 
+        len = 0;
+
         while (len < length) {
-            chunkLen = length - len;
+			uint64_t total;
+            unsigned int chunkLen = length - len;
             if (6 <= chunkLen) /* Take groups of 6 */ {
                 chunkLen = 6;
                 len += chunkLen;
@@ -459,7 +452,7 @@ void byteprocess(int *chainemc, int *mclength, unsigned char chaine[], int start
 #endif
 
                 while (chunkLen--) {
-                    mantisa = chaine[start++];
+                    uint64_t mantisa = chaine[start++];
 #if defined(_MSC_VER) && _MSC_VER == 1200
                     total |= mantisa << (uint64_t) (chunkLen * 8);
 #else
@@ -490,8 +483,8 @@ void byteprocess(int *chainemc, int *mclength, unsigned char chaine[], int start
 }
 
 /* 712 */
-void numbprocess(int *chainemc, int *mclength, char chaine[], int start, int length, int block) {
-    int j, loop, longueur, dummy[100], dumlength, diviseur, nombre;
+void numbprocess(int *chainemc, int *mclength, char chaine[], int start, int length) {
+    int j, loop, dummy[100], diviseur, nombre;
     char chainemod[50], chainemult[100], temp;
 
     strcpy(chainemod, "");
@@ -504,7 +497,8 @@ void numbprocess(int *chainemc, int *mclength, char chaine[], int start, int len
 
     j = 0;
     while (j < length) {
-        dumlength = 0;
+        int longueur;
+        int dumlength = 0;
         strcpy(chainemod, "");
         longueur = length - j;
         if (longueur > 44) {
@@ -607,12 +601,12 @@ static int pdf417(struct zint_symbol *symbol, unsigned char chaine[], const size
     /* 541 - now compress the data */
     indexchaine = 0;
     mclength = 0;
-    
+
     if (symbol->output_options & READER_INIT) {
         chainemc[mclength] = 921; /* Reader Initialisation */
         mclength++;
     }
-    
+
     if (symbol->eci != 3) {
         /* Encoding ECI assignment number, according to Table 8 */
         if (symbol->eci <= 899) {
@@ -636,22 +630,22 @@ static int pdf417(struct zint_symbol *symbol, unsigned char chaine[], const size
             mclength++;
         }
     }
-    
+
     if (symbol->eci > 811799) {
         strcpy(symbol->errtxt, "472: Invalid ECI");
         return ZINT_ERROR_INVALID_OPTION;
     }
-    
+
     for (i = 0; i < indexliste; i++) {
         switch (liste[1][i]) {
             case TEX: /* 547 - text mode */
-                textprocess(chainemc, &mclength, (char*) chaine, indexchaine, liste[0][i], i);
+                textprocess(chainemc, &mclength, (char*) chaine, indexchaine, liste[0][i]);
                 break;
             case BYT: /* 670 - octet stream mode */
-                byteprocess(chainemc, &mclength, chaine, indexchaine, liste[0][i], i);
+                byteprocess(chainemc, &mclength, chaine, indexchaine, liste[0][i]);
                 break;
             case NUM: /* 712 - numeric mode */
-                numbprocess(chainemc, &mclength, (char*) chaine, indexchaine, liste[0][i], i);
+                numbprocess(chainemc, &mclength, (char*) chaine, indexchaine, liste[0][i]);
                 break;
         }
         indexchaine = indexchaine + liste[0][i];
@@ -804,21 +798,21 @@ static int pdf417(struct zint_symbol *symbol, unsigned char chaine[], const size
             bin_append(pdf_bitpattern[offset + dummy[j]], 16, pattern);
             strcat(pattern, "0");
         }
-        
+
         if (symbol->symbology != BARCODE_PDF417TRUNC) {
             bin_append(pdf_bitpattern[offset + dummy[j]], 16, pattern);
             strcat(pattern, "0");
             bin_append(0x3FA29, 18, pattern); /* Row Stop */
         }
-        
+
         for (loop = 0; loop < strlen(pattern); loop++) {
             if (pattern[loop] == '1') {
                 set_module(symbol, i, loop);
             }
         }
-        
+
         symbol->row_height[i] = 3;
-        
+
     }
     symbol->rows = (mclength / symbol->option_2);
     symbol->width =(int)strlen(pattern);
@@ -936,17 +930,17 @@ int micro_pdf417(struct zint_symbol *symbol, unsigned char chaine[], const size_
     /* 541 - now compress the data */
     indexchaine = 0;
     mclength = 0;
-    
+
     if (symbol->output_options & READER_INIT) {
         chainemc[mclength] = 921; /* Reader Initialisation */
         mclength++;
     }
-    
+
     if (symbol->eci > 811799) {
         strcpy(symbol->errtxt, "473: Invalid ECI");
         return ZINT_ERROR_INVALID_OPTION;
     }
-    
+
     if (symbol->eci != 3) {
         /* Encoding ECI assignment number, according to Table 8 */
         if (symbol->eci <= 899) {
@@ -970,17 +964,17 @@ int micro_pdf417(struct zint_symbol *symbol, unsigned char chaine[], const size_
             mclength++;
         }
     }
-    
+
     for (i = 0; i < indexliste; i++) {
         switch (liste[1][i]) {
             case TEX: /* 547 - text mode */
-                textprocess(chainemc, &mclength, (char*) chaine, indexchaine, liste[0][i], i);
+                textprocess(chainemc, &mclength, (char*) chaine, indexchaine, liste[0][i]);
                 break;
             case BYT: /* 670 - octet stream mode */
-                byteprocess(chainemc, &mclength, chaine, indexchaine, liste[0][i], i);
+                byteprocess(chainemc, &mclength, chaine, indexchaine, liste[0][i]);
                 break;
             case NUM: /* 712 - numeric mode */
-                numbprocess(chainemc, &mclength, (char*) chaine, indexchaine, liste[0][i], i);
+                numbprocess(chainemc, &mclength, (char*) chaine, indexchaine, liste[0][i]);
                 break;
         }
         indexchaine = indexchaine + liste[0][i];
@@ -1294,3 +1288,5 @@ int micro_pdf417(struct zint_symbol *symbol, unsigned char chaine[], const size_
 
     return codeerr;
 }
+
+

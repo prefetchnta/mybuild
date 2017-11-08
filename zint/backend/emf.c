@@ -7,14 +7,14 @@
     modification, are permitted provided that the following conditions
     are met:
 
-    1. Redistributions of source code must retain the above copyright 
-       notice, this list of conditions and the following disclaimer.  
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
     2. Redistributions in binary form must reproduce the above copyright
        notice, this list of conditions and the following disclaimer in the
-       documentation and/or other materials provided with the distribution.  
+       documentation and/or other materials provided with the distribution.
     3. Neither the name of the project nor the names of its contributors
        may be used to endorse or promote products derived from this software
-       without specific prior written permission. 
+       without specific prior written permission.
 
     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
     ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -25,7 +25,7 @@
     OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
     HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
     LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
 
@@ -35,7 +35,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#ifdef _MSC_VER
 #include <malloc.h>
+#endif
 #include "common.h"
 #include "emf.h"
 
@@ -43,13 +45,12 @@
 
 int count_rectangles(struct zint_symbol *symbol) {
     int rectangles = 0;
-    int this_row;
-    int latch, i;
-    
-    if ((symbol->symbology != BARCODE_MAXICODE) && 
+
+    if ((symbol->symbology != BARCODE_MAXICODE) &&
             ((symbol->output_options & BARCODE_DOTTY_MODE) == 0)) {
+        int this_row;
         for(this_row = 0; this_row < symbol->rows; this_row++) {
-            latch = 0;
+            int i, latch = 0;
             for(i = 0; i < symbol->width; i++) {
                 if ((module_is_set(symbol, this_row, i)) && (latch == 0)) {
                     latch = 1;
@@ -62,18 +63,18 @@ int count_rectangles(struct zint_symbol *symbol) {
             }
         }
     }
-    
+
     return rectangles;
 }
 
 int count_circles(struct zint_symbol *symbol) {
     int circles = 0;
-    int this_row;
-    int i;
-    
+
     if ((symbol->symbology != BARCODE_MAXICODE) &&
             ((symbol->output_options & BARCODE_DOTTY_MODE) != 0)) {
+        int this_row;
         for(this_row = 0; this_row < symbol->rows; this_row++) {
+            int i;
             for(i = 0; i < symbol->width; i++) {
                 if (module_is_set(symbol, this_row, i)) {
                     circles++;
@@ -81,17 +82,17 @@ int count_circles(struct zint_symbol *symbol) {
             }
         }
     }
-    
+
     return circles;
 }
 
 int count_hexagons(struct zint_symbol *symbol) {
     int hexagons = 0;
-    int this_row;
-    int i;
-    
+
     if (symbol->symbology == BARCODE_MAXICODE) {
+        int this_row;
         for(this_row = 0; this_row < symbol->rows; this_row++) {
+            int i;
             for(i = 0; i < symbol->width; i++) {
                 if (module_is_set(symbol, this_row, i)) {
                     hexagons++;
@@ -99,14 +100,14 @@ int count_hexagons(struct zint_symbol *symbol) {
             }
         }
     }
-    
+
     return hexagons;
 }
 
 void utfle_copy(unsigned char *output, unsigned char *input, int length) {
     int i;
     int o;
-    
+
     /* Convert UTF-8 to UTF-16LE - only needs to handle characters <= U+00FF */
     i = 0;
     o = 0;
@@ -137,7 +138,7 @@ int bump_up(int input) {
 
 int emf_plot(struct zint_symbol *symbol) {
     int i, block_width, latch, this_row;
-    float large_bar_height, preset_height, row_height, row_posn;
+    float large_bar_height, preset_height, row_height;
     FILE *emf_file;
     int fgred, fggrn, fgblu, bgred, bggrn, bgblu;
     int error_number = 0;
@@ -155,7 +156,7 @@ int emf_plot(struct zint_symbol *symbol) {
     unsigned char regz[7];
     unsigned char output_buffer[12];
     uint32_t dx;
-    
+
     emr_header_t emr_header;
     emr_eof_t emr_eof;
     emr_createbrushindirect_t emr_createbrushindirect_fg;
@@ -173,7 +174,7 @@ int emf_plot(struct zint_symbol *symbol) {
     emr_selectobject_t emr_selectobject_font_big;
 
     box_t box;
-    
+
 #ifndef _MSC_VER
     unsigned char local_text[bump_up(ustrlen(symbol->text) + 1)];
     unsigned char string_buffer[2 * bump_up(ustrlen(symbol->text) + 1)];
@@ -186,7 +187,7 @@ int emf_plot(struct zint_symbol *symbol) {
     local_text = (unsigned char*) _alloca(bump_up(ustrlen(symbol->text) + 1) * sizeof (unsigned char));
     string_buffer = (unsigned char*) _alloca(2 * bump_up(ustrlen(symbol->text) + 1) * sizeof (unsigned char));
 #endif
-    
+
     row_height = 0;
     textdone = 0;
     comp_offset = 0;
@@ -202,7 +203,7 @@ int emf_plot(struct zint_symbol *symbol) {
         regy[i] = '\0';
         regz[i] = '\0';
     }
-    
+
     if (symbol->show_hrt != 0) {
         /* Copy text from symbol */
         ustrcpy(local_text, symbol->text);
@@ -233,7 +234,7 @@ int emf_plot(struct zint_symbol *symbol) {
                 break;
         }
     }
-    
+
         /* sort out colour options */
     to_upper((unsigned char*) symbol->fgcolour);
     to_upper((unsigned char*) symbol->bgcolour);
@@ -242,19 +243,19 @@ int emf_plot(struct zint_symbol *symbol) {
         strcpy(symbol->errtxt, "641: Malformed foreground colour target");
         return ZINT_ERROR_INVALID_OPTION;
     }
-    
+
     if (strlen(symbol->bgcolour) != 6) {
         strcpy(symbol->errtxt, "642: Malformed background colour target");
         return ZINT_ERROR_INVALID_OPTION;
     }
-    
+
     fgred = (16 * ctoi(symbol->fgcolour[0])) + ctoi(symbol->fgcolour[1]);
     fggrn = (16 * ctoi(symbol->fgcolour[2])) + ctoi(symbol->fgcolour[3]);
     fgblu = (16 * ctoi(symbol->fgcolour[4])) + ctoi(symbol->fgcolour[5]);
     bgred = (16 * ctoi(symbol->bgcolour[0])) + ctoi(symbol->bgcolour[1]);
     bggrn = (16 * ctoi(symbol->bgcolour[2])) + ctoi(symbol->bgcolour[3]);
     bgblu = (16 * ctoi(symbol->bgcolour[4])) + ctoi(symbol->bgcolour[5]);
-    
+
     if (symbol->height == 0) {
         symbol->height = 50;
     }
@@ -305,7 +306,7 @@ int emf_plot(struct zint_symbol *symbol) {
         }
         upcean = 1;
     }
-    
+
     if (ustrlen(local_text) != 0) {
         textoffset = 9;
     } else {
@@ -313,7 +314,7 @@ int emf_plot(struct zint_symbol *symbol) {
     }
     xoffset = symbol->border_width + symbol->whitespace_width;
     yoffset = symbol->border_width;
-    
+
     rectangle_count = count_rectangles(symbol);
     circle_count = count_circles(symbol);
     hexagon_count = count_hexagons(symbol);
@@ -329,7 +330,7 @@ int emf_plot(struct zint_symbol *symbol) {
     circle = (emr_ellipse_t*) _alloca(circle_count*sizeof(emr_ellipse_t));
     hexagon = (emr_polygon_t*) _alloca(hexagon_count*sizeof(emr_polygon_t));
 #endif
-    
+
     /* Header */
     emr_header.type = 0x00000001; // EMR_HEADER
     emr_header.size = 88; // Assuming no additional data in header
@@ -372,7 +373,7 @@ int emf_plot(struct zint_symbol *symbol) {
     emr_createbrushindirect_fg.log_brush.brush_hatch = 0; // ignored
     bytecount += 24;
     recordcount++;
-    
+
     emr_createbrushindirect_bg.type = 0x00000027; // EMR_CREATEBRUSHINDIRECT
     emr_createbrushindirect_bg.size = 24;
     emr_createbrushindirect_bg.ih_brush = 2;
@@ -384,13 +385,13 @@ int emf_plot(struct zint_symbol *symbol) {
     emr_createbrushindirect_bg.log_brush.brush_hatch = 0; // ignored
     bytecount += 24;
     recordcount++;
-    
+
     emr_selectobject_fgbrush.type = 0x00000025; // EMR_SELECTOBJECT
     emr_selectobject_fgbrush.size = 12;
     emr_selectobject_fgbrush.ih_object = 1;
     bytecount += 12;
     recordcount++;
-    
+
     emr_selectobject_bgbrush.type = 0x00000025; // EMR_SELECTOBJECT
     emr_selectobject_bgbrush.size = 12;
     emr_selectobject_bgbrush.ih_object = 2;
@@ -410,13 +411,13 @@ int emf_plot(struct zint_symbol *symbol) {
     emr_createpen.log_pen.color_ref.reserved = 0;
     bytecount += 28;
     recordcount++;
-    
+
     emr_selectobject_pen.type = 0x00000025; // EMR_SELECTOBJECT
     emr_selectobject_pen.size = 12;
     emr_selectobject_pen.ih_object = 3;
     bytecount += 12;
     recordcount++;
-    
+
     /* Create font records */
     if ((symbol->show_hrt != 0) && (ustrlen(local_text) != 0)) {
         emr_extcreatefontindirectw.type = 0x00000052; // EMR_EXTCREATEFONTINDIRECTW
@@ -442,8 +443,8 @@ int emf_plot(struct zint_symbol *symbol) {
 
         emr_selectobject_font.type = 0x00000025; // EMR_SELECTOBJECT
         emr_selectobject_font.size = 12;
-        emr_selectobject_font.ih_object = 4; 
-        
+        emr_selectobject_font.ih_object = 4;
+
         if (!((symbol->symbology == BARCODE_EANX) || (symbol->symbology == BARCODE_EANX_CC) || (symbol->symbology == BARCODE_ISBNX))) {
             bytecount += 104;
             recordcount++;
@@ -481,7 +482,7 @@ int emf_plot(struct zint_symbol *symbol) {
 
             emr_selectobject_font_big.type = 0x00000025; // EMR_SELECTOBJECT
             emr_selectobject_font_big.size = 12;
-            emr_selectobject_font_big.ih_object = 5; 
+            emr_selectobject_font_big.ih_object = 5;
             bytecount += 12;
             recordcount++;
         }
@@ -520,7 +521,7 @@ int emf_plot(struct zint_symbol *symbol) {
                     for (i = (latch + 1); i <= ustrlen(local_text); i++) {
                         regz[i - (latch + 1)] = local_text[i];
                     }
-                }            
+                }
                 local_text[4] = '\0';
             }
 
@@ -599,12 +600,12 @@ int emf_plot(struct zint_symbol *symbol) {
         utfle_copy(string_buffer, local_text, ustrlen(local_text));
         bytecount += 76 + (6 * bump_up(ustrlen(local_text) + 1));
         recordcount++;
-        
+
         emr_exttextoutw[1].w_emr_text.chars = ustrlen(regw);
         emr_exttextoutw[2].w_emr_text.chars = ustrlen(regx);
         emr_exttextoutw[3].w_emr_text.chars = ustrlen(regy);
         emr_exttextoutw[4].w_emr_text.chars = ustrlen(regz);
-        
+
         if ((symbol->symbology == BARCODE_EANX) || (symbol->symbology == BARCODE_EANX_CC) || (symbol->symbology == BARCODE_ISBNX)) {
             if (latch > 8) {
                 /* EAN-13 */
@@ -669,7 +670,7 @@ int emf_plot(struct zint_symbol *symbol) {
             bytecount += (3 * 112) + 12;
             recordcount += 4;
         }
-        
+
         if ((symbol->symbology == BARCODE_UPCE) || (symbol->symbology == BARCODE_UPCE_CC)) {
             emr_exttextoutw[0].w_emr_text.reference.x = (xoffset - 7) * scaler;
             emr_exttextoutw[0].w_emr_text.reference.y = emr_header.emf_header.bounds.bottom - (9 * scaler);;
@@ -701,7 +702,7 @@ int emf_plot(struct zint_symbol *symbol) {
     background.box.bottom = emr_header.emf_header.bounds.bottom;
     bytecount += 24;
     recordcount++;
-    
+
     /* Make bind and box rectangles if needed */
     if ((symbol->output_options & BARCODE_BIND) || (symbol->output_options & BARCODE_BOX)) {
         box.top.type = 0x0000002b; // EMR_RECTANGLE;
@@ -712,7 +713,7 @@ int emf_plot(struct zint_symbol *symbol) {
         box.top.box.right = emr_header.emf_header.bounds.right - (symbol->border_width * scaler);
         bytecount += 24;
         recordcount++;
-        
+
         box.bottom.type = 0x0000002b; // EMR_RECTANGLE;
         box.bottom.size = 24;
         box.bottom.box.top = emr_header.emf_header.bounds.bottom - ((symbol->border_width + textoffset) * scaler);
@@ -721,7 +722,7 @@ int emf_plot(struct zint_symbol *symbol) {
         box.bottom.box.right = emr_header.emf_header.bounds.right - (symbol->border_width * scaler);
         bytecount += 24;
         recordcount++;
-        
+
         if (symbol->output_options & BARCODE_BOX) {
             box.left.type = 0x0000002b; // EMR_RECTANGLE;
             box.left.size = 24;
@@ -731,7 +732,7 @@ int emf_plot(struct zint_symbol *symbol) {
             box.left.box.right = symbol->border_width * scaler;
             bytecount += 24;
             recordcount++;
-            
+
             box.right.type = 0x0000002b; // EMR_RECTANGLE;
             box.right.size = 24;
             box.right.box.top = 0;
@@ -745,6 +746,7 @@ int emf_plot(struct zint_symbol *symbol) {
 
     /* Make image rectangles, circles, hexagons */
     for (this_row = 0; this_row < symbol->rows; this_row++) {
+        float row_posn;
 
         if (symbol->row_height[this_row] == 0) {
             row_height = large_bar_height;
@@ -785,13 +787,13 @@ int emf_plot(struct zint_symbol *symbol) {
                 } else {
                     latch = 0;
                 }
-                
+
                 do {
                     block_width = 0;
                     do {
                         block_width++;
                     } while (module_is_set(symbol, this_row, i + block_width) == module_is_set(symbol, this_row, i));
-                    
+
                     if (latch == 1) {
                         /* a bar */
                         rectangle[this_rectangle].type = 0x0000002b; // EMR_RECTANGLE;
@@ -858,7 +860,7 @@ int emf_plot(struct zint_symbol *symbol) {
                                     rectangle[this_rectangle].box.bottom += (5 * scaler);
                                 }
                             }
-                            
+
                             if (((symbol->symbology == BARCODE_UPCE) && (symbol->rows == 1)) || (symbol->symbology == BARCODE_UPCE_CC)) {
                                 /* guard bar extensions for UPCE */
                                 switch (i) {
@@ -877,7 +879,7 @@ int emf_plot(struct zint_symbol *symbol) {
                                 }
                             }
                         }
-                        
+
                         this_rectangle++;
                         latch = 0;
                     } else {
@@ -885,14 +887,14 @@ int emf_plot(struct zint_symbol *symbol) {
                         latch = 1;
                     }
 
-                    
+
                     i += block_width;
                 } while (i < symbol->width);
             }
         } else {
             float ax, ay, bx, by, cx, cy, dx, dy, ex, ey, fx, fy, mx, my;
             /* Maxicode, use hexagons */
-            
+
             /* Calculate bullseye */
             for(i = 0; i < 6; i++) {
                 bullseye[i].type = 0x0000002a; // EMR_ELLIPSE
@@ -922,14 +924,14 @@ int emf_plot(struct zint_symbol *symbol) {
             bullseye[5].box.bottom = (35.60 + 1.43) * scaler;
             bullseye[5].box.left = (35.76 - 1.43) * scaler;
             bullseye[5].box.right = (35.76 + 1.43) * scaler;
-            
+
             /* Plot hexagons */
             for(i = 0; i < symbol->width; i++) {
                 if(module_is_set(symbol, this_row, i)) {
                     hexagon[this_hexagon].type = 0x00000003; // EMR_POLYGON
                     hexagon[this_hexagon].size = 76;
                     hexagon[this_hexagon].count = 6;
-                    
+
                     my = this_row * 2.135 + 1.43;
                     ay = my + 1.0 + yoffset;
                     by = my + 0.5 + yoffset;
@@ -948,7 +950,7 @@ int emf_plot(struct zint_symbol *symbol) {
                     dx = mx + xoffset;
                     ex = mx - 0.86 + xoffset;
                     fx = mx - 0.86 + xoffset;
-                    
+
                     hexagon[this_hexagon].a_points_a.x = ax * scaler;
                     hexagon[this_hexagon].a_points_a.y = ay * scaler;
                     hexagon[this_hexagon].a_points_b.x = bx * scaler;
@@ -961,7 +963,7 @@ int emf_plot(struct zint_symbol *symbol) {
                     hexagon[this_hexagon].a_points_e.y = ey * scaler;
                     hexagon[this_hexagon].a_points_f.x = fx * scaler;
                     hexagon[this_hexagon].a_points_f.y = fy * scaler;
-                    
+
                     hexagon[this_hexagon].bounds.top = hexagon[this_hexagon].a_points_d.y;
                     hexagon[this_hexagon].bounds.bottom = hexagon[this_hexagon].a_points_a.y;
                     hexagon[this_hexagon].bounds.left = hexagon[this_hexagon].a_points_e.x;
@@ -973,7 +975,7 @@ int emf_plot(struct zint_symbol *symbol) {
             }
         }
     }
-    
+
     if (symbol->output_options & BARCODE_BIND) {
         if ((symbol->rows > 1) && (is_stackable(symbol->symbology) == 1)) {
             /* row binding */
@@ -982,7 +984,7 @@ int emf_plot(struct zint_symbol *symbol) {
                     row_binding[i - 1].size = 24;
                     row_binding[i - 1].box.top = ((i * row_height) + yoffset - 1) * scaler;
                     row_binding[i - 1].box.bottom = row_binding[i - 1].box.top + (2 * scaler);
-                    
+
                     if (symbol->symbology != BARCODE_CODABLOCKF) {
                         row_binding[i - 1].box.left = xoffset * scaler;
                         row_binding[i - 1].box.right = emr_header.emf_header.bounds.right - (xoffset * scaler);
@@ -1004,11 +1006,11 @@ int emf_plot(struct zint_symbol *symbol) {
     emr_eof.size_last = emr_eof.size;
     bytecount += 18;
     recordcount++;
-    
+
     /* Put final counts in header */
     emr_header.emf_header.bytes = bytecount;
     emr_header.emf_header.records = recordcount;
-    
+
     /* Send EMF data to file */
     if (symbol->output_options & BARCODE_STDOUT) {
         emf_file = stdout;
@@ -1019,21 +1021,21 @@ int emf_plot(struct zint_symbol *symbol) {
         strcpy(symbol->errtxt, "640: Could not open output file");
         return ZINT_ERROR_FILE_ACCESS;
     }
-    
+
     fwrite(&emr_header, sizeof(emr_header_t), 1, emf_file);
-    
+
     fwrite(&emr_createbrushindirect_fg, sizeof(emr_createbrushindirect_t), 1, emf_file);
     fwrite(&emr_createbrushindirect_bg, sizeof(emr_createbrushindirect_t), 1, emf_file);
     fwrite(&emr_createpen, sizeof(emr_createpen_t), 1, emf_file);
-    
+
     if ((symbol->show_hrt != 0) && (ustrlen(local_text) != 0)) {
        fwrite(&emr_extcreatefontindirectw, sizeof(emr_extcreatefontindirectw_t), 1, emf_file);
     }
-    
+
     fwrite(&emr_selectobject_bgbrush, sizeof(emr_selectobject_t), 1, emf_file);
     fwrite(&emr_selectobject_pen, sizeof(emr_selectobject_t), 1, emf_file);
     fwrite(&background, sizeof(emr_rectangle_t), 1, emf_file);
-    
+
     fwrite(&emr_selectobject_fgbrush, sizeof(emr_selectobject_t), 1, emf_file);
 
     for (i = 0; i < rectangle_count; i++) {
@@ -1053,8 +1055,8 @@ int emf_plot(struct zint_symbol *symbol) {
             fwrite(&box.left, sizeof(emr_rectangle_t), 1, emf_file);
             fwrite(&box.right, sizeof(emr_rectangle_t), 1, emf_file);
         }
-    }   
-    
+    }
+
     if (symbol->output_options & BARCODE_BIND) {
         if ((symbol->rows > 1) && (is_stackable(symbol->symbology) == 1)) {
             for(i = 0; i < symbol->rows - 1; i++) {
@@ -1062,7 +1064,7 @@ int emf_plot(struct zint_symbol *symbol) {
             }
         }
     }
-    
+
     if(symbol->symbology == BARCODE_MAXICODE) {
         fwrite(&bullseye[0], sizeof(emr_ellipse_t), 1, emf_file);
         fwrite(&emr_selectobject_bgbrush, sizeof(emr_selectobject_t), 1, emf_file);
@@ -1076,7 +1078,7 @@ int emf_plot(struct zint_symbol *symbol) {
         fwrite(&emr_selectobject_bgbrush, sizeof(emr_selectobject_t), 1, emf_file);
         fwrite(&bullseye[5], sizeof(emr_ellipse_t), 1, emf_file);
     }
-    
+
     if ((symbol->show_hrt != 0) && (ustrlen(local_text) != 0)) {
         if ((symbol->symbology == BARCODE_EANX) || (symbol->symbology == BARCODE_EANX_CC) || (symbol->symbology == BARCODE_ISBNX)) {
             if (ustrlen(regx) != 0) {
@@ -1169,7 +1171,7 @@ int emf_plot(struct zint_symbol *symbol) {
             }
             textdone = 1;
         }
-        
+
         if (((symbol->symbology == BARCODE_UPCE) && (symbol->rows == 1)) || (symbol->symbology == BARCODE_UPCE_CC)) {
             fwrite(&emr_selectobject_font, sizeof(emr_selectobject_t), 1, emf_file);
             fwrite(&emr_exttextoutw[0], sizeof(emr_exttextoutw_t), 1, emf_file);
@@ -1210,9 +1212,9 @@ int emf_plot(struct zint_symbol *symbol) {
             }
         }
     }
-    
+
     fwrite(&emr_eof, sizeof(emr_eof_t), 1, emf_file);
-    
+
     if (symbol->output_options & BARCODE_STDOUT) {
         fflush(emf_file);
     } else {
@@ -1220,3 +1222,5 @@ int emf_plot(struct zint_symbol *symbol) {
     }
     return error_number;
 }
+
+

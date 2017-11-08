@@ -43,7 +43,11 @@ size_t ustrlen(const unsigned char data[]) {
 int ctoi(const char source) {
     if ((source >= '0') && (source <= '9'))
         return (source - '0');
-    return (source - 'A' + 10);
+    if ((source >= 'A') && (source <= 'F'))
+        return (source - 'A' + 10);
+    if ((source >= 'a') && (source <= 'f'))
+        return (source - 'a' + 10);
+    return -1;
 }
 
 
@@ -52,9 +56,9 @@ void bin_append(const int arg, const int length, char *binary) {
     int i;
     int start;
     size_t posn = strlen(binary);
-    
+
     start = 0x01 << (length - 1);
-    
+
     for (i = 0; i < length; i++) {
         binary[posn + i] = '0';
         if (arg & (start >> i)) {
@@ -62,7 +66,7 @@ void bin_append(const int arg, const int length, char *binary) {
         }
     }
     binary[posn + length] = '\0';
-    
+
     return;
 }
 
@@ -87,11 +91,11 @@ void to_upper(unsigned char source[]) {
 
 /* Verifies that a string only uses valid characters */
 int is_sane(const char test_string[], const unsigned char source[], const size_t length) {
-    unsigned int j, latch;
+    unsigned int j;
     size_t i, lt = strlen(test_string);
 
     for (i = 0; i < length; i++) {
-        latch = FALSE;
+        unsigned int latch = FALSE;
         for (j = 0; j < lt; j++) {
             if (source[i] == test_string[j]) {
                 latch = TRUE;
@@ -183,7 +187,7 @@ int is_stackable(const int symbology) {
     if (symbology < BARCODE_PDF417) {
         return 1;
     }
-    
+
     switch (symbology) {
         case BARCODE_CODE128B:
         case BARCODE_ISBNX:
@@ -296,15 +300,15 @@ void set_minimum_height(struct zint_symbol *symbol, const int min_height) {
     int fixed_height = 0;
     int zero_count = 0;
     int i;
-    
+
     for (i = 0; i < symbol->rows; i++) {
         fixed_height += symbol->row_height[i];
-        
+
         if (symbol->row_height[i] == 0) {
             zero_count++;
         }
     }
-    
+
     if (zero_count > 0) {
         if (((symbol->height - fixed_height) / zero_count) < min_height) {
             for (i = 0; i < symbol->rows; i++) {
@@ -315,3 +319,4 @@ void set_minimum_height(struct zint_symbol *symbol, const int min_height) {
         }
     }
 }
+

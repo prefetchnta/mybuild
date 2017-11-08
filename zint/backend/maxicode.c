@@ -489,7 +489,7 @@ int maxi_text_process(int mode, unsigned char source[], int length, int eci) {
             length += 5;
         }
     }
-    
+
     if (((mode == 2) || (mode == 3)) && (length > 84)) {
         return ZINT_ERROR_TOO_LONG;
     }
@@ -588,8 +588,8 @@ void maxi_do_primary_3(char postcode[], int country, int service) {
     maxi_codeword[9] = ((service & 0x3f0) >> 4);
 }
 
-int maxicode(struct zint_symbol *symbol, unsigned char local_source[], int length) {
-    int i, j, block, bit, mode, countrycode = 0, service = 0, lp = 0;
+int maxicode(struct zint_symbol *symbol, unsigned char local_source[], const int length) {
+    int i, j, block, bit, mode, lp = 0;
     int bit_pattern[7], internal_error = 0, eclen;
     char postcode[12], countrystr[4], servicestr[4];
 
@@ -621,6 +621,8 @@ int maxicode(struct zint_symbol *symbol, unsigned char local_source[], int lengt
     }
 
     if ((mode == 2) || (mode == 3)) { /* Modes 2 and 3 need data in symbol->primary */
+        int countrycode;
+        int service;
         if (lp == 0) { /* Mode set manually means lp doesn't get set */
             lp = strlen(symbol->primary);
         }
@@ -731,3 +733,5 @@ int maxicode(struct zint_symbol *symbol, unsigned char local_source[], int lengt
 
     return internal_error;
 }
+
+

@@ -8,14 +8,14 @@
     modification, are permitted provided that the following conditions
     are met:
 
-    1. Redistributions of source code must retain the above copyright 
-       notice, this list of conditions and the following disclaimer.  
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
     2. Redistributions in binary form must reproduce the above copyright
        notice, this list of conditions and the following disclaimer in the
-       documentation and/or other materials provided with the distribution.  
+       documentation and/or other materials provided with the distribution.
     3. Neither the name of the project nor the names of its contributors
        may be used to endorse or promote products derived from this software
-       without specific prior written permission. 
+       without specific prior written permission.
 
     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
     ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -26,7 +26,7 @@
     OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
     HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
     LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
 
@@ -76,7 +76,6 @@ int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     struct mainprog_info_type *graphic;
     png_structp png_ptr;
     png_infop info_ptr;
-    unsigned char *image_data;
     int i, row, column;
     int fgred, fggrn, fgblu, bgred, bggrn, bgblu;
 
@@ -87,7 +86,7 @@ int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
 #endif
 
     graphic = &wpng_info;
-    
+
     graphic->width = symbol->bitmap_width;
     graphic->height = symbol->bitmap_height;
 
@@ -155,6 +154,7 @@ int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
 
     /* Pixel Plotting */
     for (row = 0; row < symbol->bitmap_height; row++) {
+        unsigned char *image_data;
         for (column = 0; column < symbol->bitmap_width; column++) {
             i = column * 3;
             switch (*(pixelbuf + (symbol->bitmap_width * row) + column)) {
@@ -189,3 +189,5 @@ int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     return 0;
 }
 #endif /* NO_PNG */
+
+

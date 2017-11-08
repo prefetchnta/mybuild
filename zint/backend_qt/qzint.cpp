@@ -37,7 +37,7 @@ namespace Zint {
         m_bgColor = Qt::white;
         m_zintSymbol = 0;
         m_error = 0;
-        m_input_mode = UNICODE_MODE;
+        m_input_mode = UNICODE_MODE + ESCAPE_MODE;
         m_scale = 1.0;
         m_option_3 = 0;
         m_hidetext = 0;
@@ -100,7 +100,7 @@ namespace Zint {
         m_whitespace = m_zintSymbol->whitespace_width;
     }
 
-    int QZint::symbol() {
+    int QZint::symbol() const {
         return m_symbol;
     }
 
@@ -112,20 +112,20 @@ namespace Zint {
         m_input_mode = input_mode;
     }
 
-    QString QZint::text() {
+    QString QZint::text() const {
         return m_text;
     }
 
     void QZint::setText(const QString & text) {
         m_text = text;
     }
-    
+
     void QZint::setTargetSize(int width, int height) {
         target_size_horiz = width;
         target_size_vert = height;
     }
 
-    QString QZint::primaryMessage() {
+    QString QZint::primaryMessage() const {
         return m_primaryMessage;
     }
 
@@ -135,7 +135,7 @@ namespace Zint {
 
     int QZint::height() {
         encode();
-        return (m_zintSymbol->height + (m_border != NO_BORDER) ? m_borderWidth * 2 : 0)*(m_zintSymbol->symbology == BARCODE_MAXICODE ? (maxi_width + 1) : 1);
+        return (m_zintSymbol->height + (m_border != NO_BORDER ? m_borderWidth * 2 : 0)*(m_zintSymbol->symbology == BARCODE_MAXICODE ? (maxi_width + 1) : 1));
     }
 
     void QZint::setHeight(int height) {
@@ -152,22 +152,22 @@ namespace Zint {
 
     int QZint::width() {
         encode();
-        return (m_zintSymbol->width + (m_border == BOX) ? m_borderWidth * 2 : 0)*(m_zintSymbol->symbology == BARCODE_MAXICODE ? (maxi_width + 1) : 1);
+        return (m_zintSymbol->width + (m_border == BOX ? m_borderWidth * 2 : 0)*(m_zintSymbol->symbology == BARCODE_MAXICODE ? (maxi_width + 1) : 1));
     }
 
-    float QZint::scale() {
+    float QZint::scale() const {
         return m_scale;
     }
 
     void QZint::setScale(float scale) {
         m_scale = scale;
     }
-    
+
     void QZint::setDotSize(float dot_size) {
         m_dot_size = dot_size;
     }
 
-    QColor QZint::fgColor() {
+    QColor QZint::fgColor() const {
         return m_fgColor;
     }
 
@@ -175,7 +175,7 @@ namespace Zint {
         m_fgColor = fgColor;
     }
 
-    QColor QZint::bgColor() {
+    QColor QZint::bgColor() const {
         return m_bgColor;
     }
 
@@ -183,7 +183,7 @@ namespace Zint {
         m_bgColor = bgColor;
     }
 
-    QZint::BorderType QZint::borderType() {
+    QZint::BorderType QZint::borderType() const {
         return m_border;
     }
 
@@ -191,7 +191,7 @@ namespace Zint {
         m_border = border;
     }
 
-    int QZint::borderWidth() {
+    int QZint::borderWidth() const {
         return m_borderWidth;
     }
 
@@ -205,7 +205,7 @@ namespace Zint {
         m_whitespace = whitespace;
     }
 
-    int QZint::pdf417CodeWords() {
+    int QZint::pdf417CodeWords() const {
         return m_pdf417CodeWords;
     }
 
@@ -213,7 +213,7 @@ namespace Zint {
         m_pdf417CodeWords = pdf417CodeWords;
     }
 
-    int QZint::securityLevel() {
+    int QZint::securityLevel() const {
         return m_securityLevel;
     }
 
@@ -221,11 +221,11 @@ namespace Zint {
         m_securityLevel = securityLevel;
     }
 
-    QString QZint::error_message() {
+    QString QZint::error_message() const {
         return m_lastError;
     }
 
-    int QZint::mode() {
+    int QZint::mode() const {
         return m_securityLevel;
     }
 
@@ -286,7 +286,7 @@ namespace Zint {
         }
     }
 
-    int QZint::module_set(int y_coord, int x_coord) {
+    int QZint::module_set(int y_coord, int x_coord) const {
         int x_char, x_sub, result;
 
         x_char = x_coord / 7;
@@ -304,17 +304,17 @@ namespace Zint {
         bool textdone;
         int comp_offset = 0;
         int xoffset = m_whitespace;
-        int j, main_width = 0, addon_text_height = 0;
+        int main_width = 0, addon_text_height = 0;
         int yoffset = 0;
-        
+
         encode();
-        
+
         QString caption = QString::fromUtf8((const char *) m_zintSymbol->text, -1);
         QFont fontSmall(fontstyle);
         fontSmall.setPixelSize(fontPixelSizeSmall);
         QFont fontLarge(fontstyle);
         fontLarge.setPixelSize(fontPixelSizeLarge);
-        
+
         if (m_lastError.length()) {
             fontLarge.setPointSize(14);
             painter.setFont(fontLarge);
@@ -324,7 +324,7 @@ namespace Zint {
 
         painter.save();
         painter.setClipRect(paintRect, Qt::IntersectClip);
-        
+
         qreal xtr = paintRect.x();
         qreal ytr = paintRect.y();
 
@@ -369,7 +369,7 @@ namespace Zint {
             textoffset = 0;
         }
         gwidth += m_zintSymbol->whitespace_width * 2;
-        
+
         if (paintRect.width() / gwidth < paintRect.height() / gheight) {
             ysf = xsf = (qreal) paintRect.width() / gwidth;
             ytr += (qreal) (paintRect.height() - gheight * ysf) / 2;
@@ -384,7 +384,7 @@ namespace Zint {
         painter.scale(xsf, ysf);
 
         QPen p;
-        
+
         p.setColor(m_fgColor);
         p.setWidth(m_borderWidth);
         painter.setPen(p);
@@ -526,7 +526,7 @@ namespace Zint {
                     }
                 }
                 /* Add row binding */
-                if (((m_zintSymbol->symbology == BARCODE_CODE16K) 
+                if (((m_zintSymbol->symbology == BARCODE_CODE16K)
                         || (m_zintSymbol->symbology == BARCODE_CODE49)) && (row != 0)) {
                     painter.fillRect(0, y - 1, m_zintSymbol->width, 2, QBrush(m_fgColor));
                 }
@@ -602,7 +602,7 @@ namespace Zint {
                 int block_width;
                 bool latch = true;
 
-                j = 0 + comp_offset;
+                int j = 0 + comp_offset;
                 do {
                     block_width = 0;
                     do {
@@ -681,7 +681,7 @@ namespace Zint {
         painter.restore();
     }
 
-    const QString & QZint::lastError() {
+    const QString & QZint::lastError() const {
         return m_lastError;
     }
 
@@ -690,3 +690,4 @@ namespace Zint {
     }
 
 }
+

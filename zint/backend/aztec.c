@@ -8,14 +8,14 @@
     modification, are permitted provided that the following conditions
     are met:
 
-    1. Redistributions of source code must retain the above copyright 
-       notice, this list of conditions and the following disclaimer.  
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
     2. Redistributions in binary form must reproduce the above copyright
        notice, this list of conditions and the following disclaimer in the
-       documentation and/or other materials provided with the distribution.  
+       documentation and/or other materials provided with the distribution.
     3. Neither the name of the project nor the names of its contributors
        may be used to endorse or promote products derived from this software
-       without specific prior written permission. 
+       without specific prior written permission.
 
     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
     ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -26,7 +26,7 @@
     OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
     HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
     LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
 
@@ -34,7 +34,7 @@
 #include <string.h>
 #include <stdlib.h>
 #ifdef _MSC_VER
-#include <malloc.h> 
+#include <malloc.h>
 #endif
 #include "common.h"
 #include "aztec.h"
@@ -46,7 +46,7 @@ static int count_doubles(const unsigned char source[], const int posn, const siz
     int c = 0;
     int i = posn;
     int cond = 1;
-    
+
     do {
         if (((source[i] == '.') || (source[i] == ',')) && (source[i + 1] == ' ')) {
             c++;
@@ -59,11 +59,11 @@ static int count_doubles(const unsigned char source[], const int posn, const siz
     return c;
 }
 
-static int count_cr(char source[], int posn, int length) {
+static int count_cr(unsigned char source[], int posn, int length) {
     int c = 0;
     int i = posn;
     int cond = 1;
-    
+
     do {
         if (source[i] == 13) {
             c++;
@@ -72,15 +72,15 @@ static int count_cr(char source[], int posn, int length) {
         }
         i++;
     } while ((i < length) && cond);
-    
+
     return c;
 }
 
-static int count_dotcomma(char source[], int posn, int length) {
+static int count_dotcomma(unsigned char source[], int posn, int length) {
     int c = 0;
     int i = posn;
     int cond = 1;
-    
+
     do {
         if ((source[i] == '.') || (source[i] == ',')) {
             c++;
@@ -89,15 +89,15 @@ static int count_dotcomma(char source[], int posn, int length) {
         }
         i++;
     } while ((i < length) && cond);
-    
+
     return c;
 }
 
-static int count_spaces(char source[], int posn, int length) {
+static int count_spaces(unsigned char source[], int posn, int length) {
     int c = 0;
     int i = posn;
     int cond = 1;
-    
+
     do {
         if (source[i] == ' ') {
             c++;
@@ -106,13 +106,13 @@ static int count_spaces(char source[], int posn, int length) {
         }
         i++;
     } while ((i < length) && cond);
-    
+
     return c;
 }
 
 static char get_next_mode(char encode_mode[], const size_t src_len, const int posn) {
     int i = posn;
-    
+
     do {
         i++;
     } while ((i < src_len) && (encode_mode[i] == encode_mode[posn]));
@@ -124,33 +124,38 @@ static char get_next_mode(char encode_mode[], const size_t src_len, const int po
 }
 
 static int aztec_text_process(const unsigned char source[], const size_t src_len, char binary_string[], const int gs1, const int eci, const int debug) {
-    
+
     char *encode_mode;
     int i, j;
     char current_mode;
     int count;
     char next_mode;
-    char *reduced_source;
+    unsigned char *reduced_source;
     char *reduced_encode_mode;
     int reduced_length;
     int byte_mode = 0;
-    
-    encode_mode=(char*)alloca(src_len);
-    reduced_source=(char*)alloca(src_len);
-    reduced_encode_mode=(char*)alloca(src_len);
+
+    encode_mode=(char*)malloc(src_len + 1);
+    reduced_source=(unsigned char*)malloc(src_len + 1);
+    reduced_encode_mode=(char*)malloc(src_len + 1);
 
     if ((!encode_mode) ||
         (!reduced_source) ||
-        (!reduced_encode_mode)) return -1;
+        (!reduced_encode_mode)) {
+        free(encode_mode);
+        free(reduced_source);
+        free(reduced_encode_mode);
+        return -1;
+    }
 
     for (i = 0; i < src_len; i++) {
-        if (source[i] > 128) {
+        if (source[i] >= 128) {
             encode_mode[i] = 'B';
         } else {
             encode_mode[i] = AztecModes[(int) source[i]];
         }
     }
-    
+
     // Deal first with letter combinations which can be combined to one codeword
     // Combinations are (CR LF) (. SP) (, SP) (: SP) in Punct mode
     current_mode = 'U';
@@ -160,17 +165,17 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
             encode_mode[i] = 'P';
             encode_mode[i + 1] = 'P';
         }
-        
+
         // Combination (: SP) should always be in Punct mode
         if ((source[i] == ':') && (source[i + 1] == ' ')) {
             encode_mode[i + 1] = 'P';
         }
-        
+
         // Combinations (. SP) and (, SP) sometimes use fewer bits in Digit mode
         if (((source[i] == '.') || (source[i] == ',')) && (source[i + 1] == ' ') && (encode_mode[i] == 'X')) {
             count = count_doubles(source, i, src_len);
             next_mode = get_next_mode(encode_mode, src_len, i);
-            
+
             if (current_mode == 'U') {
                 if ((next_mode == 'D') && (count <= 5)) {
                     for (j = 0; j < (2 * count); j++) {
@@ -178,7 +183,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                     }
                 }
             }
-            
+
             if (current_mode == 'L') {
                 if ((next_mode == 'U') && (count == 1)) {
                     encode_mode[i] = 'D';
@@ -190,14 +195,14 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                     }
                 }
             }
-            
+
             if (current_mode == 'M') {
                 if ((next_mode == 'D') && (count == 1)) {
                     encode_mode[i] = 'D';
                     encode_mode[i + 1] = 'D';
                 }
             }
-            
+
             if (current_mode == 'D') {
                 if ((next_mode != 'D') && (count <= 4)) {
                     for (j = 0; j < (2 * count); j++) {
@@ -210,19 +215,19 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                     }
                 }
             }
-            
+
             // Default is Punct mode
             if (encode_mode[i] == 'X') {
                 encode_mode[i] = 'P';
                 encode_mode[i + 1] = 'P';
             }
         }
-        
+
         if ((encode_mode[i] != 'X') && (encode_mode[i] != 'B')) {
             current_mode = encode_mode[i];
         }
     }
-    
+
     if (debug) {
         printf("First Pass:\n");
         for (i = 0; i < src_len; i++) {
@@ -230,7 +235,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
         }
         printf("\n");
     }
-    
+
     // Reduce two letter combinations to one codeword marked as [abcd] in Punct mode
     i = 0;
     j = 0;
@@ -258,29 +263,28 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
         }
         j++;
     } while (i < src_len);
-    
+
     reduced_length = j;
-    
+
     current_mode = 'U';
     for(i = 0; i < reduced_length; i++) {
-        
         // Resolve Carriage Return (CR) which can be Punct or Mixed mode
         if (reduced_source[i] == 13) {
             count = count_cr(reduced_source, i, reduced_length);
             next_mode = get_next_mode(reduced_encode_mode, reduced_length, i);
-            
+
             if ((current_mode == 'U') && ((next_mode == 'U') || (next_mode == 'B')) && (count == 1)) {
                 reduced_encode_mode[i] = 'P';
             }
-            
+
             if ((current_mode == 'L') && ((next_mode == 'L') || (next_mode == 'B')) && (count == 1)) {
                 reduced_encode_mode[i] = 'P';
             }
-            
+
             if ((current_mode == 'P') || (next_mode == 'P')) {
                 reduced_encode_mode[i] = 'P';
             }
-            
+
             if (current_mode == 'D') {
                 if (((next_mode == 'E') || (next_mode == 'U') || (next_mode == 'D') || (next_mode == 'B')) && (count <= 2)) {
                     for (j = 0; j < count; j++) {
@@ -291,24 +295,24 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                     reduced_encode_mode[i] = 'P';
                 }
             }
-            
+
             // Default is Mixed mode
             if (reduced_encode_mode[i] == 'X') {
                 reduced_encode_mode[i] = 'M';
             }
         }
-        
+
         // Resolve full stop and comma which can be in Punct or Digit mode
         if ((reduced_source[i] == '.') || (reduced_source[i] == ',')) {
             count = count_dotcomma(reduced_source, i, reduced_length);
             next_mode = get_next_mode(reduced_encode_mode, reduced_length, i);
-            
+
             if (current_mode == 'U') {
                 if (((next_mode == 'U') || (next_mode == 'L') || (next_mode == 'M') || (next_mode == 'B')) && (count == 1)) {
                     reduced_encode_mode[i] = 'P';
                 }
             }
-            
+
             if (current_mode == 'L') {
                 if ((next_mode == 'L') && (count <= 2)) {
                     for (j = 0; j < count; j++) {
@@ -319,7 +323,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                     reduced_encode_mode[i] = 'P';
                 }
             }
-            
+
             if (current_mode == 'M') {
                 if (((next_mode == 'E') || (next_mode == 'U') || (next_mode == 'L') || (next_mode == 'M')) && (count <= 4)) {
                     for (j = 0; j < count; j++) {
@@ -332,24 +336,24 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                     }
                 }
             }
-            
+
             if ((current_mode == 'P') && (next_mode != 'D') && (count <= 9)) {
                 for (j = 0; j < count; j++) {
                     reduced_encode_mode[i + j] = 'P';
                 }
             }
-            
+
             // Default is Digit mode
             if (reduced_encode_mode[i] == 'X') {
                 reduced_encode_mode[i] = 'D';
             }
         }
-        
+
         // Resolve Space (SP) which can be any mode except Punct
         if (reduced_source[i] == ' ') {
             count = count_spaces(reduced_source, i, reduced_length);
             next_mode = get_next_mode(reduced_encode_mode, reduced_length, i);
-            
+
             if (current_mode == 'U') {
                 if ((next_mode == 'E') && (count <= 5)) {
                     for (j = 0; j < count; j++) {
@@ -362,7 +366,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                     }
                 }
             }
-            
+
             if (current_mode == 'L') {
                 if ((next_mode == 'E') && (count <= 5)) {
                     for (j = 0; j < count; j++) {
@@ -383,116 +387,116 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                     }
                 }
             }
-            
+
             if (current_mode == 'M') {
                 if (((next_mode == 'E') || (next_mode == 'U')) && (count <= 9)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'M';
                     }
                 }
-                
+
                 if (((next_mode == 'L') || (next_mode == 'B')) && (count <= 14)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'M';
                     }
                 }
-                
+
                 if (((next_mode == 'M') || (next_mode == 'P')) && (count <= 19)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'M';
                     }
                 }
             }
-            
+
             if (current_mode == 'P') {
                 if ((next_mode == 'E') && (count <= 5)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'U';
                     }
                 }
-                
+
                 if (((next_mode == 'U') || (next_mode == 'L') || (next_mode == 'M') || (next_mode == 'P') || (next_mode == 'B')) && (count <= 9)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'U';
                     }
                 }
             }
-            
+
             // Default is Digit mode
             if (reduced_encode_mode[i] == 'X') {
                 reduced_encode_mode[i] = 'D';
             }
         }
-        
+
         if (reduced_encode_mode[i] != 'B') {
             current_mode = reduced_encode_mode[i];
         }
     }
-    
+
     // Decide when to use P/S instead of P/L and U/S instead of U/L
     current_mode = 'U';
     for(i = 0; i < reduced_length; i++) {
-        
+
         if (reduced_encode_mode[i] != current_mode) {
 
             for (count = 0; ((i + count) <= reduced_length) && (reduced_encode_mode[i + count] == reduced_encode_mode[i]); count++);
             next_mode = get_next_mode(reduced_encode_mode, reduced_length, i);
-            
+
             if (reduced_encode_mode[i] == 'P') {
                 if ((current_mode == 'U') && (count <= 2)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'p';
                     }
                 }
-                
+
                 if ((current_mode == 'L') && (next_mode != 'U') && (count <= 2)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'p';
                     }
                 }
-                
+
                 if ((current_mode == 'L') && (next_mode == 'U') && (count == 1)) {
                     reduced_encode_mode[i] = 'p';
                 }
-                
+
                 if ((current_mode == 'M') && (next_mode != 'M') && (count == 1)) {
                     reduced_encode_mode[i] = 'p';
                 }
-                
+
                 if ((current_mode == 'M') && (next_mode == 'M') && (count <= 2)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'p';
                     }
                 }
-                
+
                 if ((current_mode == 'D') && (next_mode != 'D') && (count <= 3)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'p';
                     }
                 }
-                
+
                 if ((current_mode == 'D') && (next_mode == 'D') && (count <= 6)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'p';
                     }
                 }
             }
-            
+
             if (reduced_encode_mode[i] == 'U') {
                 if ((current_mode == 'L') && ((next_mode == 'L') || (next_mode == 'M')) && (count <= 2)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'u';
                     }
                 }
-                
+
                 if ((current_mode == 'L') && ((next_mode == 'E') || (next_mode == 'D') || (next_mode == 'B') || (next_mode == 'P')) && (count == 1)) {
                     reduced_encode_mode[i] = 'u';
                 }
-                
+
                 if ((current_mode == 'D') && (next_mode == 'D') && (count == 1)) {
                     reduced_encode_mode[i] = 'u';
                 }
-                
+
                 if ((current_mode == 'D') && (next_mode == 'P') && (count <= 2)) {
                     for (j = 0; j < count; j++) {
                         reduced_encode_mode[i + j] = 'u';
@@ -500,7 +504,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                 }
             }
         }
-        
+
         if ((reduced_encode_mode[i] != 'p') && (reduced_encode_mode[i] != 'u') && (reduced_encode_mode[i] != 'B')) {
             current_mode = reduced_encode_mode[i];
         }
@@ -516,9 +520,9 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
         }
         printf("\n");
     }
-    
+
     strcpy(binary_string, "");
-    
+
     if (gs1) {
         bin_append(0, 5, binary_string); // P/S
         bin_append(0, 5, binary_string); // FLG(n)
@@ -571,7 +575,12 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
 
     current_mode = 'U';
     for(i = 0; i < reduced_length; i++) {
-        if (reduced_encode_mode[i] != current_mode) {
+
+        if (reduced_encode_mode[i] != 'B') {
+            byte_mode = 0;
+        }
+
+        if ((reduced_encode_mode[i] != current_mode) && (!byte_mode)) {
             // Change mode
             if (current_mode == 'U') {
                 switch (reduced_encode_mode[i]) {
@@ -596,7 +605,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                         break;
                 }
             }
-            
+
             if (current_mode == 'L') {
                 switch (reduced_encode_mode[i]) {
                     case 'U':
@@ -610,6 +619,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                         bin_append(29, 5, binary_string); // M/L
                         break;
                     case 'P':
+                        bin_append(29, 5, binary_string); // M/L
                         bin_append(30, 5, binary_string); // P/L
                         break;
                     case 'p':
@@ -623,7 +633,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                         break;
                 }
             }
-            
+
             if (current_mode == 'M') {
                 switch (reduced_encode_mode[i]) {
                     case 'U':
@@ -647,7 +657,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                         break;
                 }
             }
-            
+
             if (current_mode == 'P') {
                 switch (reduced_encode_mode[i]) {
                     case 'U':
@@ -672,7 +682,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                         break;
                 }
             }
-                
+
             if (current_mode == 'D') {
                 switch (reduced_encode_mode[i]) {
                     case 'U':
@@ -704,10 +714,10 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                         break;
                 }
             }
-                
+
             // Byte mode length descriptor
             if ((reduced_encode_mode[i] == 'B') && (!byte_mode)) {
-                for (count = 0; ((i + count) < reduced_length) && (reduced_encode_mode[i] == 'B'); count++);
+                for (count = 0; ((i + count) < reduced_length) && (reduced_encode_mode[i + count] == 'B'); count++);
 
                 if (count > 2079) {
                     return ZINT_ERROR_TOO_LONG;
@@ -724,10 +734,6 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                 byte_mode = 1;
             }
 
-            if ((reduced_encode_mode[i] != 'B') && byte_mode) {
-                byte_mode = 0;
-            }
-
             if ((reduced_encode_mode[i] != 'B') && (reduced_encode_mode[i] != 'u') && (reduced_encode_mode[i] != 'p')) {
                 current_mode = reduced_encode_mode[i];
             }
@@ -740,7 +746,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                 bin_append(AztecSymbolChar[(int) reduced_source[i]], 5, binary_string);
             }
         }
-        
+
         if (reduced_encode_mode[i] == 'L') {
             if (reduced_source[i] == ' ') {
                 bin_append(1, 5, binary_string); // SP
@@ -748,7 +754,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                 bin_append(AztecSymbolChar[(int) reduced_source[i]], 5, binary_string);
             }
         }
-        
+
         if (reduced_encode_mode[i] == 'M') {
             if (reduced_source[i] == ' ') {
                 bin_append(1, 5, binary_string); // SP
@@ -758,7 +764,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                 bin_append(AztecSymbolChar[(int) reduced_source[i]], 5, binary_string);
             }
         }
-        
+
         if ((reduced_encode_mode[i] == 'P') || (reduced_encode_mode[i] == 'p')) {
             if (gs1 && (reduced_source[i] == '[')) {
                 bin_append(0, 5, binary_string); // FLG(0) = FNC1
@@ -780,7 +786,7 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                 bin_append(AztecSymbolChar[(int) reduced_source[i]], 5, binary_string);
             }
         }
-        
+
         if (reduced_encode_mode[i] == 'D') {
             if (reduced_source[i] == ' ') {
                 bin_append(1, 4, binary_string); // SP
@@ -792,17 +798,21 @@ static int aztec_text_process(const unsigned char source[], const size_t src_len
                 bin_append(AztecSymbolChar[(int) reduced_source[i]], 4, binary_string);
             }
         }
-        
+
         if (reduced_encode_mode[i] == 'B') {
             bin_append(reduced_source[i], 8, binary_string);
         }
     }
-    
+
     if (debug) {
         printf("Binary String:\n");
         printf("%s\n", binary_string);
     }
-    
+
+    free(encode_mode);
+    free(reduced_source);
+    free(reduced_encode_mode);
+
     return 0;
 }
 
@@ -842,7 +852,7 @@ static int avoidReferenceGrid(int output) {
 
 /* Calculate the position of the bits in the grid */
 static void populate_map() {
-    int layer, start, length, n, i;
+    int layer, n, i;
     int x, y;
 
     for (x = 0; x < 151; x++) {
@@ -852,15 +862,15 @@ static void populate_map() {
     }
 
     for (layer = 1; layer < 33; layer++) {
-        start = (112 * (layer - 1)) + (16 * (layer - 1) * (layer - 1)) + 2;
-        length = 28 + ((layer - 1) * 4) + (layer * 4);
+        const int start = (112 * (layer - 1)) + (16 * (layer - 1) * (layer - 1)) + 2;
+        const int length = 28 + ((layer - 1) * 4) + (layer * 4);
         /* Top */
         i = 0;
         x = 64 - ((layer - 1) * 2);
         y = 63 - ((layer - 1) * 2);
         for (n = start; n < (start + length); n += 2) {
-            AztecMap[(avoidReferenceGrid(x + i) * 151) + avoidReferenceGrid(y)] = n;
-            AztecMap[(avoidReferenceGrid(x + i) * 151) + avoidReferenceGrid(y - 1)] = n + 1;
+            AztecMap[(avoidReferenceGrid(y) * 151) + avoidReferenceGrid(x + i)] = n;
+            AztecMap[(avoidReferenceGrid(y - 1) * 151) + avoidReferenceGrid(x + i)] = n + 1;
             i++;
         }
         /* Right */
@@ -868,8 +878,8 @@ static void populate_map() {
         x = 78 + ((layer - 1) * 2);
         y = 64 - ((layer - 1) * 2);
         for (n = start + length; n < (start + (length * 2)); n += 2) {
-            AztecMap[(avoidReferenceGrid(x) * 151) + avoidReferenceGrid(y + i)] = n;
-            AztecMap[(avoidReferenceGrid(x + 1) * 151) + avoidReferenceGrid(y + i)] = n + 1;
+            AztecMap[(avoidReferenceGrid(y + i) * 151) + avoidReferenceGrid(x)] = n;
+            AztecMap[(avoidReferenceGrid(y + i) * 151) + avoidReferenceGrid(x + 1)] = n + 1;
             i++;
         }
         /* Bottom */
@@ -877,8 +887,8 @@ static void populate_map() {
         x = 77 + ((layer - 1) * 2);
         y = 78 + ((layer - 1) * 2);
         for (n = start + (length * 2); n < (start + (length * 3)); n += 2) {
-            AztecMap[(avoidReferenceGrid(x - i) * 151) + avoidReferenceGrid(y)] = n;
-            AztecMap[(avoidReferenceGrid(x - i) * 151) + avoidReferenceGrid(y + 1)] = n + 1;
+            AztecMap[(avoidReferenceGrid(y) * 151) + avoidReferenceGrid(x - i)] = n;
+            AztecMap[(avoidReferenceGrid(y + 1) * 151) + avoidReferenceGrid(x - i)] = n + 1;
             i++;
         }
         /* Left */
@@ -886,8 +896,8 @@ static void populate_map() {
         x = 63 - ((layer - 1) * 2);
         y = 77 + ((layer - 1) * 2);
         for (n = start + (length * 3); n < (start + (length * 4)); n += 2) {
-            AztecMap[(avoidReferenceGrid(x) * 151) + avoidReferenceGrid(y - i)] = n;
-            AztecMap[(avoidReferenceGrid(x - 1) * 151) + avoidReferenceGrid(y - i)] = n + 1;
+            AztecMap[(avoidReferenceGrid(y - i) * 151) + avoidReferenceGrid(x)] = n;
+            AztecMap[(avoidReferenceGrid(y - i) * 151) + avoidReferenceGrid(x - 1)] = n + 1;
             i++;
         }
     }
@@ -935,28 +945,28 @@ static void populate_map() {
     /* Descriptor */
     for (i = 0; i < 10; i++) {
         /* Top */
-        AztecMap[(avoidReferenceGrid(66 + i) * 151) + avoidReferenceGrid(64)] = 20000 + i;
+        AztecMap[(avoidReferenceGrid(64) * 151) + avoidReferenceGrid(66 + i)] = 20000 + i;
     }
     for (i = 0; i < 10; i++) {
         /* Right */
-        AztecMap[(avoidReferenceGrid(77) * 151) + avoidReferenceGrid(66 + i)] = 20010 + i;
+        AztecMap[(avoidReferenceGrid(66 + i) * 151) + avoidReferenceGrid(77)] = 20010 + i;
     }
     for (i = 0; i < 10; i++) {
         /* Bottom */
-        AztecMap[(avoidReferenceGrid(75 - i) * 151) + avoidReferenceGrid(77)] = 20020 + i;
+        AztecMap[(avoidReferenceGrid(77) * 151) + avoidReferenceGrid(75 - i)] = 20020 + i;
     }
     for (i = 0; i < 10; i++) {
         /* Left */
-        AztecMap[(avoidReferenceGrid(64) * 151) + avoidReferenceGrid(75 - i)] = 20030 + i;
+        AztecMap[(avoidReferenceGrid(75 - i) * 151) + avoidReferenceGrid(64)] = 20030 + i;
     }
 
     /* Orientation */
     AztecMap[(avoidReferenceGrid(64) * 151) + avoidReferenceGrid(64)] = 1;
     AztecMap[(avoidReferenceGrid(65) * 151) + avoidReferenceGrid(64)] = 1;
     AztecMap[(avoidReferenceGrid(64) * 151) + avoidReferenceGrid(65)] = 1;
-    AztecMap[(avoidReferenceGrid(77) * 151) + avoidReferenceGrid(64)] = 1;
-    AztecMap[(avoidReferenceGrid(77) * 151) + avoidReferenceGrid(65)] = 1;
-    AztecMap[(avoidReferenceGrid(77) * 151) + avoidReferenceGrid(76)] = 1;
+    AztecMap[(avoidReferenceGrid(64) * 151) + avoidReferenceGrid(77)] = 1;
+    AztecMap[(avoidReferenceGrid(65) * 151) + avoidReferenceGrid(77)] = 1;
+    AztecMap[(avoidReferenceGrid(76) * 151) + avoidReferenceGrid(77)] = 1;
 }
 
 int aztec(struct zint_symbol *symbol, unsigned char source[], const size_t length) {
@@ -1167,6 +1177,7 @@ int aztec(struct zint_symbol *symbol, unsigned char source[], const size_t lengt
                 adjusted_string[adjusted_length - 1] = '0';
             }
 
+/*
             if (debug) {
                 printf("Codewords:\n");
                 for (i = 0; i < (adjusted_length / codeword_size); i++) {
@@ -1176,6 +1187,7 @@ int aztec(struct zint_symbol *symbol, unsigned char source[], const size_t lengt
                     printf("\n");
                 }
             }
+*/
 
         } while (adjusted_length > data_maxsize);
         /* This loop will only repeat on the rare occasions when the rule about not having all 1s or all 0s
@@ -1346,7 +1358,7 @@ int aztec(struct zint_symbol *symbol, unsigned char source[], const size_t lengt
             }
         }
     }
-    
+
     switch (codeword_size) {
         case 6:
             rs_init_gf(0x43);
@@ -1368,7 +1380,7 @@ int aztec(struct zint_symbol *symbol, unsigned char source[], const size_t lengt
         bin_append(ecc_part[i], codeword_size, adjusted_string);
     }
     rs_free();
-    
+
     /* Invert the data so that actual data is on the outside and reed-solomon on the inside */
     memset(bit_pattern, '0', 20045);
 
@@ -1679,3 +1691,4 @@ int aztec_runes(struct zint_symbol *symbol, unsigned char source[], int length) 
 
     return 0;
 }
+

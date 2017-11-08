@@ -36,12 +36,12 @@ DataWindow::DataWindow()
 	connect(btnOK, SIGNAL( clicked( bool )), SLOT(okay()));
 }
 
-DataWindow::DataWindow(QString input)
+DataWindow::DataWindow(const QString &input)
 {
 	setupUi(this);
 	txtDataInput->setPlainText(input);
 	txtDataInput->moveCursor(QTextCursor::End, QTextCursor::MoveAnchor);
-	
+
 	connect(btnCancel, SIGNAL( clicked( bool )), SLOT(quit_now()));
 	connect(btnReset, SIGNAL( clicked( bool )), SLOT(clear_data()));
 	connect(btnOK, SIGNAL( clicked( bool )), SLOT(okay()));
@@ -77,10 +77,11 @@ void DataWindow::from_file()
     QString filename;
     QFile file;
     QByteArray outstream;
-    
+    QString escape_string;
+
     open_dialog.setWindowTitle("Open File");
     open_dialog.setDirectory(settings.value("studio/default_dir", QDir::toNativeSeparators(QDir::homePath())).toString());
-    
+
     if (open_dialog.exec()) {
         filename = open_dialog.selectedFiles().at(0);
     } else {
@@ -95,8 +96,25 @@ void DataWindow::from_file()
 
     outstream = file.readAll();
 
-    txtDataInput->setPlainText(QString(outstream));
+    /* Allow some non-printing (control) characters to be read from file
+       by converting them to escape sequences */
+    escape_string.clear();
+    escape_string.append(QString(outstream));
+
+    escape_string.replace((QChar)'\\', (QString)"\\\\", Qt::CaseInsensitive);
+    escape_string.replace((QChar)0x04, (QString)"\\E", Qt::CaseInsensitive); /* End of Transmission */
+    escape_string.replace((QChar)'\a', (QString)"\\a", Qt::CaseInsensitive); /* Bell */
+    escape_string.replace((QChar)'\b', (QString)"\\b", Qt::CaseInsensitive); /* Backspace */
+    escape_string.replace((QChar)'\t', (QString)"\\t", Qt::CaseInsensitive); /* Horizontal tab */
+    escape_string.replace((QChar)'\v', (QString)"\\v", Qt::CaseInsensitive); /* Vertical tab */
+    escape_string.replace((QChar)'\f', (QString)"\\f", Qt::CaseInsensitive); /* Form feed */
+    escape_string.replace((QChar)'\r', (QString)"\\r", Qt::CaseInsensitive); /* Carriage return */
+    escape_string.replace((QChar)0x1b, (QString)"\\e", Qt::CaseInsensitive); /* Escape */
+    escape_string.replace((QChar)0x1d, (QString)"\\G", Qt::CaseInsensitive); /* Group Separator */
+    escape_string.replace((QChar)0x1e, (QString)"\\R", Qt::CaseInsensitive); /* Record Separator */
+
+    txtDataInput->setPlainText(QString(escape_string));
     file.close();
-    
+
     settings.setValue("studio/default_dir", filename.mid(0, filename.lastIndexOf(QDir::separator())));
 }

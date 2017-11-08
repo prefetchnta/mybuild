@@ -92,6 +92,7 @@ void usage(void) {
             "  --dump                Dump hexadecimal representation to stdout\n"
             "  -e, --ecinos          Display table of ECI character encodings\n"
             "  --eci=NUMBER          Set the ECI mode for raw data\n"
+            "  --esc                 Process escape characters in input data\n"
             "  --filetype=TYPE       Set output file type (PNG/EPS/SVG/PNG/EPS/GIF/TXT)\n"
             "  --fg=COLOUR           Specify a foreground colour (in hex)\n"
             "  --gs1                 Treat input as GS1 compatible data\n"
@@ -151,10 +152,10 @@ void show_eci(void) {
 
 /* Verifies that a string only uses valid characters */
 int validator(char test_string[], char source[]) {
-    unsigned int i, j, latch;
+    unsigned int i, j;
 
     for (i = 0; i < strlen(source); i++) {
-        latch = 0;
+        unsigned int latch = 0;
         for (j = 0; j < strlen(test_string); j++) {
             if (source[i] == test_string[j]) {
                 latch = 1;
@@ -168,80 +169,8 @@ int validator(char test_string[], char source[]) {
     return 0;
 }
 
-int escape_char_process(struct zint_symbol *my_symbol, unsigned char input_string[], int length) {
-    int error_number;
-    int i, j;
-
-#ifndef _MSC_VER
-    unsigned char escaped_string[length + 1];
-#else
-    unsigned char* escaped_string = (unsigned char*) _alloca(length + 1);
-#endif
-
-    i = 0;
-    j = 0;
-
-    do {
-        if (input_string[i] == '\\') {
-            switch (input_string[i + 1]) {
-                case '0': escaped_string[j] = 0x00; /* Null */
-                    i += 2;
-                    break;
-                case 'E': escaped_string[j] = 0x04; /* End of Transmission */
-                    i += 2;
-                    break;
-                case 'a': escaped_string[j] = 0x07; /* Bell */
-                    i += 2;
-                    break;
-                case 'b': escaped_string[j] = 0x08; /* Backspace */
-                    i += 2;
-                    break;
-                case 't': escaped_string[j] = 0x09; /* Horizontal tab */
-                    i += 2;
-                    break;
-                case 'n': escaped_string[j] = 0x0a; /* Line feed */
-                    i += 2;
-                    break;
-                case 'v': escaped_string[j] = 0x0b; /* Vertical tab */
-                    i += 2;
-                    break;
-                case 'f': escaped_string[j] = 0x0c; /* Form feed */
-                    i += 2;
-                    break;
-                case 'r': escaped_string[j] = 0x0d; /* Carriage return */
-                    i += 2;
-                    break;
-                case 'e': escaped_string[j] = 0x1b; /* Escape */
-                    i += 2;
-                    break;
-                case 'G': escaped_string[j] = 0x1d; /* Group Separator */
-                    i += 2;
-                    break;
-                case 'R': escaped_string[j] = 0x1e; /* Record Separator */
-                    i += 2;
-                    break;
-                case '\\': escaped_string[j] = '\\';
-                    i += 2;
-                    break;
-                default: escaped_string[j] = input_string[i];
-                    i++;
-                    break;
-            }
-        } else {
-            escaped_string[j] = input_string[i];
-            i++;
-        }
-        j++;
-    } while (i < length);
-    escaped_string[j] = '\0';
-
-    error_number = ZBarcode_Encode(my_symbol, escaped_string, j);
-
-    return error_number;
-}
-
 /* Converts an integer value to its hexadecimal character */
-static char itoc(int source) { 
+static char itoc(int source) {
     if ((source >= 0) && (source <= 9)) {
         return ('0' + source);
     } else {
@@ -250,7 +179,7 @@ static char itoc(int source) {
 }
 
 /* Concatinates dest[] with the contents of source[], copying /0 as well */
-static void concat(char dest[], char source[]) { 
+static void concat(char dest[], char source[]) {
     unsigned int i, j, n;
 
     j = strlen(dest);
@@ -260,7 +189,7 @@ static void concat(char dest[], char source[]) {
     }
 }
 
-int batch_process(struct zint_symbol *symbol, char *filename, int mirror_mode, char *filetype) {
+int batch_process(struct zint_symbol *symbol, char *filename, int mirror_mode, char *filetype, int rotate_angle) {
     FILE *file;
     unsigned char buffer[7100];
     unsigned char character = 0;
@@ -271,7 +200,7 @@ int batch_process(struct zint_symbol *symbol, char *filename, int mirror_mode, c
     char format_string[127], reversed_string[127], format_char;
     int format_len, i;
     char adjusted[2];
-    
+
     memset(buffer, 0, sizeof (unsigned char) * 7100);
     memset(format_string, 0, sizeof (unsigned char) * 127);
     if (symbol->outfile[0] == '\0') {
@@ -310,7 +239,7 @@ int batch_process(struct zint_symbol *symbol, char *filename, int mirror_mode, c
                 posn--;
                 buffer[posn] = '\0';
             }
-            
+
             if (mirror_mode == 0) {
                 inpos = 0;
                 local_line_count = line_count;
@@ -392,16 +321,16 @@ int batch_process(struct zint_symbol *symbol, char *filename, int mirror_mode, c
                         }
                     }
                 }
-                
+
                 /* Add file extension */
                 output_file[i] = '.';
                 output_file[i + 1] = '\0';
-                
+
                 strcat(output_file, filetype);
             }
 
             strcpy(symbol->outfile, output_file);
-            error_number = ZBarcode_Encode_and_Print(symbol, buffer, posn, 0);
+            error_number = ZBarcode_Encode_and_Print(symbol, buffer, posn, rotate_angle);
             if (error_number != 0) {
                 fprintf(stderr, "On line %d: %s\n", line_count, symbol->errtxt);
                 fflush(stderr);
@@ -434,7 +363,6 @@ int batch_process(struct zint_symbol *symbol, char *filename, int mirror_mode, c
 
 int main(int argc, char **argv) {
     struct zint_symbol *my_symbol;
-    int c;
     int error_number;
     int rotate_angle;
     int generated;
@@ -501,10 +429,11 @@ int main(int argc, char **argv) {
             {"dotsize", 1, 0, 0},
             {"eci", 1, 0, 0},
             {"filetype", 1, 0, 0},
+            {"esc", 0, 0, 0},
             {"verbose", 0, 0, 0}, // Currently undocumented, output some debug info
             {0, 0, 0, 0}
         };
-        c = getopt_long(argc, argv, "htb:w:d:o:i:rcmpe", long_options, &option_index);
+        int c = getopt_long(argc, argv, "htb:w:d:o:i:rcmpe", long_options, &option_index);
         if (c == -1) break;
 
         switch (c) {
@@ -697,6 +626,11 @@ int main(int argc, char **argv) {
                         fflush(stderr);
                     }
                 }
+                if (!strcmp(long_options[option_index].name, "esc")) {
+                    if (!(my_symbol->input_mode &= ESCAPE_MODE)) {
+                        my_symbol->input_mode += ESCAPE_MODE;
+                    }
+                }
                 if (!strcmp(long_options[option_index].name, "verbose")) {
                     my_symbol->debug = 1;
                 }
@@ -709,7 +643,7 @@ int main(int argc, char **argv) {
             case 't':
                 types();
                 break;
-                
+
             case 'e':
                 show_eci();
                 break;
@@ -743,7 +677,7 @@ int main(int argc, char **argv) {
                         strcat(my_symbol->outfile, ".");
                         strcat(my_symbol->outfile, filetype);
                     }
-                    error_number = escape_char_process(my_symbol, (unsigned char*) optarg, strlen(optarg));
+                    error_number = ZBarcode_Encode(my_symbol, (unsigned char*) optarg, strlen(optarg));
                     if (error_number < 5) {
                         if (error_number != 0) {
                             fprintf(stderr, "%s\n", my_symbol->errtxt);
@@ -786,7 +720,7 @@ int main(int argc, char **argv) {
                     if (filetype[0] == '\0') {
                         strcpy(filetype, "png");
                     }
-                    error_number = batch_process(my_symbol, optarg, mirror_mode, filetype);
+                    error_number = batch_process(my_symbol, optarg, mirror_mode, filetype, rotate_angle);
                     generated = 1;
                     if (error_number != 0) {
                         fprintf(stderr, "%s\n", my_symbol->errtxt);
@@ -832,3 +766,4 @@ int main(int argc, char **argv) {
 
     return error_number;
 }
+

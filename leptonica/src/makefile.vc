@@ -15,7 +15,7 @@ AR = lib
 RC = rc
 CFLAGS  = -nologo -c -MD -W3 -O2 -Oi -Ot -GF -GR- -GS -Oy- -TP -DWIN32 -D_WIN32 -DL_LITTLE_ENDIAN \
           -I "../../zlib" -I "../../libpng" -I "../../libjpeg" -I "../../libtiff/libtiff" \
-          -I "../../giflib/lib" -I "../../libwebp/src" -arch:SSE -Zi $(LOC)
+          -I "../../giflib/lib" -I "../../libwebp/src" -I "../../openjpeg/src/lib/openjp2" -arch:SSE -Zi $(LOC)
 WFLAGS  = -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE -wd4018 -wd4101 -wd4244 -wd4305
 ASFLAGS = -coff -Zi $(LOC)
 LDFLAGS = -nologo -ltcg -incremental:no -opt:ref -opt:icf -manifest -manifestfile:$@.manifest

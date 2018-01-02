@@ -163,6 +163,7 @@ $(SHAREDLIB):
         ..\..\release\zlib\zdll.lib ..\..\release\libpng\libpng16.lib \
         ..\..\release\libjpeg\jpeg.lib ..\..\release\libtiff\libtiff_i.lib \
         ..\..\release\giflib\libgif.lib ..\..\release\libwebp\libwebp_dll.lib \
+        ..\..\release\openjpeg\openjp2.lib
         user32.lib gdi32.lib liblept.res
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;2

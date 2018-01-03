@@ -36,7 +36,7 @@ OBJ	= \
 all:	libport.lib
 
 libport.lib:	$(OBJ)
-	$(AR) /LTCG /out:libport.lib $(OBJ)
+	$(AR) /out:libport.lib $(OBJ)
 
 clean:
 	-del *.obj

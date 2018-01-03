@@ -142,7 +142,7 @@ USE_WIN_CRT_LIB = 1
 MAKE	=	nmake /nologo
 CC	=	cl /nologo /arch:SSE /GL
 CXX	=	cl /nologo /arch:SSE /GL
-AR	=	lib /nologo
+AR	=	lib /nologo /LTCG
 LD	=	link /nologo /incremental:no /opt:ref /opt:icf /LTCG
 
 CFLAGS  =	$(OPTFLAGS) $(INCL) $(EXTRAFLAGS)

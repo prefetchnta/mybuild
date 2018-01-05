@@ -24,3 +24,5 @@ export CPPFLAGS=$CFLAGS
 export LDFLAGS="-L$NDK_LIB -Wl,--gc-sections -Wl,--allow-shlib-undefined"
 cp $NDK_LIB/crtbegin_dynamic.o crtbegin_dynamic.o
 cp $NDK_LIB/crtend_android.o crtend_android.o
+cp $NDK_LIB/crtbegin_so.o crtbegin_so.o
+cp $NDK_LIB/crtend_so.o crtend_so.o

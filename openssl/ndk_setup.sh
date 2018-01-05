@@ -21,6 +21,6 @@ export NDK_LIB=$SYS_ROOT/lib
 export CFLAGS="-mandroid -march=armv7-a -fomit-frame-pointer -I$NDK_INC --sysroot=$SYS_ROOT -ffunction-sections -fdata-sections"
 export CXXFLAGS=$CFLAGS
 export CPPFLAGS=$CFLAGS
-export LDFLAGS="-static -L$NDK_LIB -Wl,--gc-sections -Wl,--allow-shlib-undefined"
-cp $NDK_LIB/crtbegin_static.o crtbegin_static.o
+export LDFLAGS="-L$NDK_LIB -Wl,--gc-sections -Wl,--allow-shlib-undefined"
+cp $NDK_LIB/crtbegin_dynamic.o crtbegin_dynamic.o
 cp $NDK_LIB/crtend_android.o crtend_android.o

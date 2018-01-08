@@ -15,7 +15,7 @@ Windows (Visual Studio 2010 X86 /MD)
     libwebp-0.6.1           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/releases
     openjpeg-2.3.0          DLL                     https://github.com/uclouvain/openjpeg/releases
     openssl-1.0.2n          DLL (SSE2)              https://www.openssl.org/source/
-    pixman-0.34.0                                   https://www.cairographics.org/releases/
+    pixman-0.34.0           LIB (SSSE3)             https://www.cairographics.org/releases/
     zint-2.6.2              DLL                     https://sourceforge.net/projects/zint/
     zlib-1.2.11             LIB & DLL               http://www.zlib.net/
     zxing-cpp-20161122      LIB                     https://github.com/glassechidna/zxing-cpp

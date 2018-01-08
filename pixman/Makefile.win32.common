@@ -47,7 +47,6 @@ endif
 
 
 $(CFG_VAR)/%.obj: %.c $(libpixman_headers)
-	@mkdir -p $(CFG_VAR)
 	@$(CC) -c $(PIXMAN_CFLAGS) -Fo"$@" $<
 
 clean: inform

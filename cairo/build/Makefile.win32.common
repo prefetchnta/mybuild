@@ -27,7 +27,7 @@ ifeq ($(PIXMAN_PATH),)
 PIXMAN_PATH := $(top_builddir)/../pixman
 endif
 PIXMAN_CFLAGS := -I$(PIXMAN_PATH)/pixman/
-PIXMAN_LIBS := $(PIXMAN_PATH)/pixman/$(CFG)/pixman-1.lib
+PIXMAN_LIBS := $(top_builddir)/../release/pixman/pixman-1.lib
 
 CAIRO_LIBS =  gdi32.lib msimg32.lib user32.lib
 
@@ -36,7 +36,7 @@ ifeq ($(LIBPNG_PATH),)
 LIBPNG_PATH := $(top_builddir)/../libpng
 endif
 LIBPNG_CFLAGS += -I$(LIBPNG_PATH)/
-CAIRO_LIBS +=  $(LIBPNG_PATH)/libpng.lib
+CAIRO_LIBS += $(top_builddir)/../release/libpng/libpng16.lib
 endif
 
 ifeq ($(CAIRO_HAS_PS_SURFACE)$(CAIRO_HAS_PDF_SURFACE),00)
@@ -45,7 +45,7 @@ ifeq ($(ZLIB_PATH),)
 ZLIB_PATH := $(top_builddir)/../zlib
 endif
 ZLIB_CFLAGS += -I$(ZLIB_PATH)/
-CAIRO_LIBS += $(ZLIB_PATH)/zdll.lib
+CAIRO_LIBS += $(top_builddir)/../release/zlib/zdll.lib
 endif
 
 DEFAULT_CFLAGS = -nologo $(CFG_CFLAGS)
@@ -63,11 +63,9 @@ CAIRO_ARFLAGS = $(DEFAULT_ARFLAGS) $(LDFLAGS)
 # Some generic rules
 
 $(CFG)/%.obj: %.c $(top_srcdir)/src/cairo-features.h
-	@mkdir -p $(CFG)/`dirname $<`
 	@$(CC) $(CAIRO_CFLAGS) -c -Fo"$@" $<
 
 $(CFG)/%-static.obj: %.c $(top_srcdir)/src/cairo-features.h
-	@mkdir -p $(CFG)/`dirname $<`
 	@$(CC) $(CAIRO_CFLAGS) -c -DCAIRO_WIN32_STATIC_BUILD=1 -Fo"$@" $<
 
 clean:

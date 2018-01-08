@@ -6,6 +6,7 @@ Android (GCC 4.9.x ARMv7 -O2 API-14)
 
 Windows (Visual Studio 2010 X86 /MD)
 
+    cairo-1.14.12                                   https://www.cairographics.org/releases/
     giflib-5.1.4            LIB                     https://sourceforge.net/projects/giflib/
     leptonica-1.74.4        DLL                     https://github.com/DanBloomberg/leptonica/releases
     libjpeg-9b              LIB                     http://www.ijg.org/

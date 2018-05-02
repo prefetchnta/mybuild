@@ -18,7 +18,7 @@ Windows (Visual Studio 2010 X86 /MD)
     libwebp-1.0.0           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/releases
     libzip-1.4.0            DLL                     https://libzip.org/download/
     openjpeg-2.3.0          DLL                     https://github.com/uclouvain/openjpeg/releases
-    openssl-1.0.2n          DLL (SSE2)              https://www.openssl.org/source/
+    openssl-1.0.2o          DLL (SSE2)              https://www.openssl.org/source/
     pcre-8.42               DLL                     ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/
     pixman-0.34.0           LIB (SSSE3)             https://www.cairographics.org/releases/
     zint-2.6.3              DLL                     https://sourceforge.net/projects/zint/

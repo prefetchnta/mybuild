@@ -175,7 +175,7 @@ extern int upnqr(struct zint_symbol *symbol, const unsigned char source[], size_
 extern int qr_code(struct zint_symbol *symbol, const unsigned char source[], size_t length); /* QR Code */
 extern int dmatrix(struct zint_symbol *symbol, const unsigned char source[], const size_t in_length); /* Data Matrix (IEC16022) */
 extern int vin(struct zint_symbol *symbol, const unsigned char source[], const size_t in_length); /* VIN Code (Vehicle Identification Number) */
-extern int mailmark(struct zint_symbol *symbol, const unsigned char source[], const size_t in_length); /* Royal Mail 4-state Mailmark */
+extern int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t in_length); /* Royal Mail 4-state Mailmark */
 
 extern int plot_raster(struct zint_symbol *symbol, int rotate_angle, int file_type); /* Plot to PNG/BMP/PCX */
 extern int render_plot(struct zint_symbol *symbol, float width, float height); /* Plot to gLabels */

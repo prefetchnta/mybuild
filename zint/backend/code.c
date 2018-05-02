@@ -593,7 +593,7 @@ int channel_code(struct zint_symbol *symbol, unsigned char source[], int length)
 
 
 /* Vehicle Identification Number (VIN) */
-int vin(struct zint_symbol *symbol, unsigned char source[], int length) {
+int vin(struct zint_symbol *symbol, const unsigned char source[], const size_t length) {
     
     /* This code verifies the check digit present in North American VIN codes */
     

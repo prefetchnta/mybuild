@@ -122,7 +122,7 @@ int verify_postcode(char* postcode, int type) {
 }
 
 /* Royal Mail Mailmark */
-int mailmark(struct zint_symbol *symbol, unsigned char source[], int length) {
+int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t length) {
     
     char local_source[28];
     int format;

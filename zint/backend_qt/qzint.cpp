@@ -81,9 +81,8 @@ namespace Zint {
         QByteArray bstr = m_text.toUtf8();
         QByteArray pstr = m_primaryMessage.left(99).toLatin1();
         strcpy(m_zintSymbol->primary, pstr.data());
-        int error = ZBarcode_Encode(m_zintSymbol, (unsigned char*) bstr.data(), bstr.length());
-        if (error > ZINT_WARN_INVALID_OPTION)
-            m_lastError = m_zintSymbol->errtxt;
+        m_error = ZBarcode_Encode(m_zintSymbol, (unsigned char*) bstr.data(), bstr.length());
+        m_lastError = m_zintSymbol->errtxt;
 
         if (m_zintSymbol->symbology == BARCODE_MAXICODE)
             m_zintSymbol->height = 33;
@@ -220,6 +219,10 @@ namespace Zint {
     void QZint::setSecurityLevel(int securityLevel) {
         m_securityLevel = securityLevel;
     }
+    
+    int QZint::getError() {
+        return m_error;
+    }
 
     QString QZint::error_message() const {
         return m_lastError;
@@ -275,14 +278,12 @@ namespace Zint {
         QByteArray bgcol = bg_colour_hash.right(6).toLatin1();
         strcpy(m_zintSymbol->fgcolour, fgcol.data());
         strcpy(m_zintSymbol->bgcolour, bgcol.data());
-        int error = ZBarcode_Encode_and_Print(m_zintSymbol, (unsigned char*) bstr.data(), bstr.length(), 0);
-        if (error > ZINT_WARN_INVALID_OPTION) {
+        m_error = ZBarcode_Encode_and_Print(m_zintSymbol, (unsigned char*) bstr.data(), bstr.length(), 0);
+        if (m_error >= 5) {
             m_lastError = m_zintSymbol->errtxt;
-        }
-        if (error == 0) {
-            return true;
-        } else {
             return false;
+        } else {
+            return true;
         }
     }
 
@@ -315,7 +316,8 @@ namespace Zint {
         QFont fontLarge(fontstyle);
         fontLarge.setPixelSize(fontPixelSizeLarge);
 
-        if (m_lastError.length()) {
+        if (m_error >= 5) {
+            // Display error message instead of barcode
             fontLarge.setPointSize(14);
             painter.setFont(fontLarge);
             painter.drawText(paintRect, Qt::AlignCenter, m_lastError);

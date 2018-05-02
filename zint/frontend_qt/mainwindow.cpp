@@ -102,6 +102,7 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags fl)
 		"Postnet",
 		"QR Code (ISO 18004)",
 		"Royal Mail 4-state Barcode",
+                "Royal Mail 4-state Mailmark",
 		"Telepen",
 		"Telepen Numeric",
 		"UK Plessey",
@@ -247,8 +248,13 @@ bool MainWindow::save()
         }
 
 	if(m_bc.bc.save_to_file(filename) == false) {
+            if (m_bc.bc.getError() > 4) {
 		QMessageBox::critical(this,tr("Save Error"),m_bc.bc.error_message());
                 return false;
+            } else {
+                QMessageBox::warning(this, tr("Save Warning"),m_bc.bc.error_message());
+                return true;
+            }
 	}
 
         settings.setValue("studio/default_dir", filename.mid(0, filename.lastIndexOf(QDir::separator())));
@@ -263,7 +269,7 @@ void MainWindow::about()
 					   "<p>A free barcode generator"
                        "<p>Instruction manual is available at the project homepage:<br>"
                        "<a href=\"http://www.zint.org.uk\">http://www.zint.org.uk</a>"
-                       "<p>Copyright &copy; 2006-2017 Robin Stuart and others.<br>"
+                       "<p>Copyright &copy; 2006-2018 Robin Stuart and others.<br>"
                        "Qt back end by BogDan Vatra<br>"
                        "Windows port by Harald Oehlmann</p>"
                        "<p>Qt version " QT_VERSION_STR
@@ -920,14 +926,24 @@ void MainWindow::update_preview()
 				m_bc.bc.setInputMode(GS1_MODE);
 
 			m_bc.bc.setWidth(m_optionWidget->findChild<QComboBox*>("cmbDM200Size")->currentIndex());
-			if(m_optionWidget->findChild<QCheckBox*>("chkDMRectangle")->isChecked())
-				m_bc.bc.setOption3(DM_SQUARE);
-			else {
-				if(m_optionWidget->findChild<QCheckBox*>("chkDMRE")->isChecked())
-					m_bc.bc.setOption3(DM_DMRE);
-				else
-					m_bc.bc.setOption3(0);
-			}
+                        
+                        if (m_optionWidget->findChild<QComboBox*>("cmbDM200Size")->currentIndex() == 0) {
+                            // Supressing rectangles or allowing DMRE only makes sense if in automatic size mode
+                            findChild<QCheckBox*>("chkDMRectangle")->setEnabled(true);
+                            findChild<QCheckBox*>("chkDMRE")->setEnabled(true);
+                            if(m_optionWidget->findChild<QCheckBox*>("chkDMRectangle")->isChecked())
+                                    m_bc.bc.setOption3(DM_SQUARE);
+                            else {
+                                    if(m_optionWidget->findChild<QCheckBox*>("chkDMRE")->isChecked())
+                                            m_bc.bc.setOption3(DM_DMRE);
+                                    else
+                                            m_bc.bc.setOption3(0);
+                            }
+                        } else {
+                            findChild<QCheckBox*>("chkDMRectangle")->setEnabled(false);
+                            findChild<QCheckBox*>("chkDMRE")->setEnabled(false);
+                            m_bc.bc.setOption3(0);
+                        }
 			break;
 
 		case BARCODE_QRCODE:

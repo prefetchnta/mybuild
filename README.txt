@@ -21,6 +21,6 @@ Windows (Visual Studio 2010 X86 /MD)
     openssl-1.0.2n          DLL (SSE2)              https://www.openssl.org/source/
     pcre-8.42               DLL                     ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/
     pixman-0.34.0           LIB (SSSE3)             https://www.cairographics.org/releases/
-    zint-2.6.2              DLL                     https://sourceforge.net/projects/zint/
+    zint-2.6.3              DLL                     https://sourceforge.net/projects/zint/
     zlib-1.2.11             LIB & DLL               http://www.zlib.net/
     zxing-cpp-20161122      LIB                     https://github.com/glassechidna/zxing-cpp

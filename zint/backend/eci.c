@@ -44,13 +44,14 @@ int utf_to_eci(const int eci, const unsigned char source[], unsigned char dest[]
     int out_posn;
     int ext;
     int done;
-    
+
     if (eci == 26) {
         int in_length = (int) *length;
         /* Unicode mode, do not process - just copy data across */
         for (in_posn = 0; in_posn < in_length; in_posn++) {
             dest[in_posn] = source[in_posn];
         }
+        dest[in_posn] = '\0';
         return 0;
     }
 

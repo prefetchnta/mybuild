@@ -1073,8 +1073,8 @@ int hx_evaluate(unsigned char *eval, int size, int pattern) {
     }
 
     /* Test 2: Adjacent modules in row/column in same colour */
-    /* In AIMD-15 section 5.8.3.2 it is stated... “In Table 9 below, i refers to the row
-     * position of the module.” - however i being the length of the run of the
+    /* In AIMD-15 section 5.8.3.2 it is stated... "In Table 9 below, i refers to the row
+     * position of the module." - however i being the length of the run of the
      * same colour (i.e. "block" below) in the same fashion as ISO/IEC 18004
      * makes more sense. -- Confirmed by Wang Yi */
 

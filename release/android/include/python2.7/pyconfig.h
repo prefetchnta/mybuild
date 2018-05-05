@@ -131,14 +131,29 @@
 /* Define to 1 if you have the `copysign' function. */
 #define HAVE_COPYSIGN 1
 
+/* Define to 1 if you have the <crypt.h> header file. */
+/* #undef HAVE_CRYPT_H */
+
 /* Define to 1 if you have the `ctermid' function. */
 /* #undef HAVE_CTERMID */
 
 /* Define if you have the 'ctermid_r' function. */
 /* #undef HAVE_CTERMID_R */
 
+/* Define if you have the 'filter' function. */
+/* #undef HAVE_CURSES_FILTER */
+
 /* Define to 1 if you have the <curses.h> header file. */
 /* #undef HAVE_CURSES_H */
+
+/* Define if you have the 'has_key' function. */
+/* #undef HAVE_CURSES_HAS_KEY */
+
+/* Define if you have the 'immedok' function. */
+/* #undef HAVE_CURSES_IMMEDOK */
+
+/* Define if you have the 'is_pad' function or macro. */
+/* #undef HAVE_CURSES_IS_PAD */
 
 /* Define if you have the 'is_term_resized' function. */
 /* #undef HAVE_CURSES_IS_TERM_RESIZED */
@@ -148,6 +163,18 @@
 
 /* Define if you have the 'resize_term' function. */
 /* #undef HAVE_CURSES_RESIZE_TERM */
+
+/* Define if you have the 'syncok' function. */
+/* #undef HAVE_CURSES_SYNCOK */
+
+/* Define if you have the 'typeahead' function. */
+/* #undef HAVE_CURSES_TYPEAHEAD */
+
+/* Define if you have the 'use_env' function. */
+/* #undef HAVE_CURSES_USE_ENV */
+
+/* Define if you have the 'wchgat' function. */
+/* #undef HAVE_CURSES_WCHGAT */
 
 /* Define to 1 if you have the declaration of `isfinite', and to 0 if you
    don't. */
@@ -185,13 +212,13 @@
 #define HAVE_DLFCN_H 1
 
 /* Define to 1 if you have the `dlopen' function. */
-/* #undef HAVE_DLOPEN */
+#define HAVE_DLOPEN 1
 
 /* Define to 1 if you have the `dup2' function. */
 #define HAVE_DUP2 1
 
 /* Defined when any dynamic module loading is enabled. */
-/* #undef HAVE_DYNAMIC_LOADING */
+#define HAVE_DYNAMIC_LOADING 1
 
 /* Define if you have the 'epoll' functions. */
 #define HAVE_EPOLL 1
@@ -260,7 +287,7 @@
 #define HAVE_FTELLO 1
 
 /* Define to 1 if you have the `ftime' function. */
-#define HAVE_FTIME 1
+/* #undef HAVE_FTIME */
 
 /* Define to 1 if you have the `ftruncate' function. */
 #define HAVE_FTRUNCATE 1
@@ -423,7 +450,7 @@
 #define HAVE_LGAMMA 1
 
 /* Define to 1 if you have the `dl' library (-ldl). */
-/* #undef HAVE_LIBDL */
+#define HAVE_LIBDL 1
 
 /* Define to 1 if you have the `dld' library (-ldld). */
 /* #undef HAVE_LIBDLD */
@@ -531,7 +558,7 @@
 /* #undef HAVE_PTH */
 
 /* Define to 1 if you have the `pthread_atfork' function. */
-/* #undef HAVE_PTHREAD_ATFORK */
+#define HAVE_PTHREAD_ATFORK 1
 
 /* Defined for Solaris 2.6 bug in pthread header. */
 /* #undef HAVE_PTHREAD_DESTRUCTOR */
@@ -800,6 +827,9 @@
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #define HAVE_SYS_STAT_H 1
 
+/* Define to 1 if you have the <sys/sysmacros.h> header file. */
+#define HAVE_SYS_SYSMACROS_H 1
+
 /* Define to 1 if you have the <sys/termio.h> header file. */
 /* #undef HAVE_SYS_TERMIO_H */
 
@@ -843,7 +873,7 @@
 /* #undef HAVE_THREAD_H */
 
 /* Define to 1 if you have the `timegm' function. */
-/* #undef HAVE_TIMEGM */
+#define HAVE_TIMEGM 1
 
 /* Define to 1 if you have the `times' function. */
 #define HAVE_TIMES 1
@@ -904,10 +934,10 @@
 #define HAVE_UTIME_H 1
 
 /* Define to 1 if you have the `wait3' function. */
-#define HAVE_WAIT3 1
+/* #undef HAVE_WAIT3 */
 
 /* Define to 1 if you have the `wait4' function. */
-#define HAVE_WAIT4 1
+/* #undef HAVE_WAIT4 */
 
 /* Define to 1 if you have the `waitpid' function. */
 #define HAVE_WAITPID 1
@@ -923,7 +953,7 @@
 /* #undef HAVE_WORKING_TZSET */
 
 /* Define if the zlib library has inflateCopy */
-/* #undef HAVE_ZLIB_COPY */
+#define HAVE_ZLIB_COPY 1
 
 /* Define to 1 if you have the `_getpty' function. */
 /* #undef HAVE__GETPTY */

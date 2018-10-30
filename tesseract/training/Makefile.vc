@@ -1,0 +1,54 @@
+
+OBJECTS=commandlineflags.obj \
+        commontraining.obj \
+        degradeimage.obj \
+        fileio.obj \
+        mergenf.obj \
+        tessopt.obj \
+        tlog.obj \
+
+SOURCES=ambiguous_words.cpp \
+        classifier_tester.cpp \
+        cntraining.cpp \
+        combine_tessdata.cpp \
+        commandlineflags.cpp \
+        commontraining.cpp \
+        dawg2wordlist.cpp \
+        degradeimage.cpp \
+        fileio.cpp \
+        mergenf.cpp \
+        mftraining.cpp \
+        shapeclustering.cpp \
+        tessopt.cpp \
+        tlog.cpp \
+        unicharset_extractor.cpp \
+        wordlist2dawg.cpp
+
+CFLAGS=/c /O2 /Oi /Ot /GF /GL /GR- /GS /Gy /Oy- /WX- /Gm- /MD \
+       /Zc:wchar_t- /arch:SSE /D "NDEBUG" /D "WIN32" /D "_WIN32" \
+       /EHsc /D "USE_STD_NAMESPACE" /D "PANGO_ENABLE_ENGINE" \
+       /I "..\ccmain" /I "..\api" /I "..\ccutil" /I "..\ccstruct" \
+       /I "..\viewer" /I "..\textord" /I "..\dict" /I "..\classify" \
+       /I "..\display" /I "..\wordrec" /I "..\cutil" /I "..\vs2010\port" \
+       /I "..\..\leptonica\src"
+
+LFLAGS=/INCREMENTAL:NO /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /LTCG \
+       /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /MACHINE:X86 \
+       /LIBPATH:..\..\release\leptonica /LIBPATH:..\..\release\tesseract \
+       kernel32.lib user32.lib gdi32.lib comdlg32.lib advapi32.lib ws2_32.lib \
+       shell32.lib ole32.lib oleaut32.lib liblept_i.lib libtesseract305-static.lib
+
+build_all:
+    cl /nologo $(CFLAGS) $(SOURCES)
+    link /nologo /OUT:ambiguous_words.exe $(LFLAGS) ambiguous_words.obj $(OBJECTS)
+    link /nologo /OUT:classifier_tester.exe $(LFLAGS) classifier_tester.obj $(OBJECTS)
+    link /nologo /OUT:cntraining.exe $(LFLAGS) cntraining.obj $(OBJECTS)
+    link /nologo /OUT:combine_tessdata.exe $(LFLAGS) combine_tessdata.obj $(OBJECTS)
+    link /nologo /OUT:dawg2wordlist.exe $(LFLAGS) dawg2wordlist.obj $(OBJECTS)
+    link /nologo /OUT:mftraining.exe $(LFLAGS) mftraining.obj $(OBJECTS)
+    rem link /nologo /OUT:set_unicharset_properties.exe $(LFLAGS) set_unicharset_properties.obj $(OBJECTS)
+    link /nologo /OUT:shapeclustering.exe $(LFLAGS) shapeclustering.obj $(OBJECTS)
+    rem link /nologo /OUT:text2image.exe $(LFLAGS) text2image.obj $(OBJECTS)
+    link /nologo /OUT:unicharset_extractor.exe $(LFLAGS) unicharset_extractor.obj $(OBJECTS)
+    link /nologo /OUT:wordlist2dawg.exe $(LFLAGS) wordlist2dawg.obj $(OBJECTS)
+    del /Q *.obj

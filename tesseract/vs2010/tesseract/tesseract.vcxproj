@@ -217,6 +217,8 @@
       <CompileAs>Default</CompileAs>
       <DisableSpecificWarnings>4244;4305;4018;4267;4996;4800;4005;4355;4099;4566;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <WholeProgramOptimization>true</WholeProgramOptimization>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
+      <StringPooling>true</StringPooling>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>MYVERSION=$(LIBTESS_VERSION_R);%(PreprocessorDefinitions)</PreprocessorDefinitions>

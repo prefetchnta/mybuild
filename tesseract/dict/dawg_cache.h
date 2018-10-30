@@ -27,7 +27,7 @@
 
 namespace tesseract {
 
-class DawgCache {
+class TESS_API DawgCache {
  public:
   Dawg *GetSquishedDawg(
       const STRING &lang,

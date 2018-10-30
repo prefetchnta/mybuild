@@ -373,7 +373,7 @@ struct DawgPosition {
   bool back_to_punc;
 };
 
-class DawgPositionVector : public GenericVector<DawgPosition> {
+class TESS_API DawgPositionVector : public GenericVector<DawgPosition> {
  public:
   /// Overload clear() in order to avoid allocating/deallocating memory
   /// when clearing the vector and re-inserting entries into it later.

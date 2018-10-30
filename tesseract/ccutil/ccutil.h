@@ -33,7 +33,7 @@
 
 namespace tesseract {
 
-class CCUtilMutex {
+class TESS_API CCUtilMutex {
  public:
   CCUtilMutex();
 

@@ -32,7 +32,7 @@ namespace tesseract {
 // Reference counting is performed, so every Get() needs to be followed later
 // by a Free().  Actual deletion is accomplished by DeleteUnusedObjects().
 template<typename T>
-class ObjectCache {
+class TESS_API ObjectCache {
  public:
   ObjectCache() {}
   ~ObjectCache() {

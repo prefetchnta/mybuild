@@ -217,7 +217,7 @@ class TESS_API StringParam : public Param {
   GenericVector<StringParam *> *params_vec_;
 };
 
-class DoubleParam : public Param {
+class TESS_API DoubleParam : public Param {
  public:
   DoubleParam(double value, const char *name, const char *comment,
               bool init, ParamsVectors *vec) : Param(name, comment, init) {

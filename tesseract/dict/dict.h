@@ -84,7 +84,7 @@ struct DawgArgs {
   bool valid_end;
 };
 
-class Dict {
+class TESS_API Dict {
  public:
   Dict(CCUtil* image_ptr);
   ~Dict();
@@ -244,7 +244,7 @@ class Dict {
                              CHAR_FRAGMENT_INFO *char_frag_info);
 
   /* stopper.cpp *************************************************************/
-  bool TESS_API NoDangerousAmbig(WERD_CHOICE *BestChoice,
+  bool NoDangerousAmbig(WERD_CHOICE *BestChoice,
                         DANGERR *fixpt,
                         bool fix_replaceable,
                         MATRIX* ratings);

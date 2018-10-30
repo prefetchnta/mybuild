@@ -66,7 +66,13 @@ TESS_API TessResultRenderer* TESS_CALL TessHOcrRendererCreate2(const char* outpu
 
 TESS_API TessResultRenderer* TESS_CALL TessPDFRendererCreate(const char* outputbase, const char* datadir)
 {
-    return new TessPDFRenderer(outputbase, datadir);
+    return new TessPDFRenderer(outputbase, datadir, false);
+}
+
+TESS_API TessResultRenderer* TESS_CALL TessPDFRendererCreateTextonly(const char* outputbase, const char* datadir,
+                                                             BOOL textonly)
+{
+    return new TessPDFRenderer(outputbase, datadir, textonly);
 }
 
 TESS_API TessResultRenderer* TESS_CALL TessUnlvRendererCreate(const char* outputbase)

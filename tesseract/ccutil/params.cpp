@@ -72,7 +72,7 @@ bool ParamUtils::ReadParamsFromFp(FILE *fp, inT64 end_offset,
 
   while ((end_offset < 0 || ftell(fp) < end_offset) &&
          fgets(line, MAX_PATH, fp)) {
-    if (line[0] != '\n' && line[0] != '#') {
+    if (line[0] != '\r' && line[0] != '\n' && line[0] != '#') {
       chomp_string(line);  // remove newline
       for (valptr = line; *valptr && *valptr != ' ' && *valptr != '\t';
         valptr++);
@@ -108,7 +108,7 @@ bool ParamUtils::SetParam(const char *name, const char* value,
   IntParam *ip = FindParam<IntParam>(name, GlobalParams()->int_params,
                                      member_params->int_params);
   if (ip && ip->constraint_ok(constraint) &&
-      sscanf(value, INT32FORMAT, &intval) == 1) ip->set_value(intval);
+      sscanf(value, "%d", &intval) == 1) ip->set_value(intval);
 
   // Look for the parameter among bool parameters.
   BoolParam *bp = FindParam<BoolParam>(name, GlobalParams()->bool_params,

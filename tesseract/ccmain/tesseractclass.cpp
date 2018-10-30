@@ -389,6 +389,8 @@ Tesseract::Tesseract()
                   this->params()),
       BOOL_MEMBER(tessedit_create_pdf, false, "Write .pdf output file",
                   this->params()),
+      BOOL_MEMBER(textonly_pdf, false, "Create PDF with only one invisible text layer",
+                  this->params()),
       STRING_MEMBER(unrecognised_char, "|",
                     "Output char for unidentified blobs", this->params()),
       INT_MEMBER(suspect_level, 99, "Suspect marker level", this->params()),

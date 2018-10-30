@@ -37,9 +37,9 @@
 template <typename T>
 class GenericVector {
  public:
-  GenericVector() {
-    init(kDefaultVectorSize);
-  }
+  GenericVector() : size_used_(0), size_reserved_(0), data_(NULL),
+                    clear_cb_(NULL), compare_cb_(NULL) {}
+
   GenericVector(int size, T init_val) {
     init(size);
     init_to_size(size, init_val);
@@ -358,15 +358,20 @@ typedef bool (*FileWriter)(const GenericVector<char>& data,
 // returning false on error.
 inline bool LoadDataFromFile(const STRING& filename,
                              GenericVector<char>* data) {
+  bool result = false;
   FILE* fp = fopen(filename.string(), "rb");
-  if (fp == NULL) return false;
-  fseek(fp, 0, SEEK_END);
-  size_t size = ftell(fp);
-  fseek(fp, 0, SEEK_SET);
-  // Pad with a 0, just in case we treat the result as a string.
-  data->init_to_size(static_cast<int>(size) + 1, 0);
-  bool result = fread(&(*data)[0], 1, size, fp) == size;
-  fclose(fp);
+  if (fp != NULL) {
+    fseek(fp, 0, SEEK_END);
+    size_t size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (size > 0) {
+      // reserve an extra byte in case caller wants to append a '\0' character
+      data->reserve(size + 1);
+      data->resize_no_init(size);
+      result = fread(&(*data)[0], 1, size, fp) == size;
+    }
+    fclose(fp);
+  }
   return result;
 }
 // The default FileWriter writes the vector of char to the filename file,
@@ -646,10 +651,11 @@ template <typename T>
 void GenericVector<T>::reserve(int size) {
   if (size_reserved_ >= size || size <= 0)
     return;
+  if (size < kDefaultVectorSize) size = kDefaultVectorSize;
   T* new_array = new T[size];
   for (int i = 0; i < size_used_; ++i)
     new_array[i] = data_[i];
-  if (data_ != NULL) delete[] data_;
+  delete[] data_;
   data_ = new_array;
   size_reserved_ = size;
 }

@@ -27,11 +27,12 @@
 #include "allheaders.h"
 #include "baseapi.h"
 #include "basedir.h"
+#include "dict.h"
+#include "openclwrapper.h"
+#include "osdetect.h"
 #include "renderer.h"
 #include "strngs.h"
 #include "tprintf.h"
-#include "openclwrapper.h"
-#include "osdetect.h"
 
 #if defined(HAVE_TIFFIO_H) && defined(_WIN32)
 
@@ -63,25 +64,35 @@ void PrintVersionInfo() {
   lept_free(versionStrP);
 
 #ifdef USE_OPENCL
-    cl_platform_id platform;
-    cl_uint num_platforms;
-    cl_device_id devices[2];
-    cl_uint num_devices;
-    char info[256];
-    int i;
+  cl_platform_id platform[4];
+  cl_uint num_platforms;
 
-    printf(" OpenCL info:\n");
-    clGetPlatformIDs(1, &platform, &num_platforms);
-    printf("  Found %d platforms.\n", num_platforms);
-    clGetPlatformInfo(platform, CL_PLATFORM_NAME, 256, info, 0);
-    printf("  Platform name: %s.\n", info);
-    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 256, info, 0);
-    printf("  Version: %s.\n", info);
-    clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 2, devices, &num_devices);
-    printf("  Found %d devices.\n", num_devices);
-    for (i = 0; i < num_devices; ++i) {
-      clGetDeviceInfo(devices[i], CL_DEVICE_NAME, 256, info, 0);
-      printf("    Device %d name: %s.\n", i + 1, info);
+  printf(" OpenCL info:\n");
+  if (clGetPlatformIDs(4, platform, &num_platforms) == CL_SUCCESS) {
+    printf("  Found %u platform(s).\n", num_platforms);
+    for (unsigned n = 0; n < num_platforms; n++) {
+      char info[256];
+      if (clGetPlatformInfo(platform[n], CL_PLATFORM_NAME, 256, info, 0) ==
+          CL_SUCCESS) {
+        printf("  Platform %u name: %s.\n", n + 1, info);
+      }
+      if (clGetPlatformInfo(platform[n], CL_PLATFORM_VERSION, 256, info, 0) ==
+          CL_SUCCESS) {
+        printf("  Version: %s.\n", info);
+      }
+      cl_device_id devices[2];
+      cl_uint num_devices;
+      if (clGetDeviceIDs(platform[n], CL_DEVICE_TYPE_ALL, 2, devices,
+                         &num_devices) == CL_SUCCESS) {
+        printf("  Found %u device(s).\n", num_devices);
+        for (unsigned i = 0; i < num_devices; ++i) {
+          if (clGetDeviceInfo(devices[i], CL_DEVICE_NAME, 256, info, 0) ==
+              CL_SUCCESS) {
+            printf("    Device %u name: %s.\n", i + 1, info);
+          }
+        }
+      }
+    }
     }
 #endif
 }
@@ -337,8 +348,10 @@ void PreloadRenderers(
 
     api->GetBoolVariable("tessedit_create_pdf", &b);
     if (b) {
-      renderers->push_back(
-          new tesseract::TessPDFRenderer(outputbase, api->GetDatapath()));
+      bool textonly;
+      api->GetBoolVariable("textonly_pdf", &textonly);
+      renderers->push_back(new tesseract::TessPDFRenderer(
+          outputbase, api->GetDatapath(), textonly));
     }
 
     api->GetBoolVariable("tessedit_write_unlv", &b);
@@ -388,9 +401,9 @@ int main(int argc, char** argv) {
   static GenericVector<STRING> vars_vec;
   static GenericVector<STRING> vars_values;
 
-#if !defined(DEBUG)
+#ifdef NDEBUG
   // Disable debugging and informational messages from Leptonica.
-  setMsgSeverity(L_SEVERITY_WARNING);
+  setMsgSeverity(L_SEVERITY_ERROR);
 #endif
 
 #if defined(HAVE_TIFFIO_H) && defined(_WIN32)
@@ -409,7 +422,14 @@ int main(int argc, char** argv) {
   }
 
   PERF_COUNT_START("Tesseract:main")
-  tesseract::TessBaseAPI api;
+
+  // Call GlobalDawgCache here to create the global DawgCache object before
+  // the TessBaseAPI object. This fixes the order of destructor calls:
+  // first TessBaseAPI must be destructed, DawgCache must be the last object.
+  tesseract::Dict::GlobalDawgCache();
+
+  // Avoid memory leak caused by auto variable when exit() is called.
+  static tesseract::TessBaseAPI api;
 
   api.SetOutputName(outputbase);
 
@@ -417,14 +437,14 @@ int main(int argc, char** argv) {
                              argc - arg_i, &vars_vec, &vars_values, false);
   if (init_failed) {
     fprintf(stderr, "Could not initialize tesseract.\n");
-    exit(1);
+    return EXIT_FAILURE;
   }
 
   SetVariablesFromCLArgs(&api, argc, argv);
 
   if (list_langs) {
     PrintLangsList(&api);
-    exit(0);
+    return EXIT_SUCCESS;
   }
 
   if (print_parameters) {
@@ -432,18 +452,18 @@ int main(int argc, char** argv) {
      fprintf(stdout, "Tesseract parameters:\n");
      api.PrintVariables(fout);
      api.End();
-     exit(0);
+     return EXIT_SUCCESS;
   }
 
   FixPageSegMode(&api, pagesegmode);
 
   if (pagesegmode == tesseract::PSM_AUTO_ONLY) {
-    int ret_val = 0;
+    int ret_val = EXIT_SUCCESS;
 
     Pix* pixs = pixRead(image);
     if (!pixs) {
       fprintf(stderr, "Cannot open input file: %s\n", image);
-      exit(2);
+      return 2;
     }
 
     api.SetImage(pixs);
@@ -461,13 +481,13 @@ int main(int argc, char** argv) {
           "Deskew angle: %.4f\n",
           orientation, direction, order, deskew_angle);
     } else {
-      ret_val = 1;
+      ret_val = EXIT_FAILURE;
     }
 
     delete it;
 
     pixDestroy(&pixs);
-    exit(ret_val);
+    return ret_val;
   }
 
   // set in_training_mode to true when using one of these configs:
@@ -478,7 +498,8 @@ int main(int argc, char** argv) {
       (api.GetBoolVariable("tessedit_resegment_from_boxes", &b) && b) ||
       (api.GetBoolVariable("tessedit_make_boxes_from_boxes", &b) && b);
 
-  tesseract::PointerVector<tesseract::TessResultRenderer> renderers;
+  // Avoid memory leak caused by auto variable when exit() is called.
+  static tesseract::PointerVector<tesseract::TessResultRenderer> renderers;
 
   if (in_training_mode) {
     renderers.push_back(NULL);
@@ -491,10 +512,11 @@ int main(int argc, char** argv) {
     bool succeed = api.ProcessPages(image, NULL, 0, renderers[0]);
     if (!succeed) {
       fprintf(stderr, "Error during processing.\n");
-      exit(1);
+      return EXIT_FAILURE;
     }
   }
 
   PERF_COUNT_END
-  return 0;                      // Normal exit
+
+  return EXIT_SUCCESS;
 }

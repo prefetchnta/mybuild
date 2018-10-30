@@ -1024,27 +1024,13 @@ bool TessBaseAPI::ProcessPagesMultipageTiff(const l_uint8 *data,
                                             int tessedit_page_number) {
 #ifndef ANDROID_BUILD
   Pix *pix = NULL;
-#ifdef USE_OPENCL
-  OpenclDevice od;
-#endif  // USE_OPENCL
   int page = (tessedit_page_number >= 0) ? tessedit_page_number : 0;
   size_t offset = 0;
   for (; ; ++page) {
     if (tessedit_page_number >= 0)
       page = tessedit_page_number;
-#ifdef USE_OPENCL
-    if ( od.selectedDeviceIsOpenCL() ) {
-      pix = (data) ?
-          od.pixReadMemTiffCl(data, size, page) :
-          od.pixReadTiffCl(filename, page);
-    } else {
-#endif  // USE_OPENCL
-      pix = (data) ?
-          pixReadMemFromMultipageTiff(data, size, &offset) :
-          pixReadFromMultipageTiff(filename, &offset);
-#ifdef USE_OPENCL
-    }
-#endif  // USE_OPENCL
+    pix = (data) ? pixReadMemFromMultipageTiff(data, size, &offset)
+                 : pixReadFromMultipageTiff(filename, &offset);
     if (pix == NULL) break;
     tprintf("Page %d\n", page + 1);
     char page_str[kMaxIntSize];
@@ -2092,53 +2078,33 @@ void TessBaseAPI::Clear() {
  */
 void TessBaseAPI::End() {
   Clear();
-  if (thresholder_ != NULL) {
-    delete thresholder_;
-    thresholder_ = NULL;
-  }
-  if (page_res_ != NULL) {
-    delete page_res_;
-    page_res_ = NULL;
-  }
-  if (block_list_ != NULL) {
-    delete block_list_;
-    block_list_ = NULL;
-  }
+  delete thresholder_;
+  thresholder_ = NULL;
+  delete page_res_;
+  page_res_ = NULL;
+  delete block_list_;
+  block_list_ = NULL;
   if (paragraph_models_ != NULL) {
     paragraph_models_->delete_data_pointers();
     delete paragraph_models_;
     paragraph_models_ = NULL;
   }
-  if (tesseract_ != NULL) {
-    delete tesseract_;
-    if (osd_tesseract_ == tesseract_)
-      osd_tesseract_ = NULL;
-    tesseract_ = NULL;
-  }
-  if (osd_tesseract_ != NULL) {
-    delete osd_tesseract_;
+  if (osd_tesseract_ == tesseract_)
     osd_tesseract_ = NULL;
-  }
-  if (equ_detect_ != NULL) {
-    delete equ_detect_;
-    equ_detect_ = NULL;
-  }
-  if (input_file_ != NULL) {
-    delete input_file_;
-    input_file_ = NULL;
-  }
-  if (output_file_ != NULL) {
-    delete output_file_;
-    output_file_ = NULL;
-  }
-  if (datapath_ != NULL) {
-    delete datapath_;
-    datapath_ = NULL;
-  }
-  if (language_ != NULL) {
-    delete language_;
-    language_ = NULL;
-  }
+  delete tesseract_;
+  tesseract_ = NULL;
+  delete osd_tesseract_;
+  osd_tesseract_ = NULL;
+  delete equ_detect_;
+  equ_detect_ = NULL;
+  delete input_file_;
+  input_file_ = NULL;
+  delete output_file_;
+  output_file_ = NULL;
+  delete datapath_;
+  datapath_ = NULL;
+  delete language_;
+  language_ = NULL;
 }
 
 // Clear any library-level memory caches.

@@ -139,7 +139,7 @@ ImageData* ImageData::Build(const char* name, int page_number, const char* lang,
   image_data->page_number_ = page_number;
   image_data->language_ = lang;
   // Save the imagedata.
-  image_data->image_data_.init_to_size(imagedatasize, 0);
+  image_data->image_data_.resize_no_init(imagedatasize);
   memcpy(&image_data->image_data_[0], imagedata, imagedatasize);
   if (!image_data->AddBoxes(box_text)) {
     if (truth_text == NULL || truth_text[0] == '\0') {
@@ -326,7 +326,7 @@ void ImageData::SetPixInternal(Pix* pix, GenericVector<char>* image_data) {
   size_t size;
   pixWriteMem(&data, &size, pix, IFF_PNG);
   pixDestroy(&pix);
-  image_data->init_to_size(size, 0);
+  image_data->resize_no_init(size);
   memcpy(&(*image_data)[0], data, size);
   free(data);
 }
@@ -438,7 +438,9 @@ void DocumentData::LoadPageInBackground(int index) {
   if (pages_offset_ == index) return;
   pages_offset_ = index;
   pages_.clear();
+  #ifndef GRAPHICS_DISABLED
   SVSync::StartThread(ReCachePagesFunc, this);
+  #endif  // GRAPHICS_DISABLED
 }
 
 // Returns a pointer to the page with the given index, modulo the total
@@ -453,7 +455,7 @@ const ImageData* DocumentData::GetPage(int index) {
     if (needs_loading) LoadPageInBackground(index);
     // We can't directly load the page, or the background load will delete it
     // while the caller is using it, so give it a chance to work.
-#if __cplusplus > 199711L
+#if __cplusplus > 199711L && !defined(__MINGW32__)
     std::this_thread::sleep_for(std::chrono::seconds(1));
 #elif _WIN32  // MSVS
     Sleep(1000);

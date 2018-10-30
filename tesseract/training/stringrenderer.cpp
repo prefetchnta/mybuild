@@ -100,6 +100,7 @@ StringRenderer::StringRenderer(const string& font_desc, int page_width,
       page_height_(page_height),
       h_margin_(50),
       v_margin_(50),
+      pen_color_{0.0, 0.0, 0.0},
       char_spacing_(0),
       leading_(0),
       vertical_text_(false),
@@ -119,15 +120,12 @@ StringRenderer::StringRenderer(const string& font_desc, int page_width,
       start_box_(0),
       page_(0),
       box_padding_(0),
+      page_boxes_(NULL),
       total_chars_(0),
       font_index_(0),
       last_offset_(0) {
-  pen_color_[0] = 0.0;
-  pen_color_[1] = 0.0;
-  pen_color_[2] = 0.0;
   set_font(font_desc);
   set_resolution(kDefaultOutputResolution);
-  page_boxes_ = NULL;
 }
 
 bool StringRenderer::set_font(const string& desc) {
@@ -244,7 +242,7 @@ void StringRenderer::SetWordUnderlineAttributes(const string& page_text) {
   int offset = 0;
   TRand rand;
   bool started_underline = false;
-  PangoAttribute* und_attr = nullptr;
+  PangoAttribute* und_attr = NULL;
 
   while (offset < page_text.length()) {
     offset += SpanUTF8Whitespace(text + offset);
@@ -263,7 +261,7 @@ void StringRenderer::SetWordUnderlineAttributes(const string& page_text) {
         // previous word.
         pango_attr_list_insert(attr_list, und_attr);
         started_underline = false;
-        und_attr = nullptr;
+        und_attr = NULL;
       }
     }
     if (!started_underline && RandBool(underline_start_prob_, &rand)) {

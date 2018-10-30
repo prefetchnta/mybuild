@@ -142,7 +142,7 @@ ELISTIZEH(AmbigSpec);
 // wrong ngram starts with unichar id i.
 typedef GenericVector<AmbigSpec_LIST *> UnicharAmbigsVector;
 
-class UnicharAmbigs {
+class TESS_API UnicharAmbigs {
  public:
   UnicharAmbigs() {}
   ~UnicharAmbigs() {

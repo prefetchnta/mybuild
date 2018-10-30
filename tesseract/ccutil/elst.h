@@ -81,7 +81,7 @@ lists.
  *  walks the list.
  **********************************************************************/
 
-class DLLSYM ELIST_LINK
+class TESS_API ELIST_LINK
 {
   friend class ELIST_ITERATOR;
   friend class ELIST;

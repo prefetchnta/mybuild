@@ -40,7 +40,7 @@ struct UnicharAndFonts;
 // class, finding the canonical sample, finding the "cloud" features (OR of
 // all features in all samples), replication of samples, caching of distance
 // metrics.
-class TrainingSampleSet {
+class TESS_API TrainingSampleSet {
  public:
   explicit TrainingSampleSet(const FontInfoTable& fontinfo_table);
   ~TrainingSampleSet();

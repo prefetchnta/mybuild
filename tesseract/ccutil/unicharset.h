@@ -136,12 +136,12 @@ class CHAR_FRAGMENT {
 // The UNICHARSET class is an utility class for Tesseract that holds the
 // set of characters that are used by the engine. Each character is identified
 // by a unique number, from 0 to (size - 1).
-class UNICHARSET {
+class TESS_API UNICHARSET {
  public:
   // Custom list of characters and their ligature forms (UTF8)
   // These map to unicode values in the private use area (PUC) and are supported
   // by only few font families (eg. Wyld, Adobe Caslon Pro).
-  static TESS_API const char* kCustomLigatures[][2];
+  static const char* kCustomLigatures[][2];
 
   // List of strings for the SpecialUnicharCodes. Keep in sync with the enum.
   static const char* kSpecialUnicharCodes[SPECIAL_UNICHAR_CODES_COUNT];
@@ -177,7 +177,7 @@ class UNICHARSET {
 
   // Return the UNICHAR_ID of a given unichar representation within the
   // UNICHARSET.
-  UNICHAR_ID TESS_API unichar_to_id(const char* const unichar_repr) const;
+  UNICHAR_ID unichar_to_id(const char* const unichar_repr) const;
 
   // Return the UNICHAR_ID of a given unichar representation within the
   // UNICHARSET. Only the first length characters from unichar_repr are used.
@@ -234,7 +234,7 @@ class UNICHARSET {
   }
 
   // Add a unichar representation to the set.
-  void TESS_API unichar_insert(const char* const unichar_repr);
+  void unichar_insert(const char* const unichar_repr);
 
   // Return true if the given unichar id exists within the set.
   // Relies on the fact that unichar ids are contiguous in the unicharset.
@@ -244,7 +244,7 @@ class UNICHARSET {
   }
 
   // Return true if the given unichar representation exists within the set.
-  bool TESS_API contains_unichar(const char* const unichar_repr) const;
+  bool contains_unichar(const char* const unichar_repr) const;
   bool contains_unichar(const char* const unichar_repr, int length) const;
 
   // Return true if the given unichar representation corresponds to the given
@@ -328,7 +328,7 @@ class UNICHARSET {
 
   // Saves the content of the UNICHARSET to the given STRING.
   // Returns true if the operation is successful.
-  bool TESS_API save_to_string(STRING *str) const;
+  bool save_to_string(STRING *str) const;
 
   // Load a unicharset from a unicharset file that has been loaded into
   // the given memory buffer.

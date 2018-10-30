@@ -23,6 +23,7 @@
 #ifndef TESSERACT_CLASSIFY_SHAPECLASSIFIER_H_
 #define TESSERACT_CLASSIFY_SHAPECLASSIFIER_H_
 
+#include "platform.h"
 #include "unichar.h"
 
 template <typename T> class GenericVector;
@@ -40,7 +41,7 @@ class TrainingSampleSet;
 struct UnicharRating;
 
 // Interface base class for classifiers that produce ShapeRating results.
-class ShapeClassifier {
+class TESS_API ShapeClassifier {
  public:
   virtual ~ShapeClassifier() {}
 

@@ -35,7 +35,7 @@
 // provides automatic deletion of pointers, [De]Serialize that works, and
 // sort that works.
 template <typename T>
-class GenericVector {
+class TESS_API GenericVector {
  public:
   GenericVector() : size_used_(0), size_reserved_(0), data_(NULL),
                     clear_cb_(NULL), compare_cb_(NULL) {}
@@ -429,7 +429,7 @@ int sort_ptr_cmp(const void* t1, const void* t2) {
 // as it provides automatic deletion and correct serialization, with the
 // corollary that all copy operations are deep copies of the pointed-to objects.
 template<typename T>
-class PointerVector : public GenericVector<T*> {
+class TESS_API PointerVector : public GenericVector<T*> {
  public:
   PointerVector() : GenericVector<T*>() { }
   explicit PointerVector(int size) : GenericVector<T*>(size) { }

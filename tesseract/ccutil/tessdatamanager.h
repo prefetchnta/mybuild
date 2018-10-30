@@ -130,7 +130,7 @@ static const bool kTessdataFileIsText[] = {
 static const int kMaxNumTessdataEntries = 1000;
 
 
-class TessdataManager {
+class TESS_API TessdataManager {
  public:
   TessdataManager() {
     data_file_ = NULL;

@@ -140,7 +140,7 @@ uintmax_t streamtoumax(FILE* s, int base) {
     v = v*base + d;
 
   ungetc(c, s);
-  return minus ? -v : v;
+  return minus ? 0-v : v;
 }
 
 double streamtofloat(FILE* s) {

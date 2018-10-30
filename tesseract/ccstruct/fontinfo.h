@@ -145,7 +145,7 @@ struct FontSet {
 // implement a table of FontInfo that replaces UniCityTable<FontInfo>.
 // TODO(rays) change all references once all existing traineddata files
 // are replaced.
-class FontInfoTable : public GenericVector<FontInfo> {
+class TESS_API FontInfoTable : public GenericVector<FontInfo> {
  public:
   FontInfoTable();
   ~FontInfoTable();

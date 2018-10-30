@@ -110,7 +110,7 @@ class ParamUtils {
 };
 
 // Definition of various parameter types.
-class Param {
+class TESS_API Param {
  public:
   ~Param() {}
 
@@ -140,7 +140,7 @@ class Param {
   bool debug_;
 };
 
-class IntParam : public Param {
+class TESS_API IntParam : public Param {
   public:
    IntParam(inT32 value, const char *name, const char *comment, bool init,
             ParamsVectors *vec) : Param(name, comment, init) {
@@ -164,7 +164,7 @@ class IntParam : public Param {
   GenericVector<IntParam *> *params_vec_;
 };
 
-class BoolParam : public Param {
+class TESS_API BoolParam : public Param {
  public:
   BoolParam(bool value, const char *name, const char *comment, bool init,
             ParamsVectors *vec) : Param(name, comment, init) {
@@ -188,7 +188,7 @@ class BoolParam : public Param {
   GenericVector<BoolParam *> *params_vec_;
 };
 
-class StringParam : public Param {
+class TESS_API StringParam : public Param {
  public:
   StringParam(const char *value, const char *name,
               const char *comment, bool init,

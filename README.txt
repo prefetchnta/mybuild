@@ -10,8 +10,9 @@ Windows (Visual Studio 2010 X86 /MD)
     cairo-1.14.12           LIB & DLL               https://www.cairographics.org/releases/
     freetype-2.9.1          DLL (SSE2)              https://sourceforge.net/projects/freetype/files/
     giflib-5.1.4            LIB                     https://sourceforge.net/projects/giflib/files/
-    glib-2.58.1             DLL                     http://ftp.gnome.org/pub/gnome/sources/glib/
+    glib-2.58.1                                     http://ftp.gnome.org/pub/gnome/sources/glib/
     leptonica-1.74.4        DLL                     https://github.com/DanBloomberg/leptonica/releases
+    libffi-3.2.1                                    ftp://sourceware.org/pub/libffi/
     libjpeg-9c              LIB                     http://www.ijg.org/
     libpng-1.6.35           DLL                     http://www.libpng.org/pub/png/libpng.html
     libtesseract-3.05.02    LIB & DLL               https://github.com/tesseract-ocr/tesseract/releases
@@ -20,7 +21,7 @@ Windows (Visual Studio 2010 X86 /MD)
     libzip-1.4.0            DLL                     https://libzip.org/download/
     openjpeg-2.3.0          DLL                     https://github.com/uclouvain/openjpeg/releases
     openssl-1.0.2p          DLL (SSE2)              https://www.openssl.org/source/
-    pango-1.42.4            DLL                     http://ftp.gnome.org/pub/GNOME/sources/pango/
+    pango-1.42.4                                    http://ftp.gnome.org/pub/GNOME/sources/pango/
     pcre-8.42               DLL                     ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/
     pixman-0.34.0           LIB (SSSE3)             https://www.cairographics.org/releases/
     zint-2.6.3              DLL                     https://sourceforge.net/projects/zint/files/

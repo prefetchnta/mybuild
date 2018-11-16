@@ -20,7 +20,7 @@
 # include <windows.h>
 /* On Windows 7 or higher use BCrypt instead of the legacy CryptoAPI */
 # if defined(_MSC_VER) && defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0601
-#  define USE_BCRYPTGENRANDOM
+/*#  define USE_BCRYPTGENRANDOM*/
 # endif
 
 # ifdef USE_BCRYPTGENRANDOM

@@ -72,8 +72,10 @@ OBJ	= \
 	tif_tile.obj \
 	tif_version.obj \
 	tif_warning.obj \
+	tif_webp.obj \
 	tif_write.obj \
 	tif_zip.obj \
+	tif_zstd.obj \
 	$(OBJ_SYSDEP_MODULE)
 
 all:	libtiff.lib $(DLLNAME)

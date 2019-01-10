@@ -33,6 +33,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef NEED_LIBPORT
+# include "libport.h"
+#endif
+
 #include "tiffio.h"
 
 static char* usageMsg[] = {

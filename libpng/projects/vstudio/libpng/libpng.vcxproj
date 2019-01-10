@@ -63,7 +63,7 @@
       <MinimalRebuild>false</MinimalRebuild>
       <DisableSpecificWarnings>4996;4127</DisableSpecificWarnings>
       <AdditionalIncludeDirectories>..\..\..\..\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
       <Optimization>Full</Optimization>
     </ClCompile>
     <Link>

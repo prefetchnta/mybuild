@@ -778,7 +778,7 @@ FT_BEGIN_HEADER
    * switch between the two engines using the `hinting-engine` property of
    * the 'type1' driver module.
    */
-/* #define T1_CONFIG_OPTION_OLD_ENGINE */
+#define T1_CONFIG_OPTION_OLD_ENGINE
 
 
   /*************************************************************************/
@@ -820,7 +820,7 @@ FT_BEGIN_HEADER
    * between the two engines using the `hinting-engine` property of the 'cff'
    * driver module.
    */
-/* #define CFF_CONFIG_OPTION_OLD_ENGINE */
+#define CFF_CONFIG_OPTION_OLD_ENGINE
 
 
   /*************************************************************************/

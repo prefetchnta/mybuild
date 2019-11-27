@@ -812,7 +812,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -887,6 +886,10 @@ LDADD = libutils.la $(top_builddir)/pixman/libpixman-1.la -lm  $(PNG_LIBS) $(PTH
 AM_CPPFLAGS = -I$(top_srcdir)/pixman -I$(top_builddir)/pixman $(PNG_CFLAGS)
 libutils_la_SOURCES = $(libutils_sources) $(libutils_headers)
 noinst_LTLIBRARIES = libutils.la
+EXTRA_DIST = \
+	meson.build		\
+	$(NULL)
+
 all: all-am
 
 .SUFFIXES:

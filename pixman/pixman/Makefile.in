@@ -548,7 +548,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -618,6 +617,7 @@ EXTRA_DIST = \
 	Makefile.win32			\
 	pixman-region.c			\
 	solaris-hwcap.mapfile		\
+	meson.build			\
 	$(NULL)
 
 @USE_X86_MMX_TRUE@libpixman_mmx_la_SOURCES = \

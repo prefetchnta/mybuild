@@ -41,6 +41,10 @@
 #include "jp2.h"
 #include "mj2.h"
 
+#if _MSC_VER
+#define snprintf _snprintf
+#endif
+
 /* -------------------------------------------------------------------------- */
 
 /**

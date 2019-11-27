@@ -71,6 +71,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include "pcre.h"
 
+#if _MSC_VER
+#define snprintf _snprintf
+#endif
+
 #define FALSE 0
 #define TRUE 1
 

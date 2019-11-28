@@ -28,11 +28,9 @@
 !INCLUDE ..\nmake.opt
 
 OBJ	= \
-	getopt.obj \
-	snprintf.obj \
+        snprintf.obj \
 	strcasecmp.obj \
-	strtoll.obj \
-	strtoull.obj
+	getopt.obj
 
 all:	libport.lib
 

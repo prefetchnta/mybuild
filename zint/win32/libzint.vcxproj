@@ -111,6 +111,7 @@
     <ClCompile Include="..\backend\svg.c" />
     <ClCompile Include="..\backend\telepen.c" />
     <ClCompile Include="..\backend\tif.c" />
+    <ClCompile Include="..\backend\ultra.c" />
     <ClCompile Include="..\backend\upcean.c" />
     <ClCompile Include="..\backend\vector.c" />
   </ItemGroup>

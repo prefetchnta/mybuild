@@ -119,7 +119,7 @@ static void define_mode(char mode[],const int jisdata[], const size_t length,con
                 while (((mlen + i) < length) && (mode[mlen + i] == 'A')) {
                     mlen++;
                 };
-                if (mlen < 6) {
+                if (mlen < 4) {
                     for (j = 0; j < mlen; j++) {
                         mode[i + j] = 'B';
                     }
@@ -153,6 +153,7 @@ static void qr_binary(int datastream[], const int version, const int target_binl
     char padbits;
     int current_binlen, current_bytes;
     int toggle, percent;
+    int percent_count;
 
 #ifndef _MSC_VER
     char binary[est_binlen + 12];
@@ -165,7 +166,7 @@ static void qr_binary(int datastream[], const int version, const int target_binl
         strcat(binary, "0101"); /* FNC1 */
     }
 
-    if (eci != 3) {
+    if (eci != 0) {
         strcat(binary, "0111"); /* ECI (Table 4) */
         if (eci <= 127) {
             bin_append(eci, 8, binary); /* 000000 to 000127 */
@@ -268,11 +269,18 @@ static void qr_binary(int datastream[], const int version, const int target_binl
                 /* Mode indicator */
                 strcat(binary, "0010");
 
+                percent_count = 0;
+                for (i = 0; i < short_data_block_length; i++) {
+                    if (gs1 && (jisdata[position + i] == '%')) {
+                        percent_count++;
+                    }
+                }
+                
                 /* Character count indicator */
-                bin_append(short_data_block_length, tribus(version, 9, 11, 13), binary);
+                bin_append(short_data_block_length + percent_count, tribus(version, 9, 11, 13), binary);
 
                 if (debug) {
-                    printf("Alpha block (length %d)\n\t", short_data_block_length);
+                    printf("Alpha block (length %d)\n\t", short_data_block_length + percent_count);
                 }
 
                 /* Character representation */
@@ -636,7 +644,7 @@ static void setup_grid(unsigned char* grid,const int size,const int version) {
         grid[(8 * size) + (size - 1 - i)] = 0x20;
         grid[((size - 1 - i) * size) + 8] = 0x20;
     }
-    grid[(8 * size) + 8] += 20;
+    grid[(8 * size) + 8] += 0x20;
     grid[((size - 1 - 7) * size) + 8] = 0x21; /* Dark Module from Figure 25 */
 
     /* Reserve space for version information */
@@ -652,17 +660,17 @@ static void setup_grid(unsigned char* grid,const int size,const int version) {
     }
 }
 
-static int cwbit(const int* datastream,const int i) {
+static int cwbit(const int* fullstream,const int i) {
     int resultant = 0;
 
-    if (datastream[(i / 8)] & (0x80 >> (i % 8))) {
+    if (fullstream[(i / 8)] & (0x80 >> (i % 8))) {
         resultant = 1;
     }
 
     return resultant;
 }
 
-static void populate_grid(unsigned char* grid,const int size,const int* datastream,const int cw) {
+static void populate_grid(unsigned char* grid,const int size,const int* fullstream,const int cw) {
     int direction = 1; /* up */
     int row = 0; /* right hand side */
 
@@ -677,7 +685,7 @@ static void populate_grid(unsigned char* grid,const int size,const int* datastre
             x--; /* skip over vertical timing pattern */
 
         if (!(grid[(y * size) + (x + 1)] & 0xf0)) {
-            if (cwbit(datastream, i)) {
+            if (cwbit(fullstream, i)) {
                 grid[(y * size) + (x + 1)] = 0x01;
             } else {
                 grid[(y * size) + (x + 1)] = 0x00;
@@ -687,7 +695,7 @@ static void populate_grid(unsigned char* grid,const int size,const int* datastre
 
         if (i < n) {
             if (!(grid[(y * size) + x] & 0xf0)) {
-                if (cwbit(datastream, i)) {
+                if (cwbit(fullstream, i)) {
                     grid[(y * size) + x] = 0x01;
                 } else {
                     grid[(y * size) + x] = 0x00;
@@ -1319,6 +1327,8 @@ static int getBinaryLength(const int version,char inputMode[],const int inputDat
     char currentMode;
     int    j;
     int count = 0;
+    int alphalength;
+    int percent = 0;
 
     applyOptimisation(version, inputMode, inputLength);
 
@@ -1328,7 +1338,7 @@ static int getBinaryLength(const int version,char inputMode[],const int inputDat
         count += 4;
     }
 
-    if (eci != 3) {
+    if (eci != 0) {
         count += 12;
     }
 
@@ -1352,12 +1362,20 @@ static int getBinaryLength(const int version,char inputMode[],const int inputDat
                     break;
                 case 'A':
                     count += tribus(version, 9, 11, 13);
-                    switch (blockLength(i, inputMode, inputLength) % 2) {
+                    alphalength = blockLength(i, inputMode, inputLength);
+                    // In alphanumeric mode % becomes %%
+                    for (j = i; j < (i + alphalength); j++) {
+                        if (inputData[j] == '%') {
+                            percent++;
+                        }
+                    }
+                    alphalength += percent;
+                    switch (alphalength % 2) {
                         case 0:
-                            count += (blockLength(i, inputMode, inputLength) / 2) * 11;
+                            count += (alphalength / 2) * 11;
                             break;
                         case 1:
-                            count += ((blockLength(i, inputMode, inputLength) - 1) / 2) * 11;
+                            count += ((alphalength - 1) / 2) * 11;
                             count += 6;
                             break;
                     }
@@ -1407,7 +1425,7 @@ int qr_code(struct zint_symbol *symbol, const unsigned char source[], size_t len
 
     gs1 = (symbol->input_mode == GS1_MODE);
 
-    if ((symbol->input_mode == DATA_MODE) || (symbol->eci != 3)) {
+    if ((symbol->input_mode == DATA_MODE) || (symbol->eci != 0)) {
         for (i = 0; i < length; i++) {
             jisdata[i] = (int) source[i];
         }
@@ -1551,15 +1569,15 @@ int qr_code(struct zint_symbol *symbol, const unsigned char source[], size_t len
             return ZINT_ERROR_TOO_LONG;
         }
     }
-
+    
     /* Ensure maxium error correction capacity */
-    if (est_binlen <= qr_data_codewords_M[version - 1]) {
+    if (est_binlen <= qr_data_codewords_M[version - 1] * 8) {
         ecc_level = LEVEL_M;
     }
-    if (est_binlen <= qr_data_codewords_Q[version - 1]) {
+    if (est_binlen <= qr_data_codewords_Q[version - 1] * 8) {
         ecc_level = LEVEL_Q;
     }
-    if (est_binlen <= qr_data_codewords_H[version - 1]) {
+    if (est_binlen <= qr_data_codewords_H[version - 1] * 8) {
         ecc_level = LEVEL_H;
     }
 
@@ -2568,6 +2586,26 @@ int microqr(struct zint_symbol *symbol, const unsigned char source[], size_t len
         return ZINT_ERROR_TOO_LONG;
     }
 
+    /* Check option 1 in combination with option 2 */
+    ecc_level = LEVEL_L;
+    if (symbol->option_1 >= 1 && symbol->option_1 <= 4) {
+        if (symbol->option_1 == 4) {
+            strcpy(symbol->errtxt, "566: Error correction level H not available");
+            return ZINT_ERROR_INVALID_OPTION;
+        }
+        if (symbol->option_2 >= 1 && symbol->option_2 <= 4) {
+            if (symbol->option_2 == 1 && symbol->option_1 != 1) {
+                strcpy(symbol->errtxt, "574: Version M1 supports error correction level L only");
+                return ZINT_ERROR_INVALID_OPTION;
+            }
+            if (symbol->option_2 != 4 && symbol->option_1 == 3) {
+                strcpy(symbol->errtxt, "575: Error correction level Q requires Version M4");
+                return ZINT_ERROR_INVALID_OPTION;
+            }
+        }
+        ecc_level = symbol->option_1;
+    }
+
     for (i = 0; i < 4; i++) {
         version_valid[i] = 1;
     }
@@ -2670,16 +2708,6 @@ int microqr(struct zint_symbol *symbol, const unsigned char source[], size_t len
     }
 
     /* Eliminate possible versions depending on error correction level specified */
-    ecc_level = LEVEL_L;
-    if ((symbol->option_1 >= 1) && (symbol->option_2 <= 4)) {
-        ecc_level = symbol->option_1;
-    }
-
-    if (ecc_level == LEVEL_H) {
-        strcpy(symbol->errtxt, "566: Error correction level H not available");
-        return ZINT_ERROR_INVALID_OPTION;
-    }
-
     if (ecc_level == LEVEL_Q) {
         version_valid[0] = 0;
         version_valid[1] = 0;
@@ -2718,8 +2746,8 @@ int microqr(struct zint_symbol *symbol, const unsigned char source[], size_t len
     version = autoversion;
     /* Get version from user */
     if ((symbol->option_2 >= 1) && (symbol->option_2 <= 4)) {
-        if (symbol->option_2 >= autoversion) {
-            version = symbol->option_2;
+        if (symbol->option_2 - 1 >= autoversion) {
+            version = symbol->option_2 - 1;
         } else {
             strcpy(symbol->errtxt, "570: Input too long for selected symbol size");
             return ZINT_ERROR_TOO_LONG;

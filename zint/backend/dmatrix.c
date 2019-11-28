@@ -435,12 +435,14 @@ static int look_ahead_test(const unsigned char inputData[], const size_t sourcel
                     edf_count += 13.0F; // (p)(3) > Value changed from ISO
                 }
             }
-            if ((gs1 == 1) && (inputData[sp] == '[')) {
+            if (gs1 && (inputData[sp] == '[')) {
+                /* fnc1 and gs have the same weight of 13.0f */
                 edf_count += 13.0F; //  > Value changed from ISO
             }
 
             /* base 256 ... step (q) */
             if ((gs1 == 1) && (inputData[sp] == '[')) {
+                /* FNC1 separator */
                 b256_count += 4.0F; // (q)(1)
             } else {
                 b256_count += 1.0F; // (q)(2)
@@ -549,8 +551,13 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
     current_mode = DM_ASCII;
     next_mode = DM_ASCII;
 
+    /* gs1 flag values: 0: no gs1, 1: gs1 with FNC1 serparator, 2: GS separator */
     if (symbol->input_mode == GS1_MODE) {
-        gs1 = 1;
+        if (symbol->output_options & GS1_GS_SEPARATOR) {
+            gs1 = 2;
+        } else {
+            gs1 = 1;
+        }
     } else {
         gs1 = 0;
     }
@@ -574,19 +581,21 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
         }
     }
 
-    if (symbol->eci > 3) {
+    if (symbol->eci > 0) {
         /* Encode ECI numbers according to Table 6 */
         target[tp] = 241; /* ECI Character */
         tp++;
         if (symbol->eci <= 126) {
             target[tp] = (unsigned char) symbol->eci + 1;
             tp++;
+            strcat(binary, "  ");
         }
         if ((symbol->eci >= 127) && (symbol->eci <= 16382)) {
             target[tp] = (unsigned char) ((symbol->eci - 127) / 254) + 128;
             tp++;
             target[tp] = (unsigned char) ((symbol->eci - 127) % 254) + 1;
             tp++;
+            strcat(binary, "   ");
         }
         if (symbol->eci >= 16383) {
             target[tp] = (unsigned char) ((symbol->eci - 16383) / 64516) + 192;
@@ -595,6 +604,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
             tp++;
             target[tp] = (unsigned char) ((symbol->eci - 16383) % 254) + 1;
             tp++;
+            strcat(binary, "    ");
         }
         if (debug) printf("ECI %d ", symbol->eci + 1);
     }
@@ -681,8 +691,13 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                         strcat(binary, "  ");
                     } else {
                         if (gs1 && (source[sp] == '[')) {
-                            target[tp] = 232; /* FNC1 */
-                            if (debug) printf("FN1 ");
+                            if (gs1==2) {
+                                target[tp] = 29+1; /* GS */
+                                if (debug) printf("GS ");
+                            } else {
+                                target[tp] = 232; /* FNC1 */
+                                if (debug) printf("FN1 ");
+                            }
                         } else {
                             target[tp] = source[sp] + 1;
                             if (debug) printf("A%02X ", target[tp] - 1);
@@ -725,8 +740,13 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                 }
 
                 if (gs1 && (source[sp] == '[')) {
-                    shift_set = 2;
-                    value = 27; /* FNC1 */
+                    if (gs1 == 2) {
+                        shift_set = c40_shift[29];
+                        value = c40_value[29]; /* GS */
+                    } else {
+                        shift_set = 2;
+                        value = 27; /* FNC1 */
+                    }
                 }
 
                 if (shift_set != 0) {
@@ -788,8 +808,13 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                 }
 
                 if (gs1 && (source[sp] == '[')) {
-                    shift_set = 2;
-                    value = 27; /* FNC1 */
+                    if (gs1 == 2) {
+                        shift_set = text_shift[29];
+                        value = text_value[29]; /* GS */
+                    } else {
+                        shift_set = 2;
+                        value = 27; /* FNC1 */
+                    }
                 }
 
                 if (shift_set != 0) {
@@ -1171,29 +1196,29 @@ int data_matrix_200(struct zint_symbol *symbol,const unsigned char source[], con
         }
     }
 
-    if (symbol->option_3 == DM_SQUARE) {
-        /* Skip rectangular symbols in square only mode */
-        while (matrixH[calcsize] != matrixW[calcsize]) {
-            calcsize++;
+    if (optionsize == -1) {
+        // We are in automatic size mode as the exact symbol size was not given
+        // Now check the detailed search options square only or no dmre
+        if (symbol->option_3 == DM_SQUARE) {
+            /* Skip rectangular symbols in square only mode */
+            while (matrixH[calcsize] != matrixW[calcsize]) {
+                calcsize++;
+            }
+        } else if (symbol->option_3 != DM_DMRE) {
+            /* Skip DMRE symbols in no dmre mode */
+            while (isDMRE[calcsize]) {
+                calcsize++;
+            }
         }
-        if (optionsize != -1) {
-            strcpy(symbol->errtxt, "521: Can not force square symbols when symbol size is selected");
-            error_number = ZINT_WARN_INVALID_OPTION;
-        }
-    } else if (symbol->option_3 != DM_DMRE) {
-        /* Skip DMRE symbols */
-        while (isDMRE[calcsize]) {
-            calcsize++;
-        }
-    }
-
-    symbolsize = optionsize;
-    if (calcsize > optionsize) {
         symbolsize = calcsize;
-        if (optionsize != -1) {
+    } else {
+        // The symbol size was given by --ver (option_2)
+        // Thus check if the data fits into this symbol size and use this size
+        if (calcsize > optionsize) {
             strcpy(symbol->errtxt, "522: Input too long for selected symbol size");
             return ZINT_ERROR_TOO_LONG;
         }
+        symbolsize = optionsize;
     }
 
     // Now we know the symbol size we can handle the remaining data in the process buffer.

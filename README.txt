@@ -25,6 +25,6 @@ Windows (Visual Studio 2010 X86 /MD)
     pango-1.42.4                                    http://ftp.gnome.org/pub/GNOME/sources/pango/
     pcre-8.43               DLL                     https://ftp.pcre.org/pub/pcre/
     pixman-0.38.4           LIB (SSSE3)             https://www.cairographics.org/releases/
-    zint-2.6.3              DLL                     https://sourceforge.net/projects/zint/files/
+    zint-2.6.7              DLL                     https://sourceforge.net/projects/zint/files/
     zlib-1.2.11             LIB & DLL               http://www.zlib.net/
     zxing-cpp-20161122      LIB                     https://github.com/glassechidna/zxing-cpp

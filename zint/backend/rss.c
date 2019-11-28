@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008-2017 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008-2019 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -221,7 +221,7 @@ int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
     }
 
     for (i = 24; i >= 0; i--) {
-        y_reg[i] = islarger(accum, x_reg);
+        y_reg[i] = !islarger(x_reg, accum);
         if (y_reg[i] == 1) {
             binary_subtract(accum, x_reg);
         }
@@ -245,7 +245,7 @@ int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
     }
 
     for (i = 24; i >= 0; i--) {
-        y_reg[i] = islarger(accum, x_reg);
+        y_reg[i] = !islarger(x_reg, accum);
         if (y_reg[i] == 1) {
             binary_subtract(accum, x_reg);
         }
@@ -275,7 +275,7 @@ int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
     }
 
     for (i = 24; i >= 0; i--) {
-        y_reg[i] = islarger(accum, x_reg);
+        y_reg[i] = !islarger(x_reg, accum);
         if (y_reg[i] == 1) {
             binary_subtract(accum, x_reg);
         }
@@ -790,7 +790,7 @@ int rsslimited(struct zint_symbol *symbol, unsigned char source[], int src_len) 
     }
 
     for (i = 24; i >= 0; i--) {
-        y_reg[i] = islarger(accum, x_reg);
+        y_reg[i] = !islarger(x_reg, accum);
         if (y_reg[i] == 1) {
             binary_subtract(accum, x_reg);
         }
@@ -1197,7 +1197,7 @@ int rss_binary_string(struct zint_symbol *symbol, char source[], char binary_str
     } else {
         /* any AIs */
         encoding_method = 2;
-        if (debug) printf("Choosing Mehod 2\n");
+        if (debug) printf("Choosing Method 2\n");
     }
 
     if (((strlen(source) >= 20) && (encoding_method == 1)) && ((source[2] == '9') && (source[16] == '3'))) {
@@ -1217,9 +1217,6 @@ int rss_binary_string(struct zint_symbol *symbol, char source[], char binary_str
                 weight_str[6] = '\0';
 
                 if (weight_str[0] == '0') { /* Maximum weight = 99999 */
-
-
-                    encoding_method = 7;
 
                     if ((source[19] == '3') && (strlen(source) == 26)) {
                         /* (01) and (3103) */
@@ -1270,8 +1267,6 @@ int rss_binary_string(struct zint_symbol *symbol, char source[], char binary_str
                 weight_str[6] = '\0';
 
                 if (weight_str[0] == '0') { /* Maximum weight = 99999 */
-
-                    encoding_method = 8;
 
                     if (((source[19] == '2') || (source[19] == '3')) && (strlen(source) == 26)) {
                         /* (01) and (3202)/(3203) */
@@ -1870,22 +1865,13 @@ int rssexpanded(struct zint_symbol *symbol, unsigned char source[], int src_len)
     int check_char, c_odd, c_even, elements[235], pattern_width, reader, writer;
     int separator_row;
 #ifndef _MSC_VER
-    char reduced[src_len + 1], binary_string[(7 * src_len) + 1];
+    char binary_string[(7 * src_len) + 1];
 #else
-    char* reduced = (char*) _alloca(src_len + 1);
     char* binary_string = (char*) _alloca((7 * src_len) + 1);
 #endif
 
     separator_row = 0;
     reader = 0;
-
-    if (symbol->input_mode != GS1_MODE) {
-        /* GS1 data has not been verified yet */
-        i = gs1_verify(symbol, source, src_len, reduced);
-        if (i != 0) {
-            return i;
-        }
-    }
 
     if ((symbol->symbology == BARCODE_RSS_EXP_CC) || (symbol->symbology == BARCODE_RSS_EXPSTACK_CC)) {
         /* make space for a composite separator pattern */
@@ -1902,7 +1888,7 @@ int rssexpanded(struct zint_symbol *symbol, unsigned char source[], int src_len)
         strcat(binary_string, "0");
     }
 
-    i = rss_binary_string(symbol, reduced, binary_string);
+    i = rss_binary_string(symbol, (char *) source, binary_string);
     if (i != 0) {
         return i;
     }

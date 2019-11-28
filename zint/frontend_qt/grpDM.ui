@@ -219,12 +219,57 @@
        </item>
        <item>
         <property name="text">
+         <string>8 x 80 (DMRE)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>8 x 96 (DMRE)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>8 x 120 (DMRE)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>8 x 144 (DMRE)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
          <string>12 x 64 (DMRE)</string>
         </property>
        </item>
        <item>
         <property name="text">
+         <string>12 x 88 (DMRE)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
          <string>16 x 64 (DMRE)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>20 x 36 (DMRE)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>20 x 44 (DMRE)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>20 x 64 (DMRE)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>22 x 48 (DMRE)</string>
         </property>
        </item>
        <item>

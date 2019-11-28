@@ -122,12 +122,12 @@ int verify_postcode(char* postcode, int type) {
 }
 
 /* Royal Mail Mailmark */
-int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t length) {
+int mailmark(struct zint_symbol *symbol, const unsigned char source[], const size_t in_length) {
     
     char local_source[28];
     int format;
     int version_id;
-    int class1;
+    int mail_class;
     int supply_chain_id;
     long item_id;
     char postcode[10];
@@ -138,13 +138,14 @@ int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t le
     short int b[112];
     short int temp[112];
     short int cdv[112];
-    unsigned char data[25];
+    unsigned char data[26];
     int data_top, data_step;
     unsigned char check[7];
     short int extender[27];
     char bar[80];
     int check_count;
     int i, j;
+    int length = (int) in_length;
     
     if (length > 26) {
         strcpy(symbol->errtxt, "580: Input too long");
@@ -193,8 +194,8 @@ int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t le
     }
     
     // Class is in the range 0-9,A-E
-    class1 = ctoi(local_source[2]);
-    if ((class1 < 0) || (class1 > 14)) {
+    mail_class = ctoi(local_source[2]);
+    if ((mail_class < 0) || (mail_class > 14)) {
         strcpy(symbol->errtxt, "584: Invalid Class");
         return ZINT_ERROR_INVALID_DATA;
     }
@@ -223,7 +224,7 @@ int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t le
         }
     }
     
-    // Seperate Destination Post Code plus DPS field
+    // Separate Destination Post Code plus DPS field
     for (i = 0; i < 9; i++) {
         postcode[i] = local_source[(length - 9) + i];
     }
@@ -326,7 +327,7 @@ int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t le
             }
         }
         
-        // detination_postcode = a + b
+        // destination_postcode = a + b
         binary_load(destination_postcode, "0", 1);
         binary_add(destination_postcode, b);
         
@@ -373,7 +374,7 @@ int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t le
     
     // Add Item ID
     binary_load(temp, "0", 1);
-    for (i = 0; i < 38; i++) {
+    for (i = 0; i < 31; i++) {
         if (0x01 & (item_id >> i)) temp[i] = 1;
     }
     binary_add(cdv, temp);
@@ -399,7 +400,7 @@ int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t le
     // Add Class
     binary_load(temp, "0", 1);
     for (i = 0; i < 4; i++) {
-        if (0x01 & (class1 >> i)) temp[i] = 1;
+        if (0x01 & (mail_class >> i)) temp[i] = 1;
     }
     binary_add(cdv, temp);
     
@@ -463,14 +464,14 @@ int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t le
         }
         a[96] = 1;
         for (i = 91; i >= 0; i--) {
-            b[i] = islarger(cdv, a);
+            b[i] = !islarger(a, cdv);
             if (b[i] == 1) {
                 binary_subtract(cdv, a);
             }
             shiftdown(a);
         }
 
-        data[j] = (cdv[5] * 32) + (cdv[4] * 16) + (cdv[3] * 8) + (cdv[2] * 4) +
+        data[j] = (cdv[4] * 16) + (cdv[3] * 8) + (cdv[2] * 4) +
                 (cdv[1] * 2) + cdv[0];
     }
     
@@ -485,14 +486,14 @@ int mailmark(struct zint_symbol *symbol, const unsigned char source[], size_t le
         a[93] = 1;
         a[92] = 1;
         for (i = 91; i >= 0; i--) {
-            b[i] = islarger(cdv, a);
+            b[i] = !islarger(a, cdv);
             if (b[i] == 1) {
                 binary_subtract(cdv, a);
             }
             shiftdown(a);
         }
 
-        data[j] = (cdv[5] * 32) + (cdv[4] * 16) + (cdv[3] * 8) + (cdv[2] * 4) +
+        data[j] = (cdv[4] * 16) + (cdv[3] * 8) + (cdv[2] * 4) +
                 (cdv[1] * 2) + cdv[0];
     }
     

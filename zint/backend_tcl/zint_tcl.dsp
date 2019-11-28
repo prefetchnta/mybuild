@@ -252,7 +252,15 @@ SOURCE=..\backend\tif.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\backend\ultra.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\backend\upcean.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\backend\vector.c
 # End Source File
 # Begin Source File
 

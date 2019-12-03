@@ -2,6 +2,309 @@
 Python News
 +++++++++++
 
+What's New in Python 2.7.17 final?
+==================================
+
+*Release date: 2019-10-19*
+
+There were no new changes in version 2.7.17.
+
+
+
+What's New in Python 2.7.17 release candidate 1?
+================================================
+
+*Release date: 2019-10-07*
+
+Security
+--------
+
+- bpo-38243: Escape the server title of
+  :class:`DocXMLRPCServer.DocXMLRPCServer` when rendering the document page
+  as HTML. (Contributed by Dong-hee Na in :issue:`38243`.)
+
+- bpo-38174: Update vendorized expat library version to 2.2.8, which
+  resolves CVE-2019-15903.
+
+- bpo-34631: Updated OpenSSL to 1.0.2s in Windows installer
+
+- bpo-35647: Don't set cookie for a request when the request path is a
+  prefix match of the cookie's path attribute but doesn't end with "/".
+  Patch by Karthikeyan Singaravelan.
+
+- bpo-35121: Don't send cookies of domain A without Domain attribute to
+  domain B when domain A is a suffix match of domain B while using a
+  cookiejar with :class:`cookielib.DefaultCookiePolicy` policy. Patch by
+  Karthikeyan Singaravelan.
+
+- bpo-34155: Fix parsing of invalid email addresses with more than one ``@``
+  (e.g. a@b@c.com.) to not return the part before 2nd ``@`` as valid email
+  address. Patch by maxking & jpic.
+
+- bpo-36742: Fixes mishandling of pre-normalization characters in
+  urlsplit().
+
+- bpo-30458: Address CVE-2019-9740 by disallowing URL paths with embedded
+  whitespace or control characters through into the underlying http client
+  request.  Such potentially malicious header injection URLs now cause an
+  httplib.InvalidURL exception to be raised.
+
+- bpo-36216: Changes urlsplit() to raise ValueError when the URL contains
+  characters that decompose under IDNA encoding (NFKC-normalization) into
+  characters that affect how the URL is parsed.
+
+- bpo-35907: CVE-2019-9948: Avoid file reading by disallowing
+  ``local-file://`` and ``local_file://`` URL schemes in
+  :func:`urllib.urlopen`, :meth:`urllib.URLopener.open` and
+  :meth:`urllib.URLopener.retrieve`.
+
+Core and Builtins
+-----------------
+
+- bpo-38106: Fix race in PyThread_release_lock that was leading to memory
+  corruption and deadlocks. The fix applies to POSIX systems where Python
+  locks are implemented with mutex and condition variable because POSIX
+  semaphores are either not provided, or are known to be broken. One
+  particular example of such system is macOS.
+
+- bpo-37329: valgrind: suppress a false alarm in memory leak checks.
+  _PyWarnings_Init() only allocates memory once at startup but it is not
+  released at exit. Ignore this issue to be able to catch other bugs more
+  easily.
+
+- bpo-26423: Fix possible overflow in ``wrap_lenfunc()`` when ``sizeof(long)
+  < sizeof(Py_ssize_t)`` (e.g., 64-bit Windows).
+
+- bpo-27987: pymalloc returns memory blocks aligned by 16 bytes, instead of
+  8 bytes, on 64-bit platforms to conform x86-64 ABI. Recent compilers
+  assume this alignment more often. Patch by Inada Naoki.
+
+- bpo-36504: Fix signed integer overflow in _ctypes.c's
+  ``PyCArrayType_new()``.
+
+- bpo-36459: Fix a possible double ``PyMem_FREE()`` due to tokenizer.c's
+  ``tok_nextc()``.
+
+- bpo-36430: Fix a possible reference leak in :func:`itertools.count`.
+
+- bpo-18368: PyOS_StdioReadline() no longer leaks memory when realloc()
+  fails.
+
+- bpo-36262: Fix an unlikely memory leak on conversion from string to float
+  in the function ``_Py_dg_strtod()`` used by ``float(str)``,
+  ``complex(str)``, :func:`pickle.load`, :func:`marshal.load`, etc.
+
+- bpo-36149: Fix use of uninitialized memory in cPickle when reading a
+  truncated pickle from a file object.
+
+- bpo-33006: Clarified Doc string for builtin filter function. 2nd Argument
+  can be any iterable. Patch by Tony Flury
+
+Library
+-------
+
+- bpo-38216: Allow the rare code that wants to send invalid http requests
+  from the `http.client` library a way to do so.  The fixes for bpo-30458
+  led to breakage for some projects that were relying on this ability to
+  test their own behavior in the face of bad requests.
+
+- bpo-38175: Fix a memory leak in comparison of :class:`sqlite3.Row`
+  objects.
+
+- bpo-33936: _hashlib no longer calls obsolete OpenSSL initialization
+  function with OpenSSL 1.1.0+.
+
+- bpo-34410: Fixed a crash in the :func:`tee` iterator when re-enter it.
+  RuntimeError is now raised in this case.
+
+- bpo-37965: Fix C compiler warning caused by
+  distutils.ccompiler.CCompiler.has_function.
+
+- bpo-34521: Fix file descriptors transfer in multiprocessing on FreeBSD:
+  use ``CMSG_SPACE()`` rather than ``CMSG_LEN()``; see :rfc:`3542`.
+
+- bpo-37664: Update wheels bundled with ensurepip (pip 19.2.3 and setuptools
+  41.2.0)
+
+- bpo-37437: Update vendorized expat version to 2.2.7.
+
+- bpo-36742: :func:`urlparse.urlsplit` error message for invalid ``netloc``
+  according to NFKC normalization is now a :class:`str` string, rather than
+  a :class:`unicode` string, to prevent error when displaying the error.
+
+- bpo-12639: :meth:`msilib.Directory.start_component()` no longer fails if
+  *keyfile* is not ``None``.
+
+- bpo-36713: Rename the :meth:`test_ascii_replace` to
+  :meth:`test_ascii_strict`.
+
+- bpo-28552: Fix :mod:`distutils.sysconfig` if :data:`sys.executable` is
+  ``None`` or an empty string: use :func:`os.getcwd` to initialize
+  ``project_base``.  Fix also the distutils build command: don't use
+  :data:`sys.executable` if it is ``None`` or an empty string.
+
+- bpo-36337: Fix buffer overflow in :meth:`~socket.socket.send` and
+  :meth:`~socket.socket.sendall` methods of :func:`socket.socket` for data
+  larger than 2 GiB.
+
+- bpo-36291: Fix a possible reference leak in the json module.
+
+- bpo-36289: Fix a possible reference leak in the io module.
+
+- bpo-36212: Fix two possible reference leaks in the hotshot module.
+
+- bpo-36235: Fix ``CFLAGS`` in ``customize_compiler()`` of
+  ``distutils.sysconfig``: when the ``CFLAGS`` environment variable is
+  defined, don't override ``CFLAGS`` variable with the ``OPT`` variable
+  anymore. Initial patch written by David Malcolm.
+
+- bpo-35807: Update ensurepip to install pip 19.0.3 and setuptools 40.8.0.
+
+- bpo-36186: Fix linuxaudiodev.linux_audio_device() error handling: close
+  the internal file descriptor if it fails to open the device.
+
+- bpo-13096: Fix memory leak in ctypes POINTER handling of large values.
+
+- bpo-36179: Fix two unlikely reference leaks in _hashopenssl. The leaks
+  only occur in out-of-memory cases.
+
+- bpo-36106: Resolve potential name clash with libm's sinpi(). Patch by
+  Dmitrii Pasechnik.
+
+- bpo-31292: Fix ``setup.py check --restructuredtext`` for files containing
+  ``include`` directives.
+
+Documentation
+-------------
+
+- bpo-37487: Fix PyList_GetItem index description to include 0.
+
+- bpo-37149: Replace the dead link to the Tkinter 8.5 reference by John
+  Shipman, New Mexico Tech, with a link to the archive.org copy.
+
+- bpo-35126: Improve the examples in the "How do I convert a number to
+  string?" question of the "Programming" section of the FAQ.  Contributed by
+  Stéphane Wirtel.
+
+- bpo-35605: Fix documentation build for sphinx<1.6.  Patch by Anthony
+  Sottile.
+
+- bpo-35564: Explicitly set master_doc variable in conf.py for compliance
+  with Sphinx 2.0
+
+- bpo-33832: Add glossary entry for 'magic method'.
+
+Tests
+-----
+
+- bpo-37411: Fix test_wsgiref.testEnviron() to no longer depend on the
+  environment variables (don't fail if "X" variable is set).
+
+- bpo-37359: Add --cleanup option to python3 -m test to remove
+  ``test_python_*`` directories of previous failed jobs. Add "make
+  cleantest" to run ``python3 -m test --cleanup``.
+
+- bpo-37362: test_gdb no longer fails if it gets an "unexpected" message on
+  stderr: it now ignores stderr. The purpose of test_gdb is to test that
+  python-gdb.py commands work as expected, not to test gdb.
+
+- bpo-36816: Update Lib/test/selfsigned_pythontestdotnet.pem to match
+  self-signed.pythontest.net's new TLS certificate.
+
+- bpo-35925: Skip specific nntplib and ssl networking tests when they would
+  otherwise fail due to a modern OS or distro with a default OpenSSL policy
+  of rejecting connections to servers with weak certificates or disabling
+  TLS below TLSv1.2.
+
+- bpo-36560: Fix reference leak hunting in regrtest: compute also deltas (of
+  reference count and file descriptor count) during warmup, to ensure that
+  everything is initialized before starting to hunt reference leaks.
+
+- bpo-36234: test_posix.PosixUidGidTests: add tests for invalid uid/gid type
+  (str). Patch written by David Malcolm.
+
+- bpo-36019: Add test.support.TEST_HTTP_URL and replace references of
+  http://www.example.com by this new constant. Contributed by Stéphane
+  Wirtel.
+
+- bpo-27313: Avoid test_ttk_guionly ComboboxTest failure with macOS Cocoa
+  Tk.
+
+- bpo-26386: Re-enable missing widget testcases in test_ttk_guionly.
+
+- bpo-34836: Fix ``test_default_ecdh_curve`` when TLSv1.3 is enabled by
+  default.
+
+Build
+-----
+
+- bpo-38301: In Solaris family, we must be sure to use ``-D_REENTRANT``.
+  Patch by Jesús Cea Avión.
+
+- bpo-14353: Fix detection of the bind_textdomain_codeset function for
+  building gettext support into the locale module.
+
+- bpo-36605: ``make tags`` and ``make TAGS`` now also parse
+  ``Modules/_io/*.c`` and ``Modules/_io/*.h``.
+
+- bpo-35264: Fix SSL module build with OpenSSL 1.1.0
+
+Windows
+-------
+
+- bpo-38117: Updates bundled OpenSSL to 1.0.2t
+
+- bpo-37445: Include the ``FORMAT_MESSAGE_IGNORE_INSERTS`` flag in
+  ``FormatMessageW()`` calls.
+
+- bpo-35360: Update Windows builds to use SQLite 3.28.0.
+
+- bpo-1104: Correctly handle string length in
+  ``msilib.SummaryInfo.GetProperty()`` to prevent it from truncating the
+  last character.
+
+macOS
+-----
+
+- bpo-38117: Updated OpenSSL to 1.0.2t in macOS installer for 2.7.x.
+
+- bpo-19960: When building 2.7 on macOS without system header files
+  installed in ``/usr/include``, a few extension modules dependent on
+  system-supplied third-party libraries were not being built, most notably
+  zlib.
+
+- bpo-35360: Update macOS installer to use SQLite 3.28.0.
+
+- bpo-34631: Updated OpenSSL to 1.0.2s in macOS installer.
+
+- bpo-36231: Support building Python on macOS without /usr/include
+  installed. As of macOS 10.14, system header files are only available
+  within an SDK provided by either the Command Line Tools or the Xcode app.
+
+IDLE
+----
+
+- bpo-37177: Properly 'attach' search dialogs to their main window so that
+  they behave like other dialogs and do not get hidden behind their main
+  window.
+
+- bpo-13102: When saving a file, call os.fsync() so bits are flushed to e.g.
+  USB drive.
+
+Tools/Demos
+-----------
+
+- bpo-37675: 2to3 now works when run from a zipped standard library.
+
+- bpo-14546: Fix the argument handling in Tools/scripts/lll.py.
+
+C API
+-----
+
+- bpo-37170: Fix the cast on error in
+  :c:func:`PyLong_AsUnsignedLongLongMask()`.
+
+
 What's New in Python 2.7.16 final?
 ==================================
 

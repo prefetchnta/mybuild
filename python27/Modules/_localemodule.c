@@ -167,7 +167,11 @@ PyLocale_setlocale(PyObject* self, PyObject* args)
 
     if (locale) {
         /* set locale */
+#ifndef __ANDROID__
         result = setlocale(category, locale);
+#else
+        result = "C";
+#endif
         if (!result) {
             /* operation failed, no setting was changed */
             PyErr_SetString(Error, "unsupported locale setting");
@@ -183,7 +187,11 @@ PyLocale_setlocale(PyObject* self, PyObject* args)
         PyErr_Clear();
     } else {
         /* get locale */
+#ifndef __ANDROID__
         result = setlocale(category, NULL);
+#else
+        result = "C";
+#endif
         if (!result) {
             PyErr_SetString(Error, "locale query failed");
             return NULL;

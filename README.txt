@@ -20,7 +20,7 @@ Windows (Visual Studio 2010 X86 /MD)
     libwebp-1.0.3           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/releases
     libzip-1.4.0            DLL                     https://libzip.org/download/
     openjpeg-2.3.1          DLL                     https://github.com/uclouvain/openjpeg/releases
-    openssl-1.0.2t          DLL (SSE2)              https://www.openssl.org/source/
+    openssl-1.0.2u          DLL (SSE2)              https://www.openssl.org/source/
     openssl-1.1.1d          DLL (SSE2)              https://www.openssl.org/source/
     pango-1.42.4                                    http://ftp.gnome.org/pub/GNOME/sources/pango/
     pcre-8.43               DLL                     https://ftp.pcre.org/pub/pcre/

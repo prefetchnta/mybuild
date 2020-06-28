@@ -23,7 +23,7 @@ Windows (Visual Studio 2010 X86 /MD)
     openssl-1.0.2u          DLL (SSE2)              https://www.openssl.org/source/
     openssl-1.1.1g          DLL (SSE2)              https://www.openssl.org/source/
     pango-1.42.4                                    http://ftp.gnome.org/pub/GNOME/sources/pango/
-    pcre-8.43               DLL                     https://ftp.pcre.org/pub/pcre/
+    pcre-8.44               DLL                     https://ftp.pcre.org/pub/pcre/
     pixman-0.38.4           LIB (SSSE3)             https://www.cairographics.org/releases/
     zint-2.6.7              DLL                     https://sourceforge.net/projects/zint/files/
     zlib-1.2.11             LIB & DLL               http://www.zlib.net/

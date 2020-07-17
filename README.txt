@@ -8,7 +8,7 @@ Windows (Visual Studio 2010 X86 /MD)
 
     bzip2-1.0.6             LIB & DLL               http://www.bzip.org/
     cairo-1.14.12           LIB & DLL               https://www.cairographics.org/releases/
-    freetype-2.10.1         DLL (SSE2)              https://sourceforge.net/projects/freetype/files/
+    freetype-2.10.2         DLL (SSE2)              https://sourceforge.net/projects/freetype/files/
     giflib-5.1.4            LIB                     https://sourceforge.net/projects/giflib/files/
     glib-2.58.1                                     http://ftp.gnome.org/pub/gnome/sources/glib/
     leptonica-1.74.4        DLL                     https://github.com/DanBloomberg/leptonica/releases

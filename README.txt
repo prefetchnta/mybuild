@@ -6,7 +6,7 @@ Android (GCC 4.9.x ARMv7 -O2 API-14)
 
 Windows (Visual Studio 2010 X86 /MD)
 
-    bzip2-1.0.6             LIB & DLL               http://www.bzip.org/
+    bzip2-1.0.8             LIB & DLL               https://sourceware.org/bzip2/
     cairo-1.14.12           LIB & DLL               https://www.cairographics.org/releases/
     freetype-2.10.2         DLL (SSE2)              https://sourceforge.net/projects/freetype/files/
     giflib-5.1.4            LIB                     https://sourceforge.net/projects/giflib/files/

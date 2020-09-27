@@ -13,7 +13,7 @@ Windows (Visual Studio 2010 X86 /MD)
     glib-2.58.1                                     http://ftp.gnome.org/pub/gnome/sources/glib/
     leptonica-1.74.4        DLL                     https://github.com/DanBloomberg/leptonica/releases
     libffi-3.2.1                                    ftp://sourceware.org/pub/libffi/
-    libjpeg-9c              LIB                     http://www.ijg.org/
+    libjpeg-9d              LIB                     http://www.ijg.org/
     libpng-1.6.37           DLL                     http://www.libpng.org/pub/png/libpng.html
     libtesseract-3.05.02    LIB & DLL               https://github.com/tesseract-ocr/tesseract/releases
     libtiff-4.1.0           LIB & DLL               http://libtiff.maptools.org/

@@ -22,11 +22,6 @@
 # LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
-include_directories(${PROJECT_SOURCE_DIR}/libtiff
-                    ${PROJECT_BINARY_DIR}/libtiff
-                    ${CMAKE_CURRENT_BINARY_DIR}
-                    ${TIFF_INCLUDES})
-
 # Test scripts (not used by CMake)
 set(TESTSCRIPTS
     bmp2tiff_palette.sh
@@ -105,7 +100,12 @@ set(TESTSCRIPTS
     tiff2rgba-palette-1c-8b.sh
     tiff2rgba-rgb-3c-16b.sh
     tiff2rgba-rgb-3c-8b.sh
-    tiff2rgba-quad-tile.jpg.sh)
+    tiff2rgba-quad-tile.jpg.sh
+    tiff2rgba-ojpeg_zackthecat_subsamp22_single_strip.sh
+    tiff2rgba-ojpeg_chewey_subsamp21_multi_strip.sh
+    tiff2rgba-ojpeg_single_strip_no_rowsperstrip.sh
+    testfax4.sh
+    testdeflatelaststripextradata.sh)
 
 # This list should contain all of the TIFF files in the 'images'
 # subdirectory which are intended to be used as input images for
@@ -123,7 +123,11 @@ set(TIFFIMAGES
     images/rgb-3c-8b.tiff
     images/quad-tile.jpg.tiff
     images/quad-lzw-compat.tiff
-    images/lzw-single-strip.tiff)
+    images/lzw-single-strip.tiff
+    images/ojpeg_zackthecat_subsamp22_single_strip.tiff
+    images/ojpeg_chewey_subsamp21_multi_strip.tiff
+    images/ojpeg_single_strip_no_rowsperstrip.tiff
+    images/testfax4.tiff)
 
 set(BMPIMAGES
     images/palette-1c-8b.bmp
@@ -135,6 +139,7 @@ set(GIFIMAGES
 set(PNMIMAGES
     images/minisblack-1c-8b.pgm
     images/miniswhite-1c-1b.pbm
+    images/rgb-3c-16b.ppm
     images/rgb-3c-8b.ppm)
 
 # All uncompressed image files
@@ -158,44 +163,83 @@ set(IMAGES_EXTRA_DIST
     ${PNMIMAGES}
     ${TIFFIMAGES})
 
-extra_dist(
-    ${TESTSCRIPTS}
-    ${IMAGES_EXTRA_DIST}
-    common.sh)
-
 set(noinst_HEADERS tifftest.h)
 
-add_executable(ascii_tag ascii_tag.c)
-target_link_libraries(ascii_tag tiff port)
+add_executable(ascii_tag)
+target_sources(ascii_tag PRIVATE ascii_tag.c)
+target_link_libraries(ascii_tag PRIVATE tiff port)
 
-add_executable(long_tag long_tag.c check_tag.c)
-target_link_libraries(long_tag tiff port)
+add_executable(long_tag)
+target_sources(long_tag PRIVATE long_tag.c check_tag.c)
+target_link_libraries(long_tag PRIVATE tiff port)
 
-add_executable(short_tag short_tag.c check_tag.c)
-target_link_libraries(short_tag tiff port)
+add_executable(short_tag)
+target_sources(short_tag PRIVATE short_tag.c check_tag.c)
+target_link_libraries(short_tag PRIVATE tiff port)
 
-add_executable(strip_rw strip_rw.c strip.c test_arrays.c test_arrays.h)
-target_link_libraries(strip_rw tiff port)
+add_executable(strip_rw)
+target_sources(strip_rw PRIVATE strip_rw.c strip.c test_arrays.c test_arrays.h)
+target_link_libraries(strip_rw PRIVATE tiff port)
 
-add_executable(rewrite rewrite_tag.c)
-target_link_libraries(rewrite tiff port)
+add_executable(rewrite)
+target_sources(rewrite PRIVATE rewrite_tag.c)
+target_link_libraries(rewrite PRIVATE tiff port)
 
 if(JPEG_SUPPORT)
-  add_executable(raw_decode raw_decode.c)
-  target_link_libraries(raw_decode tiff port)
+  add_executable(raw_decode)
+  target_sources(raw_decode PRIVATE raw_decode.c)
+  target_link_libraries(raw_decode PRIVATE tiff port JPEG::JPEG)
 endif()
 
-add_executable(custom_dir custom_dir.c)
-target_link_libraries(custom_dir tiff port)
+add_executable(custom_dir)
+target_sources(custom_dir PRIVATE custom_dir.c)
+target_link_libraries(custom_dir PRIVATE tiff port)
 
-add_executable(defer_strile_loading defer_strile_loading.c)
-target_link_libraries(defer_strile_loading tiff port)
+if(NOT BUILD_SHARED_LIBS)
+add_executable(rational_precision2double)
+target_sources(rational_precision2double PRIVATE rational_precision2double.c)
+target_link_libraries(rational_precision2double PRIVATE tiff port)
+add_test(NAME "rational_precision2double"
+         COMMAND "rational_precision2double")
+endif()
 
-add_executable(defer_strile_writing defer_strile_writing.c)
-target_link_libraries(defer_strile_writing tiff port)
+if(NOT BUILD_SHARED_LIBS)
+add_executable(custom_dir_EXIF_231)
+target_sources(custom_dir_EXIF_231 PRIVATE custom_dir_EXIF_231.c)
+target_link_libraries(custom_dir_EXIF_231 PRIVATE tiff port)
+add_test(NAME "custom_dir_EXIF_231"
+         COMMAND "custom_dir_EXIF_231")
+endif()
 
-add_executable(testtypes testtypes.c)
-target_link_libraries(testtypes tiff port)
+add_executable(defer_strile_loading)
+target_sources(defer_strile_loading PRIVATE defer_strile_loading.c)
+target_link_libraries(defer_strile_loading PRIVATE tiff port)
+
+add_executable(defer_strile_writing)
+target_sources(defer_strile_writing PRIVATE defer_strile_writing.c)
+target_link_libraries(defer_strile_writing PRIVATE tiff port)
+
+add_executable(testtypes)
+target_sources(testtypes PRIVATE testtypes.c)
+target_link_libraries(testtypes PRIVATE tiff port)
+
+if(WEBP_SUPPORT AND EMSCRIPTEN)
+  # Emscripten is pretty finnicky about linker flags.
+  # It needs --shared-memory if and only if atomics or bulk-memory is used.
+  foreach(target ascii_tag
+                 custom_dir
+                 defer_strile_loading
+                 defer_strile_writing
+                 long_tag
+                 rewrite
+                 short_tag
+                 strip_rw)
+    target_link_options(${target} PUBLIC "-Wl,--shared-memory")
+  endforeach()
+  if(JPEG_SUPPORT)
+    target_link_options(raw_decode PUBLIC "-Wl,--shared-memory")
+  endif()
+endif()
 
 set(TEST_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/output")
 file(MAKE_DIRECTORY "${TEST_OUTPUT}")
@@ -338,6 +382,7 @@ add_convert_test(gif2tiff palette "" "images/palette-1c-8b.gif" TRUE)
 # PPM
 add_convert_test(ppm2tiff miniswhite "" "images/miniswhite-1c-1b.pbm" TRUE)
 add_convert_test(ppm2tiff minisblack "" "images/minisblack-1c-8b.pgm" TRUE)
+add_convert_test(ppm2tiff rgb        "" "images/rgb-3c-16b.ppm"       TRUE)
 add_convert_test(ppm2tiff rgb        "" "images/rgb-3c-8b.ppm"        TRUE)
 
 # tiffcp

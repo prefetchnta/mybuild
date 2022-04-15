@@ -17,7 +17,7 @@
 # include <fcntl.h>
 #endif
 
-#ifdef _WIN32
+#ifdef WIN32
 #define STRNICMP strnicmp
 #else 
 #define STRNICMP strncasecmp
@@ -414,14 +414,14 @@ int main(int argc, char *argv[])
             {
             case 't':
               mode = 1;
-#ifdef _WIN32
+#ifdef WIN32
               /* Set "stdout" to binary mode: */
               _setmode( _fileno( ofile ), _O_BINARY );
 #endif
               break;
             case 'b':
               mode = 0;
-#ifdef _WIN32
+#ifdef WIN32
               /* Set "stdin" to binary mode: */
               _setmode( _fileno( ifile ), _O_BINARY );
 #endif

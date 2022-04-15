@@ -26,7 +26,6 @@
  * Convert a CCITT Group 3 or 4 FAX file to TIFF Group 3 or 4 format.
  */
 #include "tif_config.h"
-#include "libport.h"
 
 #include <stdio.h>
 #include <stdlib.h>		/* should have atof & getopt */
@@ -43,6 +42,10 @@
 # include <io.h>
 #endif
 
+#ifdef NEED_LIBPORT
+# include "libport.h"
+#endif
+
 #include "tiffiop.h"
 
 #ifndef EXIT_SUCCESS
@@ -52,17 +55,17 @@
 # define EXIT_FAILURE	1
 #endif
 
-#define TIFFhowmany8(x) (((x)&0x07)?((uint32_t)(x)>>3)+1:(uint32_t)(x)>>3)
+#define TIFFhowmany8(x) (((x)&0x07)?((uint32)(x)>>3)+1:(uint32)(x)>>3)
 
 TIFF	*faxTIFF;
 char	*rowbuf;
 char	*refbuf;
 
-uint32_t	xsize = 1728;
+uint32	xsize = 1728;
 int	verbose;
 int	stretch;
-uint16_t	badfaxrun;
-uint32_t	badfaxlines;
+uint16	badfaxrun;
+uint32	badfaxlines;
 
 int	copyFaxFile(TIFF* tifin, TIFF* tifout);
 static	void usage(int code);
@@ -88,12 +91,12 @@ main(int argc, char* argv[])
 	int compression_out = COMPRESSION_CCITTFAX3;
 	int fillorder_in = FILLORDER_LSB2MSB;
 	int fillorder_out = FILLORDER_LSB2MSB;
-	uint32_t group3options_in = 0;	/* 1d-encoded */
-	uint32_t group3options_out = 0;	/* 1d-encoded */
-	uint32_t group4options_in = 0;	/* compressed */
-	uint32_t group4options_out = 0;	/* compressed */
-	uint32_t defrowsperstrip = (uint32_t) 0;
-	uint32_t rowsperstrip;
+	uint32 group3options_in = 0;	/* 1d-encoded */
+	uint32 group3options_out = 0;	/* 1d-encoded */
+	uint32 group4options_in = 0;	/* compressed */
+	uint32 group4options_out = 0;	/* compressed */
+	uint32 defrowsperstrip = (uint32) 0;
+	uint32 rowsperstrip;
 	int photometric_in = PHOTOMETRIC_MINISWHITE;
 	int photometric_out = PHOTOMETRIC_MINISWHITE;
 	int mode = FAXMODE_CLASSF;
@@ -148,7 +151,7 @@ main(int argc, char* argv[])
 			resY = (float) atof(optarg);
 			break;
 		case 'X':		/* input width */
-			xsize = (uint32_t) atoi(optarg);
+			xsize = (uint32) atoi(optarg);
 			break;
 
 			/* output-related options */
@@ -215,7 +218,6 @@ main(int argc, char* argv[])
 			break;
 		case 'h':
 			usage(EXIT_SUCCESS);
-			break;
 		case '?':
 			usage(EXIT_FAILURE);
 			/*NOTREACHED*/
@@ -295,7 +297,7 @@ main(int argc, char* argv[])
 				     group3options_out);
 			TIFFSetField(out, TIFFTAG_FAXMODE, mode);
 			rowsperstrip =
-				(defrowsperstrip)?defrowsperstrip:(uint32_t)-1L;
+				(defrowsperstrip)?defrowsperstrip:(uint32)-1L;
 			break;
 
 			/* g4 */
@@ -304,7 +306,7 @@ main(int argc, char* argv[])
 				     group4options_out);
 			TIFFSetField(out, TIFFTAG_FAXMODE, mode);
 			rowsperstrip =
-				(defrowsperstrip)?defrowsperstrip:(uint32_t)-1L;
+				(defrowsperstrip)?defrowsperstrip:(uint32)-1L;
 			break;
 
 			default:
@@ -336,9 +338,9 @@ main(int argc, char* argv[])
 		if (verbose) {
 			fprintf(stderr, "%s:\n", argv[optind]);
 			fprintf(stderr, "%d rows in input\n", rows);
-			fprintf(stderr, "%"PRIu32" total bad rows\n",
-			    badfaxlines);
-			fprintf(stderr, "%"PRIu16" max consecutive bad rows\n", badfaxrun);
+			fprintf(stderr, "%ld total bad rows\n",
+			    (long) badfaxlines);
+			fprintf(stderr, "%d max consecutive bad rows\n", badfaxrun);
 		}
 		if (compression_out == COMPRESSION_CCITTFAX3 &&
 		    mode == FAXMODE_CLASSF) {
@@ -358,9 +360,9 @@ main(int argc, char* argv[])
 int
 copyFaxFile(TIFF* tifin, TIFF* tifout)
 {
-	uint32_t row;
-	uint32_t linesize = TIFFhowmany8(xsize);
-	uint16_t badrun;
+	uint32 row;
+	uint32 linesize = TIFFhowmany8(xsize);
+	uint16 badrun;
 	int ok;
 
 	tifin->tif_rawdatasize = (tmsize_t)TIFFGetFileSize(tifin);
@@ -406,15 +408,15 @@ copyFaxFile(TIFF* tifin, TIFF* tifout)
 		tifin->tif_row++;
 
 		if (TIFFWriteScanline(tifout, rowbuf, row, 0) < 0) {
-			fprintf(stderr, "%s: Write error at row %"PRIu32".\n",
-			    tifout->tif_name, row);
+			fprintf(stderr, "%s: Write error at row %ld.\n",
+			    tifout->tif_name, (long) row);
 			break;
 		}
 		row++;
 		if (stretch) {
 			if (TIFFWriteScanline(tifout, rowbuf, row, 0) < 0) {
-				fprintf(stderr, "%s: Write error at row %"PRIu32".\n",
-				    tifout->tif_name, row);
+				fprintf(stderr, "%s: Write error at row %ld.\n",
+				    tifout->tif_name, (long) row);
 				break;
 			}
 			row++;
@@ -426,53 +428,51 @@ copyFaxFile(TIFF* tifin, TIFF* tifout)
 	return (row);
 }
 
-static const char usage_info[] =
-"Create a TIFF Class F fax file from raw fax data\n\n"
-"usage: fax2tiff [options] input.raw...\n"
-"where options are:\n"
-" -3		input data is G3-encoded		[default]\n"
-" -4		input data is G4-encoded\n"
-" -U		input data is uncompressed (G3 or G4)\n"
-" -1		input data is 1D-encoded (G3 only)	[default]\n"
-" -2		input data is 2D-encoded (G3 only)\n"
-" -P		input is not EOL-aligned (G3 only)	[default]\n"
-" -A		input is EOL-aligned (G3 only)\n"
-" -M		input data has MSB2LSB bit order\n"
-" -L		input data has LSB2MSB bit order	[default]\n"
-" -B		input data has min 0 means black\n"
-" -W		input data has min 0 means white	[default]\n"
-" -R #		input data has # resolution (lines/inch) [default is 196]\n"
-" -X #		input data has # width			[default is 1728]\n"
-"\n"
-" -o out.tif	write output to out.tif\n"
-#ifdef CCITT_SUPPORT
-" -7		generate G3-encoded output		[default]\n"
-" -8		generate G4-encoded output\n"
-" -u		generate uncompressed output (G3 or G4)\n"
-" -5		generate 1D-encoded output (G3 only)\n"
-" -6		generate 2D-encoded output (G3 only)	[default]\n"
-" -p		generate not EOL-aligned output (G3 only)\n"
-" -a		generate EOL-aligned output (G3 only)	[default]\n"
-#endif
-" -c		generate \"classic\" TIFF format\n"
-" -f		generate TIFF Class F (TIFF/F) format	[default]\n"
-" -m		output fill order is MSB2LSB\n"
-" -l		output fill order is LSB2MSB		[default]\n"
-" -r #		make each strip have no more than # rows\n"
-" -s		stretch image by duplicating scanlines\n"
-" -v		print information about conversion work\n"
-#ifdef LZW_SUPPORT
-" -z		generate LZW compressed output\n"
-#endif
-;
+const char* stuff[] = {
+"usage: fax2tiff [options] input.raw...",
+"where options are:",
+" -3		input data is G3-encoded		[default]",
+" -4		input data is G4-encoded",
+" -U		input data is uncompressed (G3 or G4)",
+" -1		input data is 1D-encoded (G3 only)	[default]",
+" -2		input data is 2D-encoded (G3 only)",
+" -P		input is not EOL-aligned (G3 only)	[default]",
+" -A		input is EOL-aligned (G3 only)",
+" -M		input data has MSB2LSB bit order",
+" -L		input data has LSB2MSB bit order	[default]",
+" -B		input data has min 0 means black",
+" -W		input data has min 0 means white	[default]",
+" -R #		input data has # resolution (lines/inch) [default is 196]",
+" -X #		input data has # width			[default is 1728]",
+"",
+" -o out.tif	write output to out.tif",
+" -7		generate G3-encoded output		[default]",
+" -8		generate G4-encoded output",
+" -u		generate uncompressed output (G3 or G4)",
+" -5		generate 1D-encoded output (G3 only)",
+" -6		generate 2D-encoded output (G3 only)	[default]",
+" -p		generate not EOL-aligned output (G3 only)",
+" -a		generate EOL-aligned output (G3 only)	[default]",
+" -c		generate \"classic\" TIFF format",
+" -f		generate TIFF Class F (TIFF/F) format	[default]",
+" -m		output fill order is MSB2LSB",
+" -l		output fill order is LSB2MSB		[default]",
+" -r #		make each strip have no more than # rows",
+" -s		stretch image by duplicating scanlines",
+" -v		print information about conversion work",
+" -z		generate LZW compressed output",
+NULL
+};
 
 static void
 usage(int code)
 {
+	int i;
 	FILE * out = (code == EXIT_SUCCESS) ? stdout : stderr;
 
 	fprintf(out, "%s\n\n", TIFFGetVersion());
-        fprintf(out, "%s", usage_info);
+	for (i = 0; stuff[i] != NULL; i++)
+		fprintf(out, "%s\n", stuff[i]);
 	exit(code);
 }
 

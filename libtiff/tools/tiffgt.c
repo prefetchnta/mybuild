@@ -24,8 +24,6 @@
  */
 
 #include "tif_config.h"
-#include "libport.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,16 +55,20 @@
 #define EXIT_FAILURE 1
 #endif
 
-static  uint32_t  width = 0, height = 0;          /* window width & height */
-static  uint32_t* raster = NULL;                  /* displayable image */
+#ifndef HAVE_GETOPT
+extern int getopt(int argc, char * const argv[], const char *optstring);
+#endif
+
+static  uint32  width = 0, height = 0;          /* window width & height */
+static  uint32* raster = NULL;                  /* displayable image */
 static TIFFRGBAImage img;
 static int      order0 = 0, order;
-static uint16_t   photo0 = (uint16_t) -1, photo;
+static uint16   photo0 = (uint16) -1, photo;
 static int      stoponerr = 0;                  /* stop on read error */
 static int      verbose = 0;
 #define TITLE_LENGTH    1024
 static char     title[TITLE_LENGTH];            /* window title line */
-static uint32_t   xmax, ymax;
+static uint32   xmax, ymax;
 static char**   filelist = NULL;
 static int      fileindex;
 static int      filenum;
@@ -79,7 +81,7 @@ static int	prevImage(void);
 static int	nextImage(void);
 static void	setWindowSize(void);
 static void	usage(int);
-static uint16_t	photoArg(const char*);
+static uint16	photoArg(const char*);
 static void	raster_draw(void);
 static void	raster_reshape(int, int);
 static void	raster_keys(unsigned char, int, int);
@@ -103,7 +105,7 @@ main(int argc, char* argv[])
 {
         int c;
         int dirnum = -1;
-        uint32_t diroff = 0;
+        uint32 diroff = 0;
 
         oerror = TIFFSetErrorHandler(NULL);
         owarning = TIFFSetWarningHandler(NULL);
@@ -221,11 +223,11 @@ cleanup_and_exit(int code)
 static int
 initImage(void)
 {
-        uint32_t w, h;
+        uint32 w, h;
 
         if (order)
                 TIFFSetField(tif, TIFFTAG_FILLORDER, order);
-        if (photo != (uint16_t) -1)
+        if (photo != (uint16) -1)
                 TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, photo);
         if (!TIFFRGBAImageBegin(&img, tif, stoponerr, title)) {
                 TIFFError(filelist[fileindex], "%s", title);
@@ -249,12 +251,12 @@ initImage(void)
         }
 
 	if (w != width || h != height) {
-		uint32_t rastersize =
+		uint32 rastersize =
 			_TIFFMultiply32(tif, img.width, img.height, "allocating raster buffer");
 		if (raster != NULL)
 			_TIFFfree(raster), raster = NULL;
-		raster = (uint32_t*) _TIFFCheckMalloc(tif, rastersize, sizeof (uint32_t),
-                                              "allocating raster buffer");
+		raster = (uint32*) _TIFFCheckMalloc(tif, rastersize, sizeof (uint32),
+						    "allocating raster buffer");
 		if (raster == NULL) {
 			width = height = 0;
 			TIFFError(filelist[fileindex], "No space for raster buffer");
@@ -459,7 +461,7 @@ usage(int code)
         exit(code);
 }
 
-static uint16_t
+static uint16
 photoArg(const char* arg)
 {
         if (strcmp(arg, "miniswhite") == 0)
@@ -483,7 +485,7 @@ photoArg(const char* arg)
         else if (strcmp(arg, "logluv") == 0)
             return (PHOTOMETRIC_LOGLUV);
         else
-            return ((uint16_t) -1);
+            return ((uint16) -1);
 }
 
 /* vim: set ts=8 sts=8 sw=8 noet: */

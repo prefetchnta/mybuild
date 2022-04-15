@@ -23,7 +23,6 @@
  */
 
 #include "tif_config.h"
-#include "libport.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +31,10 @@
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
+#endif
+
+#ifdef NEED_LIBPORT
+# include "libport.h"
 #endif
 
 #include "tiffio.h"
@@ -43,23 +46,27 @@
 #define EXIT_FAILURE 1
 #endif
 
+#ifndef HAVE_GETOPT
+extern int getopt(int argc, char * const argv[], const char *optstring);
+#endif
+
 static	int stopondiff = 1;
 static	int stoponfirsttag = 1;
-static	uint16_t bitspersample = 1;
-static	uint16_t samplesperpixel = 1;
-static	uint16_t sampleformat = SAMPLEFORMAT_UINT;
-static	uint32_t imagewidth;
-static	uint32_t imagelength;
+static	uint16 bitspersample = 1;
+static	uint16 samplesperpixel = 1;
+static	uint16 sampleformat = SAMPLEFORMAT_UINT;
+static	uint32 imagewidth;
+static	uint32 imagelength;
 
 static	void usage(int code);
 static	int tiffcmp(TIFF*, TIFF*);
 static	int cmptags(TIFF*, TIFF*);
-static	int ContigCompare(int, uint32_t, unsigned char*, unsigned char*, tsize_t);
-static	int SeparateCompare(int, int, uint32_t, unsigned char*, unsigned char*);
-static	void PrintIntDiff(uint32_t, int, uint32_t, uint32_t, uint32_t);
-static	void PrintFloatDiff(uint32_t, int, uint32_t, double, double);
+static	int ContigCompare(int, uint32, unsigned char*, unsigned char*, tsize_t);
+static	int SeparateCompare(int, int, uint32, unsigned char*, unsigned char*);
+static	void PrintIntDiff(uint32, int, uint32, uint32, uint32);
+static	void PrintFloatDiff(uint32, int, uint32, double, double);
 
-static	void leof(const char*, uint32_t, int);
+static	void leof(const char*, uint32, int);
 
 /*
  * exit with status :
@@ -90,11 +97,9 @@ main(int argc, char* argv[])
 			break;
 		case 'h':
 			usage(EXIT_SUCCESS);
-			break;
 		case '?':
 			usage(2);
 			/*NOTREACHED*/
-			break;
 		}
 	if (argc - optind < 2)
 		usage(2);
@@ -125,22 +130,24 @@ main(int argc, char* argv[])
 	return (0);
 }
 
-static const char usage_info[] =
-"Compare the tags and data in two TIFF files\n\n"
-"usage: tiffcmp [options] file1 file2\n"
-"where options are:\n"
-" -l		list each byte of image data that differs between the files\n"
-" -z #		list specified number of bytes that differs between the files\n"
-" -t		ignore any differences in directory tags\n"
-;
+static const char* stuff[] = {
+"usage: tiffcmp [options] file1 file2",
+"where options are:",
+" -l		list each byte of image data that differs between the files",
+" -z #		list specified number of bytes that differs between the files",
+" -t		ignore any differences in directory tags",
+NULL
+};
 
 static void
 usage(int code)
 {
+	int i;
 	FILE * out = (code == EXIT_SUCCESS) ? stdout : stderr;
 
         fprintf(out, "%s\n\n", TIFFGetVersion());
-        fprintf(out, "%s", usage_info);
+	for (i = 0; stuff[i] != NULL; i++)
+		fprintf(out, "%s\n", stuff[i]);
 	exit(code);
 }
 
@@ -159,9 +166,9 @@ static	int CheckStringTag(TIFF*, TIFF*, int, char*);
 static int
 tiffcmp(TIFF* tif1, TIFF* tif2)
 {
-	uint16_t config1, config2;
+	uint16 config1, config2;
 	tsize_t size1;
-	uint32_t row;
+	uint32 row;
 	tsample_t s;
 	unsigned char *buf1, *buf2;
 
@@ -267,7 +274,7 @@ bad1:
 static int
 cmptags(TIFF* tif1, TIFF* tif2)
 {
-	uint16_t compression1, compression2;
+	uint16 compression1, compression2;
 	CmpLongField(TIFFTAG_SUBFILETYPE,	"SubFileType");
 	CmpLongField(TIFFTAG_IMAGEWIDTH,	"ImageWidth");
 	CmpLongField(TIFFTAG_IMAGELENGTH,	"ImageLength");
@@ -306,13 +313,13 @@ cmptags(TIFF* tif1, TIFF* tif2)
 	CmpShortField(TIFFTAG_GRAYRESPONSEUNIT, "GrayResponseUnit");
 	CmpShortField(TIFFTAG_COLORRESPONSEUNIT, "ColorResponseUnit");
 #ifdef notdef
-	{ uint16_t *graycurve;
+	{ uint16 *graycurve;
 	  CmpField(TIFFTAG_GRAYRESPONSECURVE, graycurve);
 	}
-	{ uint16_t *red, *green, *blue;
+	{ uint16 *red, *green, *blue;
 	  CmpField3(TIFFTAG_COLORRESPONSECURVE, red, green, blue);
 	}
-	{ uint16_t *red, *green, *blue;
+	{ uint16 *red, *green, *blue;
 	  CmpField3(TIFFTAG_COLORMAP, red, green, blue);
 	}
 #endif
@@ -332,10 +339,11 @@ cmptags(TIFF* tif1, TIFF* tif2)
 }
 
 static int
-ContigCompare(int sample, uint32_t row,
-              unsigned char* p1, unsigned char* p2, tsize_t size)
+ContigCompare(int sample, uint32 row,
+	      unsigned char* p1, unsigned char* p2, tsize_t size)
 {
-    uint32_t pix;
+    uint32 pix;
+    int ppb = 8 / bitspersample;
     int	 samples_to_test;
 
     if (memcmp(p1, p2, size) == 0)
@@ -347,10 +355,9 @@ ContigCompare(int sample, uint32_t row,
       case 1: case 2: case 4: case 8: 
       {
           unsigned char *pix1 = p1, *pix2 = p2;
-          unsigned bits = 0;
 
-          for (pix = 0; pix < imagewidth; pix++) {
-              int s;
+          for (pix = 0; pix < imagewidth; pix += ppb) {
+              int		s;
 
               for(s = 0; s < samples_to_test; s++) {
                   if (*pix1 != *pix2) {
@@ -360,17 +367,15 @@ ContigCompare(int sample, uint32_t row,
                           PrintIntDiff(row, sample, pix, *pix1, *pix2);
                   }
 
-                  bits += bitspersample;
-                  pix1 += (bits / 8);
-                  pix2 += (bits / 8);
-                  bits &= 7;
+                  pix1++;
+                  pix2++;
               }
           }
           break;
       }
       case 16: 
       {
-          uint16_t *pix1 = (uint16_t *)p1, *pix2 = (uint16_t *)p2;
+          uint16 *pix1 = (uint16 *)p1, *pix2 = (uint16 *)p2;
 
           for (pix = 0; pix < imagewidth; pix++) {
               int	s;
@@ -388,7 +393,7 @@ ContigCompare(int sample, uint32_t row,
       case 32: 
 	if (sampleformat == SAMPLEFORMAT_UINT
 	    || sampleformat == SAMPLEFORMAT_INT) {
-		uint32_t *pix1 = (uint32_t *)p1, *pix2 = (uint32_t *)p2;
+		uint32 *pix1 = (uint32 *)p1, *pix2 = (uint32 *)p2;
 
 		for (pix = 0; pix < imagewidth; pix++) {
 			int	s;
@@ -420,13 +425,13 @@ ContigCompare(int sample, uint32_t row,
 			}
 		}
 	} else {
-		  fprintf(stderr, "Sample format %"PRIu16" is not supported.\n",
+		  fprintf(stderr, "Sample format %d is not supported.\n",
 			  sampleformat);
 		  return -1;
 	}
         break;
       default:
-	fprintf(stderr, "Bit depth %"PRIu16" is not supported.\n", bitspersample);
+	fprintf(stderr, "Bit depth %d is not supported.\n", bitspersample);
 	return -1;
     }
 
@@ -434,7 +439,7 @@ ContigCompare(int sample, uint32_t row,
 }
 
 static void
-PrintIntDiff(uint32_t row, int sample, uint32_t pix, uint32_t w1, uint32_t w2)
+PrintIntDiff(uint32 row, int sample, uint32 pix, uint32 w1, uint32 w2)
 {
 	if (sample < 0)
 		sample = 0;
@@ -443,22 +448,22 @@ PrintIntDiff(uint32_t row, int sample, uint32_t pix, uint32_t w1, uint32_t w2)
 	case 2:
 	case 4:
 	    {
-		int32_t mask1, mask2, s;
+		int32 mask1, mask2, s;
 
         /* mask1 should have the n lowest bits set, where n == bitspersample */
-        mask1 = ((int32_t)1 << bitspersample) - 1;
+        mask1 = ((int32)1 << bitspersample) - 1;
 		s = (8 - bitspersample);
 		mask2 = mask1 << s;
 		for (; mask2 && pix < imagewidth;
 		     mask2 >>= bitspersample, s -= bitspersample, pix++) {
 			if ((w1 & mask2) ^ (w2 & mask2)) {
 				printf(
-			"Scanline %"PRIu32", pixel %"PRIu32", sample %d: %01"PRIx32" %01"PRIx32"\n",
-					row,
-					pix,
+			"Scanline %lu, pixel %lu, sample %d: %01x %01x\n",
+	    				(unsigned long) row,
+					(unsigned long) pix,
 					sample,
-					(w1 >> s) & mask1,
-					(w2 >> s) & mask1);
+					(unsigned int)((w1 >> s) & mask1),
+					(unsigned int)((w2 >> s) & mask1));
 				if (--stopondiff == 0)
 					exit(1);
 			}
@@ -466,23 +471,23 @@ PrintIntDiff(uint32_t row, int sample, uint32_t pix, uint32_t w1, uint32_t w2)
 		break;
 	    }
 	case 8: 
-		printf("Scanline %"PRIu32", pixel %"PRIu32", sample %d: %02"PRIx32" %02"PRIx32"\n",
-		       row, pix, sample,
-		       w1, w2);
+		printf("Scanline %lu, pixel %lu, sample %d: %02x %02x\n",
+		       (unsigned long) row, (unsigned long) pix, sample,
+		       (unsigned int) w1, (unsigned int) w2);
 		if (--stopondiff == 0)
 			exit(1);
 		break;
 	case 16:
-		printf("Scanline %"PRIu32", pixel %"PRIu32", sample %d: %04"PRIx32" %04"PRIx32"\n",
-		    row, pix, sample,
-		    w1, w2);
+		printf("Scanline %lu, pixel %lu, sample %d: %04x %04x\n",
+		    (unsigned long) row, (unsigned long) pix, sample,
+		    (unsigned int) w1, (unsigned int) w2);
 		if (--stopondiff == 0)
 			exit(1);
 		break;
 	case 32:
-		printf("Scanline %"PRIu32", pixel %"PRIu32", sample %d: %08"PRIx32" %08"PRIx32"\n",
-		    row, pix, sample,
-		    w1, w2);
+		printf("Scanline %lu, pixel %lu, sample %d: %08x %08x\n",
+		    (unsigned long) row, (unsigned long) pix, sample,
+		    (unsigned int) w1, (unsigned int) w2);
 		if (--stopondiff == 0)
 			exit(1);
 		break;
@@ -492,14 +497,14 @@ PrintIntDiff(uint32_t row, int sample, uint32_t pix, uint32_t w1, uint32_t w2)
 }
 
 static void
-PrintFloatDiff(uint32_t row, int sample, uint32_t pix, double w1, double w2)
+PrintFloatDiff(uint32 row, int sample, uint32 pix, double w1, double w2)
 {
 	if (sample < 0)
 		sample = 0;
 	switch (bitspersample) {
 	case 32: 
-		printf("Scanline %"PRIu32", pixel %"PRIu32", sample %d: %g %g\n",
-		    row, pix, sample, w1, w2);
+		printf("Scanline %lu, pixel %lu, sample %d: %g %g\n",
+		    (long) row, (long) pix, sample, w1, w2);
 		if (--stopondiff == 0)
 			exit(1);
 		break;
@@ -509,17 +514,17 @@ PrintFloatDiff(uint32_t row, int sample, uint32_t pix, double w1, double w2)
 }
 
 static int
-SeparateCompare(int reversed, int sample, uint32_t row,
-                unsigned char* cp1, unsigned char* p2)
+SeparateCompare(int reversed, int sample, uint32 row,
+		unsigned char* cp1, unsigned char* p2)
 {
-	uint32_t npixels = imagewidth;
+	uint32 npixels = imagewidth;
 	int pixel;
 
 	cp1 += sample;
 	for (pixel = 0; npixels-- > 0; pixel++, cp1 += samplesperpixel, p2++) {
 		if (*cp1 != *p2) {
-			printf("Scanline %"PRIu32", pixel %"PRIu32", sample %d: ",
-			    row, pixel, sample);
+			printf("Scanline %lu, pixel %lu, sample %ld: ",
+			    (long) row, (long) pixel, (long) sample);
 			if (reversed)
 				printf("%02x %02x\n", *p2, *cp1);
 			else
@@ -562,14 +567,14 @@ checkTag(TIFF* tif1, TIFF* tif2, int tag, char* name, void* p1, void* p2)
 static int
 CheckShortTag(TIFF* tif1, TIFF* tif2, int tag, char* name)
 {
-	uint16_t v1, v2;
-	CHECK(v1 == v2, "%s: %"PRIu16" %"PRIu16"\n");
+	uint16 v1, v2;
+	CHECK(v1 == v2, "%s: %u %u\n");
 }
 
 static int
 CheckShort2Tag(TIFF* tif1, TIFF* tif2, int tag, char* name)
 {
-	uint16_t v11, v12, v21, v22;
+	uint16 v11, v12, v21, v22;
 
 	if (TIFFGetField(tif1, tag, &v11, &v12)) {
 		if (!TIFFGetField(tif2, tag, &v21, &v22)) {
@@ -579,7 +584,7 @@ CheckShort2Tag(TIFF* tif1, TIFF* tif2, int tag, char* name)
 		}
 		if (v11 == v21 && v12 == v22)
 			return (1);
-		printf("%s: <%"PRIu16",%"PRIu16"> <%"PRIu16",%"PRIu16">\n", name, v11, v12, v21, v22);
+		printf("%s: <%u,%u> <%u,%u>\n", name, v11, v12, v21, v22);
 	} else if (TIFFGetField(tif2, tag, &v21, &v22))
 		printf("%s tag appears only in %s\n", name, TIFFFileName(tif2));
 	else
@@ -590,8 +595,8 @@ CheckShort2Tag(TIFF* tif1, TIFF* tif2, int tag, char* name)
 static int
 CheckShortArrayTag(TIFF* tif1, TIFF* tif2, int tag, char* name)
 {
-	uint16_t n1, *a1;
-	uint16_t n2, *a2;
+	uint16 n1, *a1;
+	uint16 n2, *a2;
 
 	if (TIFFGetField(tif1, tag, &n1, &a1)) {
 		if (!TIFFGetField(tif2, tag, &n2, &a2)) {
@@ -601,21 +606,21 @@ CheckShortArrayTag(TIFF* tif1, TIFF* tif2, int tag, char* name)
 		}
 		if (n1 == n2) {
 			char* sep;
-			uint16_t i;
+			uint16 i;
 
-			if (memcmp(a1, a2, n1 * sizeof(uint16_t)) == 0)
+			if (memcmp(a1, a2, n1 * sizeof(uint16)) == 0)
 				return (1);
-			printf("%s: value mismatch, <%"PRIu16":", name, n1);
+			printf("%s: value mismatch, <%u:", name, n1);
 			sep = "";
 			for (i = 0; i < n1; i++)
-				printf("%s%"PRIu16, sep, a1[i]), sep = ",";
-			printf("> and <%"PRIu16": ", n2);
+				printf("%s%u", sep, a1[i]), sep = ",";
+			printf("> and <%u: ", n2);
 			sep = "";
 			for (i = 0; i < n2; i++)
-				printf("%s%"PRIu16, sep, a2[i]), sep = ",";
+				printf("%s%u", sep, a2[i]), sep = ",";
 			printf(">\n");
 		} else
-			printf("%s: %"PRIu16" items in %s, %"PRIu16" items in %s", name,
+			printf("%s: %u items in %s, %u items in %s", name,
 			    n1, TIFFFileName(tif1),
 			    n2, TIFFFileName(tif2)
 			);
@@ -629,8 +634,8 @@ CheckShortArrayTag(TIFF* tif1, TIFF* tif2, int tag, char* name)
 static int
 CheckLongTag(TIFF* tif1, TIFF* tif2, int tag, char* name)
 {
-	uint32_t v1, v2;
-	CHECK(v1 == v2, "%s: %"PRIu32" %"PRIu32"\n");
+	uint32 v1, v2;
+	CHECK(v1 == v2, "%s: %u %u\n");
 }
 
 static int
@@ -648,10 +653,10 @@ CheckStringTag(TIFF* tif1, TIFF* tif2, int tag, char* name)
 }
 
 static void
-leof(const char* name, uint32_t row, int s)
+leof(const char* name, uint32 row, int s)
 {
 
-	printf("%s: EOF at scanline %"PRIu32, name, row);
+	printf("%s: EOF at scanline %lu", name, (unsigned long)row);
 	if (s >= 0)
 		printf(", sample %d", s);
 	printf("\n");

@@ -14,7 +14,7 @@ Windows (Visual Studio 2010 X86 /MD)
     libjpeg-9e              LIB                     http://www.ijg.org/
     libpng-1.6.37           DLL                     http://www.libpng.org/pub/png/libpng.html
     libtesseract-3.05.02    LIB & DLL               https://github.com/tesseract-ocr/tesseract/releases
-    libtiff-4.3.0           LIB & DLL               http://libtiff.maptools.org/
+    libtiff-4.2.0           LIB & DLL               http://libtiff.maptools.org/
     libwebp-1.2.2           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/releases
     libzip-1.4.0            DLL                     https://libzip.org/download/
     openjpeg-2.3.1          DLL                     https://github.com/uclouvain/openjpeg/releases

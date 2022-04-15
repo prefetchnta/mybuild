@@ -49,17 +49,17 @@
 #include <assert.h>
 #include <stdio.h>
 
-static	int gtTileContig(TIFFImageIter*, void *udata, uint32_t, uint32_t);
-static	int gtTileSeparate(TIFFImageIter*, void *udata, uint32_t, uint32_t);
-static	int gtStripContig(TIFFImageIter*, void *udata, uint32_t, uint32_t);
-static	int gtStripSeparate(TIFFImageIter*, void *udata, uint32_t, uint32_t);
+static	int gtTileContig(TIFFImageIter*, void *udata, uint32, uint32);
+static	int gtTileSeparate(TIFFImageIter*, void *udata, uint32, uint32);
+static	int gtStripContig(TIFFImageIter*, void *udata, uint32, uint32);
+static	int gtStripSeparate(TIFFImageIter*, void *udata, uint32, uint32);
 
 static	const char photoTag[] = "PhotometricInterpretation";
 
 static int
 isCCITTCompression(TIFF* tif)
 {
-    uint16_t compress;
+    uint16 compress;
     TIFFGetField(tif, TIFFTAG_COMPRESSION, &compress);
     return (compress == COMPRESSION_CCITTFAX3 ||
 	    compress == COMPRESSION_CCITTFAX4 ||
@@ -70,9 +70,9 @@ isCCITTCompression(TIFF* tif)
 int
 TIFFImageIterBegin(TIFFImageIter* img, TIFF* tif, int stop, char emsg[1024])
 {
-    uint16_t* sampleinfo;
-    uint16_t extrasamples;
-    uint16_t planarconfig;
+    uint16* sampleinfo;
+    uint16 extrasamples;
+    uint16 planarconfig;
     int colorchannels;
 
     img->tif = tif;
@@ -134,7 +134,7 @@ TIFFImageIterBegin(TIFFImageIter* img, TIFF* tif, int stop, char emsg[1024])
 	    return (0);
 	}
 	/* It would probably be nice to have a reality check here. */
-	{ uint16_t compress;
+	{ uint16 compress;
 	  TIFFGetField(tif, TIFFTAG_COMPRESSION, &compress);
 	  if (compress == COMPRESSION_JPEG && planarconfig == PLANARCONFIG_CONTIG) {
 	    /* can rely on libjpeg to convert to RGB */
@@ -152,7 +152,7 @@ TIFFImageIterBegin(TIFFImageIter* img, TIFF* tif, int stop, char emsg[1024])
 	}
 	break;
     case PHOTOMETRIC_SEPARATED: {
-	uint16_t inkset;
+	uint16 inkset;
 	TIFFGetFieldDefaulted(tif, TIFFTAG_INKSET, &inkset);
 	if (inkset != INKSET_CMYK) {
 	    sprintf(emsg, "Sorry, can not handle separated image with %s=%d",
@@ -206,7 +206,7 @@ TIFFImageIterBegin(TIFFImageIter* img, TIFF* tif, int stop, char emsg[1024])
 }
 
 int
-TIFFImageIterGet(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
+TIFFImageIterGet(TIFFImageIter* img, void *udata, uint32 w, uint32 h)
 {
     if (img->get == NULL) {
 	TIFFErrorExt(img->tif->tif_clientdata, TIFFFileName(img->tif), "No \"get\" routine setup");
@@ -230,7 +230,7 @@ TIFFImageIterEnd(TIFFImageIter* img)
  */
 int
 TIFFReadImageIter(TIFF* tif,
-    uint32_t rwidth, uint32_t rheight, uint8_t* raster, int stop)
+    uint32 rwidth, uint32 rheight, uint8* raster, int stop)
 {
     char emsg[1024];
     TIFFImageIter img;
@@ -255,16 +255,16 @@ TIFFReadImageIter(TIFF* tif,
  *	SamplesPerPixel == 1
  */	
 static int
-gtTileContig(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
+gtTileContig(TIFFImageIter* img, void *udata, uint32 w, uint32 h)
 {
     TIFF* tif = img->tif;
     ImageIterTileContigRoutine callback = img->callback.contig;
-    uint16_t orientation;
-    uint32_t col, row;
-    uint32_t tw, th;
+    uint16 orientation;
+    uint32 col, row;
+    uint32 tw, th;
     u_char* buf;
-    int32_t fromskew;
-    uint32_t nrow;
+    int32 fromskew;
+    uint32 nrow;
 
     buf = (u_char*) _TIFFmalloc(TIFFTileSize(tif));
     if (buf == 0) {
@@ -284,7 +284,7 @@ gtTileContig(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
 		 * Tile is clipped horizontally.  Calculate
 		 * visible portion and skewing factors.
 		 */
-		uint32_t npix = w - col;
+		uint32 npix = w - col;
 		fromskew = tw - npix;
 		(*callback)(img, udata, col, row, npix, nrow, fromskew, buf);
 	    } else {
@@ -303,22 +303,22 @@ gtTileContig(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
  * We assume that all such images are RGB.
  */	
 static int
-gtTileSeparate(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
+gtTileSeparate(TIFFImageIter* img, void *udata, uint32 w, uint32 h)
 {
     TIFF* tif = img->tif;
     ImageIterTileSeparateRoutine callback = img->callback.separate;
-    uint16_t orientation;
-    uint32_t col, row;
-    uint32_t tw, th;
+    uint16 orientation;
+    uint32 col, row;
+    uint32 tw, th;
     u_char* buf;
     u_char* r;
     u_char* g;
     u_char* b;
     u_char* a;
     tsize_t tilesize;
-    int32_t fromskew;
+    int32 fromskew;
     int alpha = img->alpha;
-    uint32_t nrow;
+    uint32 nrow;
 
     tilesize = TIFFTileSize(tif);
     buf = (u_char*) _TIFFmalloc(4*tilesize);
@@ -351,7 +351,7 @@ gtTileSeparate(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
 		 * Tile is clipped horizontally.  Calculate
 		 * visible portion and skewing factors.
 		 */
-		uint32_t npix = w - col;
+		uint32 npix = w - col;
 		fromskew = tw - npix;
 		(*callback)(img, udata, col, row, npix, nrow, fromskew, r, g, b, a);
 	    } else {
@@ -370,17 +370,17 @@ gtTileSeparate(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
  *	SamplesPerPixel == 1
  */	
 static int
-gtStripContig(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
+gtStripContig(TIFFImageIter* img, void *udata, uint32 w, uint32 h)
 {
     TIFF* tif = img->tif;
     ImageIterTileContigRoutine callback = img->callback.contig;
-    uint16_t orientation;
-    uint32_t row, nrow;
+    uint16 orientation;
+    uint32 row, nrow;
     u_char* buf;
-    uint32_t rowsperstrip;
-    uint32_t imagewidth = img->width;
+    uint32 rowsperstrip;
+    uint32 imagewidth = img->width;
     tsize_t scanline;
-    int32_t fromskew;
+    int32 fromskew;
 
     buf = (u_char*) _TIFFmalloc(TIFFStripSize(tif));
     if (buf == 0) {
@@ -409,19 +409,19 @@ gtStripContig(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
  * We assume that all such images are RGB.
  */
 static int
-gtStripSeparate(TIFFImageIter* img, void *udata, uint32_t w, uint32_t h)
+gtStripSeparate(TIFFImageIter* img, void *udata, uint32 w, uint32 h)
 {
     TIFF* tif = img->tif;
     ImageIterTileSeparateRoutine callback = img->callback.separate;
-    uint16_t orientation;
+    uint16 orientation;
     u_char *buf;
     u_char *r, *g, *b, *a;
-    uint32_t row, nrow;
+    uint32 row, nrow;
     tsize_t scanline;
-    uint32_t rowsperstrip;
-    uint32_t imagewidth = img->width;
+    uint32 rowsperstrip;
+    uint32 imagewidth = img->width;
     tsize_t stripsize;
-    int32_t fromskew;
+    int32 fromskew;
     int alpha = img->alpha;
 
     stripsize = TIFFStripSize(tif);

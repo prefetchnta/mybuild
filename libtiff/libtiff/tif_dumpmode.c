@@ -40,7 +40,7 @@ DumpFixupTags(TIFF* tif)
  * Encode a hunk of pixels.
  */
 static int
-DumpModeEncode(TIFF* tif, uint8_t* pp, tmsize_t cc, uint16_t s)
+DumpModeEncode(TIFF* tif, uint8* pp, tmsize_t cc, uint16 s)
 {
 	(void) s;
 	while (cc > 0) {
@@ -73,16 +73,24 @@ DumpModeEncode(TIFF* tif, uint8_t* pp, tmsize_t cc, uint16_t s)
  * Decode a hunk of pixels.
  */
 static int
-DumpModeDecode(TIFF* tif, uint8_t* buf, tmsize_t cc, uint16_t s)
+DumpModeDecode(TIFF* tif, uint8* buf, tmsize_t cc, uint16 s)
 {
 	static const char module[] = "DumpModeDecode";
 	(void) s;
 	if (tif->tif_rawcc < cc) {
+#if defined(__WIN32__) && (defined(_MSC_VER) || defined(__MINGW32__))
 		TIFFErrorExt(tif->tif_clientdata, module,
-"Not enough data for scanline %"PRIu32", expected a request for at most %"TIFF_SSIZE_FORMAT" bytes, got a request for %"TIFF_SSIZE_FORMAT" bytes",
-		             tif->tif_row,
-		             tif->tif_rawcc,
-		             cc);
+"Not enough data for scanline %lu, expected a request for at most %I64d bytes, got a request for %I64d bytes",
+		             (unsigned long) tif->tif_row,
+		             (signed __int64) tif->tif_rawcc,
+		             (signed __int64) cc);
+#else
+		TIFFErrorExt(tif->tif_clientdata, module,
+"Not enough data for scanline %lu, expected a request for at most %lld bytes, got a request for %lld bytes",
+		             (unsigned long) tif->tif_row,
+		             (signed long long) tif->tif_rawcc,
+		             (signed long long) cc);
+#endif
 		return (0);
 	}
 	/*
@@ -100,7 +108,7 @@ DumpModeDecode(TIFF* tif, uint8_t* buf, tmsize_t cc, uint16_t s)
  * Seek forwards nrows in the current strip.
  */
 static int
-DumpModeSeek(TIFF* tif, uint32_t nrows)
+DumpModeSeek(TIFF* tif, uint32 nrows)
 {
 	tif->tif_rawcp += nrows * tif->tif_scanlinesize;
 	tif->tif_rawcc -= nrows * tif->tif_scanlinesize;

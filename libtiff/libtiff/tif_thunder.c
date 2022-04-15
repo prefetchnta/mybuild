@@ -61,7 +61,7 @@ static const int threebitdeltas[8] = { 0, 1, 2, 3, 0, -3, -2, -1 };
 	  if (npixels++ & 1)                  \
 	    *op++ |= lastpixel;               \
 	  else                                \
-	    op[0] = (uint8_t) (lastpixel << 4); \
+	    op[0] = (uint8) (lastpixel << 4); \
         }                                     \
 }
 
@@ -83,7 +83,7 @@ ThunderSetupDecode(TIFF* tif)
 }
 
 static int
-ThunderDecode(TIFF* tif, uint8_t* op, tmsize_t maxpixels)
+ThunderDecode(TIFF* tif, uint8* op, tmsize_t maxpixels)
 {
 	static const char module[] = "ThunderDecode";
 	register unsigned char *bp;
@@ -114,7 +114,7 @@ ThunderDecode(TIFF* tif, uint8_t* op, tmsize_t maxpixels)
 			npixels += n;
 			if (npixels < maxpixels) {
 				for (; n > 0; n -= 2)
-					*op++ = (uint8_t) lastpixel;
+					*op++ = (uint8) lastpixel;
 			}
 			if (n == -1)
 				*--op &= 0xf0;
@@ -139,15 +139,24 @@ ThunderDecode(TIFF* tif, uint8_t* op, tmsize_t maxpixels)
 			break;
 		}
 	}
-	tif->tif_rawcp = (uint8_t*) bp;
+	tif->tif_rawcp = (uint8*) bp;
 	tif->tif_rawcc = cc;
 	if (npixels != maxpixels) {
+#if defined(__WIN32__) && (defined(_MSC_VER) || defined(__MINGW32__))
 		TIFFErrorExt(tif->tif_clientdata, module,
-			     "%s data at scanline %lu (%"PRIu64" != %"PRIu64")",
+			     "%s data at scanline %lu (%I64u != %I64u)",
 			     npixels < maxpixels ? "Not enough" : "Too much",
 			     (unsigned long) tif->tif_row,
-			     (uint64_t) npixels,
-			     (uint64_t) maxpixels);
+			     (unsigned __int64) npixels,
+			     (unsigned __int64) maxpixels);
+#else
+		TIFFErrorExt(tif->tif_clientdata, module,
+			     "%s data at scanline %lu (%llu != %llu)",
+			     npixels < maxpixels ? "Not enough" : "Too much",
+			     (unsigned long) tif->tif_row,
+			     (unsigned long long) npixels,
+			     (unsigned long long) maxpixels);
+#endif
 		return (0);
 	}
 
@@ -155,10 +164,10 @@ ThunderDecode(TIFF* tif, uint8_t* op, tmsize_t maxpixels)
 }
 
 static int
-ThunderDecodeRow(TIFF* tif, uint8_t* buf, tmsize_t occ, uint16_t s)
+ThunderDecodeRow(TIFF* tif, uint8* buf, tmsize_t occ, uint16 s)
 {
 	static const char module[] = "ThunderDecodeRow";
-	uint8_t* row = buf;
+	uint8* row = buf;
 	
 	(void) s;
 	if (occ % tif->tif_scanlinesize)

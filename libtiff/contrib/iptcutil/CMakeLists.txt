@@ -22,5 +22,14 @@
 # LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
+extra_dist(
+  README
+  test.iptc
+  test.txt)
+
+include_directories(${PROJECT_SOURCE_DIR}/libtiff
+                    ${PROJECT_BINARY_DIR}/libtiff
+                    ${CMAKE_CURRENT_BINARY_DIR})
+
 add_executable(iptcutil iptcutil.c)
 target_link_libraries(iptcutil tiff port)

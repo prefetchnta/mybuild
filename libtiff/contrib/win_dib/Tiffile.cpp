@@ -40,7 +40,7 @@ struct TIFFDibImage {
 
 
 HANDLE LoadTIFFinDIB(LPCTSTR lpFileName);
-HANDLE TIFFRGBA2DIB(TIFFDibImage* dib, uint32_t* raster)  ;
+HANDLE TIFFRGBA2DIB(TIFFDibImage* dib, uint32* raster)  ;
 
 static void
 MyWarningHandler(const char* module, const char* fmt, va_list ap)
@@ -99,12 +99,12 @@ PVOID ReadTIFF ( LPCTSTR lpszPath )
 
                 if (TIFFRGBAImageBegin(&img.tif, tif, -1, emsg)) {
                     size_t npixels;
-                    uint32_t* raster;
+                    uint32* raster;
 
                     DibInstallHack(&img);
 
                     npixels = img.tif.width * img.tif.height;
-                    raster = (uint32_t*) _TIFFmalloc(npixels * sizeof (uint32_t));
+                    raster = (uint32*) _TIFFmalloc(npixels * sizeof (uint32));
                     if (raster != NULL) {
                         if (TIFFRGBAImageGet(&img.tif, raster, img.tif.width, img.tif.height)) {
                             pDIB = TIFFRGBA2DIB(&img, raster);
@@ -128,17 +128,17 @@ PVOID ReadTIFF ( LPCTSTR lpszPath )
 
 
 
-HANDLE TIFFRGBA2DIB(TIFFDibImage* dib, uint32_t* raster)
+HANDLE TIFFRGBA2DIB(TIFFDibImage* dib, uint32* raster)
 {
     void*   pDIB = 0;
     TIFFRGBAImage* img = &dib->tif;
 
-    uint32_t imageLength;
-    uint32_t imageWidth;
-    uint16_t BitsPerSample;
-    uint16_t SamplePerPixel;
-    uint32_t RowsPerStrip;
-    uint16_t PhotometricInterpretation;
+    uint32 imageLength;
+    uint32 imageWidth;
+    uint16 BitsPerSample;
+    uint16 SamplePerPixel;
+    uint32 RowsPerStrip;
+    uint16 PhotometricInterpretation;
 
     BITMAPINFOHEADER   bi;
     int                dwDIBSize ;
@@ -273,25 +273,25 @@ typedef unsigned char u_char;
 #define DECLAREContigPutFunc(name) \
 static void name(\
     TIFFRGBAImage* img, \
-    uint32_t* cp, \
-    uint32_t x, uint32_t y, \
-    uint32_t w, uint32_t h, \
-    int32_t fromskew, int32_t toskew, \
+    uint32* cp, \
+    uint32 x, uint32 y, \
+    uint32 w, uint32 h, \
+    int32 fromskew, int32 toskew, \
     u_char* pp \
 )
 
 #define DECLARESepPutFunc(name) \
 static void name(\
     TIFFRGBAImage* img,\
-    uint32_t* cp,\
-    uint32_t x, uint32_t y, \
-    uint32_t w, uint32_t h,\
-    int32_t fromskew, int32_t toskew,\
+    uint32* cp,\
+    uint32 x, uint32 y, \
+    uint32 w, uint32 h,\
+    int32 fromskew, int32 toskew,\
     u_char* r, u_char* g, u_char* b, u_char* a\
 )
 
 DECLAREContigPutFunc(putContig1bitTile);
-static int getStripContig1Bit(TIFFRGBAImage* img, uint32_t* uraster, uint32_t w, uint32_t h);
+static int getStripContig1Bit(TIFFRGBAImage* img, uint32* uraster, uint32 w, uint32 h);
 
 //typdef struct TIFFDibImage {
 //    TIFFRGBAImage tif;
@@ -329,7 +329,7 @@ DECLAREContigPutFunc(putContig1bitTile)
     int wb = WIDTHBYTES(w);
     u_char*  ucp = (u_char*)cp;
 
-    /* Convert 'w' to bytes from pixels (rounded up) */
+    /* Conver 'w' to bytes from pixels (rounded up) */
     w = (w+7)/8;
 
     while (h-- > 0) {
@@ -348,11 +348,11 @@ DECLAREContigPutFunc(putContig1bitTile)
 /*
  *  Hacked from the tif_getimage.c file.
  */
-static uint32_t
-setorientation(TIFFRGBAImage* img, uint32_t h)
+static uint32
+setorientation(TIFFRGBAImage* img, uint32 h)
 {
     TIFF* tif = img->tif;
-    uint32_t y;
+    uint32 y;
 
     switch (img->orientation) {
     case ORIENTATION_BOTRIGHT:
@@ -390,22 +390,22 @@ setorientation(TIFFRGBAImage* img, uint32_t h)
  *    for 1-bit bitmaps
  */
 static int
-getStripContig1Bit(TIFFRGBAImage* img, uint32_t* raster, uint32_t w, uint32_t h)
+getStripContig1Bit(TIFFRGBAImage* img, uint32* raster, uint32 w, uint32 h)
 {
     TIFF* tif = img->tif;
     tileContigRoutine put = img->put.contig;
-    uint16_t orientation;
-    uint32_t row, y, nrow, rowstoread;
-    uint32_t pos;
+    uint16 orientation;
+    uint32 row, y, nrow, rowstoread;
+    uint32 pos;
     u_char* buf;
-    uint32_t rowsperstrip;
-    uint32_t imagewidth = img->width;
+    uint32 rowsperstrip;
+    uint32 imagewidth = img->width;
     tsize_t scanline;
-    int32_t fromskew, toskew;
+    int32 fromskew, toskew;
     tstrip_t strip;
     tsize_t  stripsize;
     u_char* braster = (u_char*)raster; // byte wide raster
-    uint32_t  wb = WIDTHBYTES(w);
+    uint32  wb = WIDTHBYTES(w);
     int ret = 1;
 
     buf = (u_char*) _TIFFmalloc(TIFFStripSize(tif));
@@ -415,7 +415,7 @@ getStripContig1Bit(TIFFRGBAImage* img, uint32_t* raster, uint32_t w, uint32_t h)
     }
     y = setorientation(img, h);
     orientation = img->orientation;
-    toskew = -(int32_t) (orientation == ORIENTATION_TOPLEFT ? wb+wb : wb-wb);
+    toskew = -(int32) (orientation == ORIENTATION_TOPLEFT ? wb+wb : wb-wb);
     TIFFGetFieldDefaulted(tif, TIFFTAG_ROWSPERSTRIP, &rowsperstrip);
     scanline = TIFFScanlineSize(tif);
     fromskew = (w < imagewidth ? imagewidth - w : 0)/8;
@@ -433,8 +433,8 @@ getStripContig1Bit(TIFFRGBAImage* img, uint32_t* raster, uint32_t w, uint32_t h)
         }
 
         pos = ((row + img->row_offset) % rowsperstrip) * scanline;
-        (*put)(img, (uint32_t*)(braster+y*wb), 0, y, w, nrow, fromskew, toskew, buf + pos);
-        y += (orientation == ORIENTATION_TOPLEFT ?-(int32_t) nrow : (int32_t) nrow);
+        (*put)(img, (uint32*)(braster+y*wb), 0, y, w, nrow, fromskew, toskew, buf + pos);
+        y += (orientation == ORIENTATION_TOPLEFT ?-(int32) nrow : (int32) nrow);
     }
     _TIFFfree(buf);
     return (ret);

@@ -35,8 +35,7 @@
 
 static void Help(void) {
   printf("Usage:\n\n");
-  printf("  img2webp [file-level options] [image files...] "
-         "[per-frame options...]\n");
+  printf("  img2webp [file_options] [[frame_options] frame_file]...\n");
   printf("\n");
 
   printf("File-level options (only used at the start of compression):\n");
@@ -84,7 +83,7 @@ static int ReadImage(const char filename[], WebPPicture* const pic) {
   if (!ImgIoUtilReadFile(filename, &data, &data_size)) return 0;
   reader = WebPGuessImageReader(data, data_size);
   ok = reader(data, data_size, pic, 1, NULL);
-  free((void*)data);
+  WebPFree((void*)data);
   return ok;
 }
 

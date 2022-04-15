@@ -1,9 +1,27 @@
-cmake_minimum_required(VERSION 3.5)
+#  Copyright (c) 2020 Google LLC.
+#
+#  Use of this source code is governed by a BSD-style license
+#  that can be found in the LICENSE file in the root of the source
+#  tree. An additional intellectual property rights grant can be found
+#  in the file PATENTS.  All contributing project authors may
+#  be found in the AUTHORS file in the root of the source tree.
+
+cmake_minimum_required(VERSION 3.7)
+
+if(POLICY CMP0072)
+  cmake_policy(SET CMP0072 NEW)
+endif()
 
 project(WebP C)
 
 # Options for coder / decoder executables.
-option(WEBP_ENABLE_SIMD "Enable any SIMD optimization." ON)
+if(NOT EMSCRIPTEN)
+  # Disable SIMD on Emscripten by default, as it's a new unstable Wasm feature.
+  # Users can still explicitly opt-in to make a SIMD-enabled build.
+  set(WEBP_ENABLE_SIMD_DEFAULT ON)
+endif()
+option(WEBP_ENABLE_SIMD "Enable any SIMD optimization."
+       ${WEBP_ENABLE_SIMD_DEFAULT})
 option(WEBP_BUILD_ANIM_UTILS "Build animation utilities." ON)
 option(WEBP_BUILD_CWEBP "Build the cwebp command line tool." ON)
 option(WEBP_BUILD_DWEBP "Build the dwebp command line tool." ON)
@@ -11,9 +29,11 @@ option(WEBP_BUILD_GIF2WEBP "Build the gif2webp conversion tool." ON)
 option(WEBP_BUILD_IMG2WEBP "Build the img2webp animation tool." ON)
 option(WEBP_BUILD_VWEBP "Build the vwebp viewer tool." ON)
 option(WEBP_BUILD_WEBPINFO "Build the webpinfo command line tool." ON)
+option(WEBP_BUILD_LIBWEBPMUX "Build the libwebpmux library." ON)
 option(WEBP_BUILD_WEBPMUX "Build the webpmux command line tool." ON)
 option(WEBP_BUILD_EXTRAS "Build extras." ON)
 option(WEBP_BUILD_WEBP_JS "Emscripten build of webp.js." OFF)
+option(WEBP_USE_THREAD "Enable threading support" ON)
 option(WEBP_NEAR_LOSSLESS "Enable near-lossless encoding" ON)
 option(WEBP_ENABLE_SWAP_16BIT_CSP "Enable byte swap for 16 bit colorspaces."
        OFF)
@@ -26,7 +46,6 @@ if(WIN32)
 endif()
 
 if(WEBP_BUILD_WEBP_JS)
-  set(WEBP_ENABLE_SIMD OFF)
   set(WEBP_BUILD_ANIM_UTILS OFF)
   set(WEBP_BUILD_CWEBP OFF)
   set(WEBP_BUILD_DWEBP OFF)
@@ -36,6 +55,11 @@ if(WEBP_BUILD_WEBP_JS)
   set(WEBP_BUILD_WEBPINFO OFF)
   set(WEBP_BUILD_WEBPMUX OFF)
   set(WEBP_BUILD_EXTRAS OFF)
+  set(WEBP_USE_THREAD OFF)
+
+  if(WEBP_ENABLE_SIMD)
+    message("wasm2js does not support SIMD, disabling webp.js generation.")
+  endif()
 endif()
 
 set(WEBP_DEP_LIBRARIES)
@@ -43,7 +67,7 @@ set(WEBP_DEP_INCLUDE_DIRS)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release"
-      CACHE "Build type: Release, Debug, MinSizeRel or RelWithDebInfo" STRING
+      CACHE STRING "Build type: Release, Debug, MinSizeRel or RelWithDebInfo"
       FORCE)
 endif()
 
@@ -164,6 +188,29 @@ add_definitions(-DHAVE_CONFIG_H)
 
 # ##############################################################################
 # Build the webpdecoder library.
+
+# Creates a source file with an unused stub function in $CMAKE_BINARY_DIR and
+# adds it to the specified target. Currently used only with Xcode.
+#
+# See also:
+# https://cmake.org/cmake/help/v3.18/command/add_library.html#object-libraries
+# "Some native build systems (such as Xcode) may not like targets that have
+# only object files, so consider adding at least one real source file to any
+# target that references $<TARGET_OBJECTS:objlib>."
+function(libwebp_add_stub_file TARGET)
+  set(stub_source_dir "${CMAKE_BINARY_DIR}")
+  set(stub_source_file
+      "${stub_source_dir}/libwebp_${TARGET}_stub.c")
+  set(stub_source_code
+      "// Generated file. DO NOT EDIT!\n"
+      "// C source file created for target ${TARGET}.\n"
+      "void libwebp_${TARGET}_stub_function(void)\;\n"
+      "void libwebp_${TARGET}_stub_function(void) {}\n")
+  file(WRITE "${stub_source_file}" ${stub_source_code})
+
+  target_sources(${TARGET} PRIVATE ${stub_source_file})
+endfunction()
+
 if(MSVC)
   # avoid security warnings for e.g., fopen() used in the examples.
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -190,6 +237,9 @@ add_library(webpdecoder
             $<TARGET_OBJECTS:webpdecode>
             $<TARGET_OBJECTS:webpdspdecode>
             $<TARGET_OBJECTS:webputilsdecode>)
+if(XCODE)
+  libwebp_add_stub_file(webpdecoder)
+endif()
 target_link_libraries(webpdecoder ${WEBP_DEP_LIBRARIES})
 target_include_directories(
   webpdecoder
@@ -229,11 +279,16 @@ add_library(webp
             $<TARGET_OBJECTS:webpdsp>
             $<TARGET_OBJECTS:webpencode>
             $<TARGET_OBJECTS:webputils>)
+if(XCODE)
+  libwebp_add_stub_file(webp)
+endif()
 target_link_libraries(webp ${WEBP_DEP_LIBRARIES})
-target_include_directories(webp
-                           PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-                                   ${CMAKE_CURRENT_BINARY_DIR}
-                           PUBLIC $<INSTALL_INTERFACE:include>)
+target_include_directories(
+  webp
+  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+          ${CMAKE_CURRENT_BINARY_DIR}
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+         $<INSTALL_INTERFACE:include>)
 set_target_properties(
   webp
   PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/webp/decode.h;\
@@ -268,10 +323,10 @@ ${CMAKE_CURRENT_SOURCE_DIR}/src/webp/types.h")
 configure_pkg_config("src/demux/libwebpdemux.pc")
 
 # Set the version numbers.
-function(parse_version FILE NAME VAR)
+macro(set_version FILE TARGET_NAME NAME_IN_MAKEFILE)
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/src/${FILE} SOURCE_FILE)
   string(REGEX MATCH
-               "${NAME}_la_LDFLAGS[^\n]* -version-info [0-9:]+"
+               "${NAME_IN_MAKEFILE}_la_LDFLAGS[^\n]* -version-info [0-9:]+"
                TMP
                ${SOURCE_FILE})
   string(REGEX MATCH
@@ -280,29 +335,35 @@ function(parse_version FILE NAME VAR)
                ${TMP})
   string(REGEX
          REPLACE ":"
-                 "."
-                 VERSION
+                 " "
+                 LT_VERSION
                  ${TMP})
-  set(${VAR} "${VERSION}" PARENT_SCOPE)
-endfunction()
-parse_version(Makefile.am webp WEBP_WEBP_SOVERSION)
-set_target_properties(webp
-                      PROPERTIES VERSION
-                                 ${PACKAGE_VERSION}
-                                 SOVERSION
-                                 ${WEBP_WEBP_SOVERSION})
-parse_version(Makefile.am webpdecoder WEBP_DECODER_SOVERSION)
-set_target_properties(webpdecoder
-                      PROPERTIES VERSION
-                                 ${PACKAGE_VERSION}
-                                 SOVERSION
-                                 ${WEBP_DECODER_SOVERSION})
-parse_version(demux/Makefile.am webpdemux WEBP_DEMUX_SOVERSION)
-set_target_properties(webpdemux
-                      PROPERTIES VERSION
-                                 ${PACKAGE_VERSION}
-                                 SOVERSION
-                                 ${WEBP_DEMUX_SOVERSION})
+
+  # See the libtool docs for more information:
+  # https://www.gnu.org/software/libtool/manual/libtool.html#Updating-version-info
+  #
+  # c=<current>, a=<age>, r=<revision>
+  #
+  # libtool generates a .so file as .so.[c-a].a.r, while -version-info c:r:a is
+  # passed to libtool.
+  #
+  # We set FULL = [c-a].a.r and MAJOR = [c-a].
+  separate_arguments(LT_VERSION)
+  list(GET LT_VERSION 0 LT_CURRENT)
+  list(GET LT_VERSION 1 LT_REVISION)
+  list(GET LT_VERSION 2 LT_AGE)
+  math(EXPR LT_CURRENT_MINUS_AGE "${LT_CURRENT} - ${LT_AGE}")
+
+  set_target_properties(
+    ${TARGET_NAME}
+    PROPERTIES VERSION
+               ${LT_CURRENT_MINUS_AGE}.${LT_AGE}.${LT_REVISION}
+               SOVERSION
+               ${LT_CURRENT_MINUS_AGE})
+endmacro()
+set_version(Makefile.am webp webp)
+set_version(Makefile.am webpdecoder webpdecoder)
+set_version(demux/Makefile.am webpdemux webpdemux)
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/configure.ac CONFIGURE_FILE)
 string(REGEX MATCH
              "AC_INIT\\([^\n]*\\[[0-9\\.]+\\]"
@@ -329,6 +390,12 @@ foreach(I_FILE RANGE ${WEBP_SIMD_FILES_TO_INCLUDE_RANGE})
                               COMPILE_FLAGS
                               ${SIMD_COMPILE_FLAG})
 endforeach()
+
+if(NOT WEBP_BUILD_LIBWEBPMUX)
+  set(WEBP_BUILD_GIF2WEBP OFF)
+  set(WEBP_BUILD_IMG2WEBP OFF)
+  set(WEBP_BUILD_WEBPMUX OFF)
+endif()
 
 if(WEBP_BUILD_GIF2WEBP AND NOT GIF_FOUND)
   set(WEBP_BUILD_GIF2WEBP OFF)
@@ -402,19 +469,14 @@ if(WEBP_BUILD_CWEBP)
   install(TARGETS cwebp RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
-if(WEBP_BUILD_GIF2WEBP OR WEBP_BUILD_IMG2WEBP)
+if(WEBP_BUILD_LIBWEBPMUX)
   parse_makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/src/mux "WEBP_MUX_SRCS" "")
   add_library(libwebpmux ${WEBP_MUX_SRCS})
   target_link_libraries(libwebpmux webp)
   target_include_directories(libwebpmux
                              PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
                                      ${CMAKE_CURRENT_SOURCE_DIR})
-  parse_version(mux/Makefile.am webpmux WEBP_MUX_SOVERSION)
-  set_target_properties(libwebpmux
-                        PROPERTIES VERSION
-                                   ${PACKAGE_VERSION}
-                                   SOVERSION
-                                   ${WEBP_MUX_SOVERSION})
+  set_version(mux/Makefile.am libwebpmux webpmux)
   set_target_properties(libwebpmux
                         PROPERTIES PUBLIC_HEADER
                                    "${CMAKE_CURRENT_SOURCE_DIR}/src/webp/mux.h;\
@@ -518,9 +580,7 @@ if(WEBP_BUILD_EXTRAS)
   target_link_libraries(get_disto imagedec)
   target_include_directories(get_disto
                              PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-                                     ${CMAKE_CURRENT_SOURCE_DIR}/src
                                      ${CMAKE_CURRENT_BINARY_DIR}/src)
-  install(TARGETS get_disto RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
   # webp_quality
   add_executable(webp_quality ${WEBP_QUALITY_SRCS} ${WEBP_EXTRAS_SRCS})
@@ -528,7 +588,6 @@ if(WEBP_BUILD_EXTRAS)
   target_include_directories(webp_quality
                              PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
                                      ${CMAKE_CURRENT_BINARY_DIR})
-  install(TARGETS webp_quality RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
   # vwebp_sdl
   find_package(SDL)
@@ -537,29 +596,30 @@ if(WEBP_BUILD_EXTRAS)
     target_link_libraries(vwebp_sdl ${SDL_LIBRARY} imageioutil webp)
     target_include_directories(vwebp_sdl
                                PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-                                       ${CMAKE_CURRENT_SOURCE_DIR}/src
                                        ${CMAKE_CURRENT_BINARY_DIR}
                                        ${CMAKE_CURRENT_BINARY_DIR}/src
                                        ${SDL_INCLUDE_DIR})
     set(WEBP_HAVE_SDL 1)
     target_compile_definitions(vwebp_sdl PUBLIC WEBP_HAVE_SDL)
-    install(TARGETS vwebp_sdl RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endif()
 endif()
 
 if(WEBP_BUILD_WEBP_JS)
-  # JavaScript version
-  add_executable(webp_js ${CMAKE_CURRENT_SOURCE_DIR}/extras/webp_to_sdl.c)
-  target_link_libraries(webp_js webpdecoder SDL)
-  target_include_directories(webp_js PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-  set(WEBP_HAVE_SDL 1)
-  set_target_properties(
-    webp_js
-    PROPERTIES LINK_FLAGS
-               "-s EXPORTED_FUNCTIONS='[\"_WebpToSDL\"]' -s INVOKE_RUN=0 \
-       -s EXTRA_EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
-  set_target_properties(webp_js PROPERTIES OUTPUT_NAME webp)
-  target_compile_definitions(webp_js PUBLIC EMSCRIPTEN WEBP_HAVE_SDL)
+  # wasm2js does not support SIMD.
+  if(NOT WEBP_ENABLE_SIMD)
+    # JavaScript version
+    add_executable(webp_js ${CMAKE_CURRENT_SOURCE_DIR}/extras/webp_to_sdl.c)
+    target_link_libraries(webp_js webpdecoder SDL)
+    target_include_directories(webp_js PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+    set(WEBP_HAVE_SDL 1)
+    set_target_properties(
+      webp_js
+      PROPERTIES LINK_FLAGS "-s WASM=0 \
+         -s EXPORTED_FUNCTIONS='[\"_WebpToSDL\"]' -s INVOKE_RUN=0 \
+         -s EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
+    set_target_properties(webp_js PROPERTIES OUTPUT_NAME webp)
+    target_compile_definitions(webp_js PUBLIC EMSCRIPTEN WEBP_HAVE_SDL)
+  endif()
 
   # WASM version
   add_executable(webp_wasm ${CMAKE_CURRENT_SOURCE_DIR}/extras/webp_to_sdl.c)
@@ -569,7 +629,7 @@ if(WEBP_BUILD_WEBP_JS)
     webp_wasm
     PROPERTIES LINK_FLAGS "-s WASM=1 \
        -s EXPORTED_FUNCTIONS='[\"_WebpToSDL\"]' -s INVOKE_RUN=0 \
-       -s EXTRA_EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
+       -s EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
   target_compile_definitions(webp_wasm PUBLIC EMSCRIPTEN WEBP_HAVE_SDL)
 
   target_compile_definitions(webpdspdecode PUBLIC EMSCRIPTEN)
@@ -587,7 +647,6 @@ if(WEBP_BUILD_ANIM_UTILS)
                         imageenc
                         imageioutil
                         webp
-                        libwebpmux
                         webpdemux
                         ${WEBP_DEP_GIF_LIBRARIES})
   target_include_directories(anim_diff PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/src)
@@ -603,14 +662,12 @@ if(WEBP_BUILD_ANIM_UTILS)
                         imageenc
                         imageioutil
                         webp
-                        libwebpmux
                         webpdemux
                         ${WEBP_DEP_GIF_LIBRARIES})
   target_include_directories(anim_dump PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/src)
 endif()
 
 # Install the different headers and libraries.
-include(GNUInstallDirs)
 install(TARGETS ${INSTALLED_LIBRARIES}
         EXPORT ${PROJECT_NAME}Targets
         PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/webp

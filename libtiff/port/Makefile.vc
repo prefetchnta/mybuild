@@ -29,6 +29,7 @@
 
 HAVE_STRTOL = 1
 HAVE_STRTOUL = 1
+HAVE_STRTOLL = 0
 
 # strtoul()/strtoull() are provided together
 !IF $(HAVE_STRTOLL)

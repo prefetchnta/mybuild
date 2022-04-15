@@ -11,7 +11,7 @@ Windows (Visual Studio 2010 X86 /MD)
     freetype-2.10.2         DLL (SSE2)              https://sourceforge.net/projects/freetype/files/
     giflib-5.1.4            LIB                     https://sourceforge.net/projects/giflib/files/
     leptonica-1.74.4        DLL                     https://github.com/DanBloomberg/leptonica/releases
-    libjpeg-9d              LIB                     http://www.ijg.org/
+    libjpeg-9e              LIB                     http://www.ijg.org/
     libpng-1.6.37           DLL                     http://www.libpng.org/pub/png/libpng.html
     libtesseract-3.05.02    LIB & DLL               https://github.com/tesseract-ocr/tesseract/releases
     libtiff-4.1.0           LIB & DLL               http://libtiff.maptools.org/

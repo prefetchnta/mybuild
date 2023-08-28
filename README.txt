@@ -16,7 +16,6 @@ Windows (Visual Studio 2010 X86 /MD)
     libtesseract-3.05.02    LIB & DLL               https://github.com/tesseract-ocr/tesseract/releases
     libtiff-4.2.0           LIB & DLL               http://libtiff.maptools.org/
     libwebp-1.2.2           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/releases
-    libzip-1.4.0            DLL                     https://libzip.org/download/
     openjpeg-2.3.1          DLL                     https://github.com/uclouvain/openjpeg/releases
     openssl-1.0.2u          DLL (SSE2)              https://www.openssl.org/source/
     openssl-1.1.1g          DLL (SSE2)              https://www.openssl.org/source/

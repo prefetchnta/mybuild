@@ -358,7 +358,15 @@ static void sycc420_to_rgb(opj_image_t *img)
     if (i < loopmaxh) {
         size_t j;
 
-        for (j = 0U; j < (maxw & ~(size_t)1U); j += 2U) {
+        if (offx > 0U) {
+            sycc_to_rgb(offset, upb, *y, 0, 0, r, g, b);
+            ++y;
+            ++r;
+            ++g;
+            ++b;
+        }
+
+        for (j = 0U; j < (loopmaxw & ~(size_t)1U); j += 2U) {
             sycc_to_rgb(offset, upb, *y, *cb, *cr, r, g, b);
 
             ++y;
@@ -375,7 +383,7 @@ static void sycc420_to_rgb(opj_image_t *img)
             ++cb;
             ++cr;
         }
-        if (j < maxw) {
+        if (j < loopmaxw) {
             sycc_to_rgb(offset, upb, *y, *cb, *cr, r, g, b);
         }
     }
@@ -488,6 +496,10 @@ void color_apply_icc_profile(opj_image_t *image)
     if (out_space == cmsSigRgbData) { /* enumCS 16 */
         unsigned int i, nr_comp = image->numcomps;
 
+        if (nr_comp < 3) { /* GRAY or GRAYA, not RGB or RGBA */
+            cmsCloseProfile(in_prof);
+            return;
+        }
         if (nr_comp > 4) {
             nr_comp = 4;
         }
@@ -529,6 +541,10 @@ void color_apply_icc_profile(opj_image_t *image)
         out_prof = cmsCreate_sRGBProfile();
         new_space = OPJ_CLRSPC_SRGB;
     } else if (out_space == cmsSigYCbCrData) { /* enumCS 18 */
+        if (image->numcomps < 3) {
+            cmsCloseProfile(in_prof);
+            return;
+        }
         in_type = TYPE_YCbCr_16;
         out_type = TYPE_RGB_16;
         out_prof = cmsCreate_sRGBProfile();

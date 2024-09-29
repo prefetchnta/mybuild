@@ -24,8 +24,8 @@ if [ "${OPJ_CI_CXX:-}" != "" ]; then
 fi
 
 OPJ_UPLOAD_ABI_REPORT=0
-#OPJ_PREVIOUS_VERSION="2.2.0"
-OPJ_LATEST_VERSION="2.3.0"
+#OPJ_PREVIOUS_VERSION="2.5.0"
+OPJ_LATEST_VERSION="2.5.1"
 if [ "${OPJ_PREVIOUS_VERSION:-}" != "" ]; then
 	OPJ_LIMIT_ABI_BUILDS="-limit 3"
 else
@@ -35,7 +35,18 @@ OPJ_REPO="https://github.com/uclouvain/openjpeg.git"
 OPJ_SSH_REPO=${OPJ_REPO/https:\/\/github.com\//git@github.com:}
 OPJ_UPLOAD_BRANCH="gh-pages"
 OPJ_UPLOAD_DIR="abi-check"
-if [ "${TRAVIS_REPO_SLUG:-}" != "" ]; then
+OPJ_SOURCE_DIR=$(cd $(dirname $0)/../.. && pwd)
+
+if [ "${GITHUB_REPOSITORY:-}" != "" ]; then
+    BRANCH=$(git -C ${OPJ_SOURCE_DIR} branch | grep '*' | tr -d '*[[:blank:]]')
+	if [ "$(echo "${GITHUB_REPOSITORY}" | sed 's/\(^.*\)\/.*/\1/')" == "uclouvain" ] && [ "${GITHUB_EVENT_NAME:-}" != "pull_request" ] && [ "$BRANCH" == "master" ]; then
+		# Upload updated report to gh-pages
+		echo "FIXME. We aren't yet ready to upload ABI report due to lack of keys to push to the gh-pages branch"
+		# OPJ_UPLOAD_ABI_REPORT=1
+		# Build full report
+		#OPJ_LIMIT_ABI_BUILDS=
+	fi
+elif [ "${TRAVIS_REPO_SLUG:-}" != "" ]; then
 	if [ "$(echo "${TRAVIS_REPO_SLUG}" | sed 's/\(^.*\)\/.*/\1/')" == "uclouvain" ] && [ "${TRAVIS_PULL_REQUEST:-}" == "false" ] && [ "${TRAVIS_BRANCH:-}" == "master" ]; then
 		# Upload updated report to gh-pages
 		OPJ_UPLOAD_ABI_REPORT=1
@@ -43,8 +54,6 @@ if [ "${TRAVIS_REPO_SLUG:-}" != "" ]; then
 		#OPJ_LIMIT_ABI_BUILDS=
 	fi
 fi
-
-OPJ_SOURCE_DIR=$(cd $(dirname $0)/../.. && pwd)
 
 # INSTALL REQUIRED PACKAGES
 
@@ -94,7 +103,15 @@ else
 	grep -v Configure ${OPJ_SOURCE_DIR}/tools/abi-tracker/openjpeg.json > ./openjpeg.json
 fi
 cp -rf ${OPJ_SOURCE_DIR} src/openjpeg/current
+rm -f src/openjpeg/current/build/CMakeCache.txt
 abi-monitor -v current -build openjpeg.json
+cat build_logs/openjpeg/current/make
+
+rm -rf ./installed/openjpeg/${OPJ_LATEST_VERSION}
+rm -rf ./compat_report/openjpeg/${OPJ_LATEST_VERSION}
+rm -rf ./abi_dump/openjpeg/${OPJ_LATEST_VERSION}
+rm -rf ./headers_diff/openjpeg/${OPJ_LATEST_VERSION}
+rm -rf ./objects_report/openjpeg/${OPJ_LATEST_VERSION}
 abi-monitor -v ${OPJ_LATEST_VERSION} -build openjpeg.json
 if [ "${OPJ_PREVIOUS_VERSION:-}" != "" ]; then
 	abi-monitor -v ${OPJ_PREVIOUS_VERSION} -build openjpeg.json
@@ -112,6 +129,9 @@ fi
 # Check ABI
 if [ "${OPJ_LIMIT_ABI_BUILDS}" != "" ]; then
 	abi-compliance-checker -l openjpeg -old $(find ./abi_dump/openjpeg/$OPJ_LATEST_VERSION -name '*.dump') -new $(find ./abi_dump/openjpeg/current -name '*.dump') -header openjpeg.h -abi -s || EXIT_CODE=1
+        if [ ${EXIT_CODE} -eq 1 ]; then
+            cat "compat_reports/openjpeg/${OPJ_LATEST_VERSION}_to_current/abi_compat_report.html"
+        fi
 	if [ "${OPJ_PREVIOUS_VERSION:-}" != "" ]; then
 		abi-compliance-checker -l openjpeg -old $(find ./abi_dump/openjpeg/$OPJ_PREVIOUS_VERSION -name '*.dump') -new $(find ./abi_dump/openjpeg/$OPJ_LATEST_VERSION -name '*.dump') -header openjpeg.h -abi -s || EXIT_CODE=1
 	fi

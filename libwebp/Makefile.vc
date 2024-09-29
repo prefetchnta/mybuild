@@ -291,7 +291,7 @@ IMAGEIO_ENC_OBJS = \
     $(DIROBJ)\imageio\image_enc.obj \
 
 EX_GIF_DEC_OBJS = \
-    $(DIROBJ)\examples\gifdec.obj \
+    $(DIROBJ)\examples\gifdec.obj libgif.lib \
 
 EX_UTIL_OBJS = \
     $(DIROBJ)\examples\example_util.obj \

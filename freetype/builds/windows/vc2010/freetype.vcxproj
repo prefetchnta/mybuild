@@ -123,7 +123,7 @@
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
-      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
@@ -175,7 +175,7 @@
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
-      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
@@ -228,7 +228,7 @@
       <DisableLanguageExtensions>true</DisableLanguageExtensions>
       <WarningLevel>Level4</WarningLevel>
       <CompileAs>Default</CompileAs>
-      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -282,7 +282,7 @@
       <DisableLanguageExtensions>true</DisableLanguageExtensions>
       <WarningLevel>Level4</WarningLevel>
       <CompileAs>Default</CompileAs>
-      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -316,13 +316,13 @@
     <ClCompile Include="..\..\..\src\base\ftpfr.c" />
     <ClCompile Include="..\..\..\src\base\ftstroke.c" />
     <ClCompile Include="..\..\..\src\base\ftsynth.c" />
-    <ClCompile Include="..\..\..\src\base\ftsystem.c" />
     <ClCompile Include="..\..\..\src\base\fttype1.c" />
     <ClCompile Include="..\..\..\src\base\ftwinfnt.c" />
     <ClCompile Include="..\..\..\src\bdf\bdf.c" />
     <ClCompile Include="..\..\..\src\cache\ftcache.c" />
     <ClCompile Include="..\..\..\src\cff\cff.c" />
     <ClCompile Include="..\..\..\src\cid\type1cid.c" />
+    <ClCompile Include="..\..\..\src\dlg\dlgwrap.c" />
     <ClCompile Include="..\..\..\src\gzip\ftgzip.c" />
     <ClCompile Include="..\..\..\src\lzw\ftlzw.c" />
     <ClCompile Include="..\..\..\src\pcf\pcf.c" />
@@ -333,6 +333,8 @@
     <ClCompile Include="..\..\..\src\raster\raster.c" />
     <ClCompile Include="..\..\..\src\sfnt\sfnt.c" />
     <ClCompile Include="..\..\..\src\smooth\smooth.c" />
+    <ClCompile Include="..\..\..\src\sdf\sdf.c" />
+    <ClCompile Include="..\..\..\src\svg\svg.c" />
     <ClCompile Include="..\..\..\src\truetype\truetype.c" />
     <ClCompile Include="..\..\..\src\type1\type1.c" />
     <ClCompile Include="..\..\..\src\type42\type42.c" />
@@ -340,12 +342,33 @@
     <ClCompile Include="..\ftdebug.c">
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
+    <ClCompile Include="..\ftsystem.c">
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+    </ClCompile>
     <ResourceCompile Include="..\..\..\src\base\ftver.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <ItemGroup Condition="Exists('..\..\..\subprojects\dlg\.git')">
+    <DlgSrc Include="..\..\..\subprojects\dlg\include\dlg\output.h">
+      <DlgDst>..\..\..\include\dlg\output.h</DlgDst>
+    </DlgSrc>
+    <DlgSrc Include="..\..\..\subprojects\dlg\include\dlg\dlg.h">
+      <DlgDst>..\..\..\include\dlg\dlg.h</DlgDst>
+    </DlgSrc>
+    <DlgSrc Include="..\..\..\subprojects\dlg\src\dlg\dlg.c">
+      <DlgDst>..\..\..\src\dlg\dlg.c</DlgDst>
+    </DlgSrc>
+  </ItemGroup>
+  <Target Name="DlgCopy" Inputs="@(DlgSrc)" Outputs="@(DlgSrc->'%(DlgDst)')" Condition="Exists('..\..\..\subprojects\dlg\.git')">
+    <Copy SourceFiles="@(DlgSrc)" DestinationFiles="@(DlgSrc->'%(DlgDst)')" />
+  </Target>
   <Target Name="AfterBuild">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="..\..\..\objs" />
+    <ItemGroup>
+      <TargetFiles Include="$(TargetDir)$(TargetName).*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TargetFiles)" DestinationFolder="..\..\..\objs" />
+    <Copy SourceFiles="$(TargetDir)$(TargetFileName)" DestinationFolder="..\..\..\..\freetype-demos\bin" Condition="'$(TargetExt)'=='.dll'" />
   </Target>
 </Project>

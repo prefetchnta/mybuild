@@ -25,7 +25,7 @@ with our utilities mainly interesting as test tools.
 #include <ctype.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <stdbool.h>
+//#include <stdbool.h> /* FUCK IT */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

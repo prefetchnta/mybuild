@@ -10,7 +10,7 @@ SPDX-License-Identifier: MIT
 #define _GETARG_H
 
 #include "gif_lib.h"
-#include <stdbool.h>
+//#include <stdbool.h> /* FUCK IT */
 
 #define VERSION_COOKIE " Version %d.%d, "
 

@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 *****************************************************************************/
 
 #include <ctype.h>
-#include <stdbool.h>
+//#include <stdbool.h> /* FUCK IT */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
 	           GifFile->Image.Width, GifFile->Image.Height);
 
 	for (i = l = 0; i < ColorMap->ColorCount; i++) {
-		(void)snprintf(
+		(void)_snprintf( /* FUCK IT */
 		    Line, sizeof(Line), "Color %-3d: [%-3d, %-3d, %-3d] ", i,
 		    ColorMap->Colors[i].Red, ColorMap->Colors[i].Green,
 		    ColorMap->Colors[i].Blue);

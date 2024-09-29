@@ -37,7 +37,7 @@ static int EGifPutWord(int Word, GifFileType *GifFile);
 static int EGifSetupCompress(GifFileType *GifFile);
 static int EGifCompressLine(GifFileType *GifFile, const GifPixelType *Line,
                             const int LineLen);
-static int EGifCompressOutput(GifFileType *GifFile, int Code);
+static int EGifCompressOutput(GifFileType *GifFile, const int Code); /* FUCK IT */
 static int EGifBufferedOutput(GifFileType *GifFile, GifByteType *Buf, int c);
 
 /* extract bytes from an unsigned word */

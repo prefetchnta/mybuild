@@ -229,14 +229,14 @@ void GifDrawBoxedText8x8(SavedImage *Image, const int x, const int y,
 	/* FIXME: should return bad status, but that would require API change */
 	if (dup != NULL) {
 		int i = 0;
+		char *lasts; /* FUCK IT */
 		/* fill the box */
 		GifDrawRectangle(
 		    Image, x + 1, y + 1,
 		    border + TextWidth * GIF_FONT_WIDTH + border - 1,
 		    border + LineCount * GIF_FONT_HEIGHT + border - 1, bg);
 		(void)strcpy(dup, (char *)legend);
-		char *lasts;
-		cp = strtok_r(dup, "\r\n", &lasts);
+		cp = strtok_s(dup, "\r\n", &lasts); /* FUCK IT */
 		do {
 			int leadspace = 0;
 
@@ -247,7 +247,7 @@ void GifDrawBoxedText8x8(SavedImage *Image, const int x, const int y,
 			GifDrawText8x8(
 			    Image, x + border + (leadspace * GIF_FONT_WIDTH),
 			    y + border + (GIF_FONT_HEIGHT * i++), cp, fg);
-			cp = strtok_r(NULL, "\r\n", &lasts);
+			cp = strtok_s(NULL, "\r\n", &lasts); /* FUCK IT */
 		} while (cp);
 		(void)free((void *)dup);
 

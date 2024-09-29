@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 *****************************************************************************/
 
 #include <ctype.h>
-#include <stdbool.h>
+//#include <stdbool.h> /* FUCK IT */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -586,6 +586,7 @@ static void Icon2Gif(char *FileName, FILE *txtin, bool GifNoisyPrint,
 			int i, j;
 			static GifPixelType *Raster;
 			int c;
+			GifByteType *tp; /* FUCK IT */
 			bool hex = (strstr(buf, "hex") != NULL);
 
 			/* coverity[overflow_sink] */
@@ -605,7 +606,7 @@ static void Icon2Gif(char *FileName, FILE *txtin, bool GifNoisyPrint,
 			           NewImage->ImageDesc.Width,
 			           NewImage->ImageDesc.Height);
 
-			GifByteType *tp = Raster;
+			tp = Raster; /* FUCK IT */
 			for (i = 0; i < NewImage->ImageDesc.Height; i++) {
 
 				char *dp;

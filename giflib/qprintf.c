@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 *****************************************************************************/
 
 #include <stdarg.h>
-#include <stdbool.h>
+//#include <stdbool.h> /* FUCK IT */
 #include <stdio.h>
 
 #include "gif_lib.h"

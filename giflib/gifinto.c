@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 
 #include <ctype.h>
 #include <fcntl.h>
-#include <stdbool.h>
+//#include <stdbool.h> /* FUCK IT */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,6 +68,9 @@ int main(int argc, char **argv) {
 	char **FileName = NULL, FoutTmpName[STRLEN + 1], FullPath[STRLEN + 1],
 	     *p;
 	FILE *Fin, *Fout;
+#ifdef _WIN32 /* FUCK IT */
+	char *tmpFN; /* FUCK IT */
+#endif /* FUCK IT */
 
 	if ((Error = GAGetArgs(argc, argv, CtrlStr, &GifNoisyPrint,
 	                       &MinSizeFlag, &MinFileSize, &HelpFlag, &NumFiles,
@@ -131,7 +134,7 @@ int main(int argc, char **argv) {
 	}
 	strcat(FoutTmpName, DEFAULT_TMP_NAME);
 #ifdef _WIN32
-	char *tmpFN = _mktemp(FoutTmpName);
+	tmpFN = _mktemp(FoutTmpName); /* FUCK IT */
 	if (tmpFN) {
 		FD = open(tmpFN, O_CREAT | O_EXCL | O_WRONLY);
 	} else {
@@ -174,7 +177,7 @@ int main(int argc, char **argv) {
 			strcat(DefaultName, DEFAULT_OUT_NAME);
 			if (rename(FoutTmpName, DefaultName) == 0) {
 				char s[STRLEN];
-				snprintf(
+				_snprintf( /* FUCK IT */
 				    s, STRLEN,
 				    "Failed to rename out file - left as %s.",
 				    DefaultName);

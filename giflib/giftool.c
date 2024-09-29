@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 ****************************************************************************/
 
 #include <fcntl.h>
-#include <stdbool.h>
+//#include <stdbool.h> /* FUCK IT */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

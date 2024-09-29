@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 #include <assert.h>
 #include <ctype.h>
 #include <math.h>
-#include <stdbool.h>
+//#include <stdbool.h> /* FUCK IT */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

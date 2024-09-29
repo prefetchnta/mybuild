@@ -25,17 +25,17 @@ all:
     $(AR) /OUT:libgif.lib $(AFLAGS) $(OBJECTS)
     $(CC) /c $(CFLAGS) $(USOURCES)
     $(AR) /OUT:libutil.lib $(AFLAGS) $(UOBJECTS)
-    $(CC) $(CFLAGS) gif2rgb.c libgif.lib
-    $(CC) $(CFLAGS) gifbg.c libgif.lib
-    $(CC) $(CFLAGS) gifbuild.c libgif.lib
-    $(CC) $(CFLAGS) gifclrmp.c libgif.lib
-    $(CC) $(CFLAGS) gifcolor.c libgif.lib
-    $(CC) $(CFLAGS) gifecho.c libgif.lib
-    $(CC) $(CFLAGS) giffilter.c libgif.lib
-    $(CC) $(CFLAGS) giffix.c libgif.lib
-    $(CC) $(CFLAGS) gifhisto.c libgif.lib
-    $(CC) $(CFLAGS) gifinto.c libgif.lib
-    $(CC) $(CFLAGS) gifsponge.c libgif.lib
-    $(CC) $(CFLAGS) giftext.c libgif.lib
-    $(CC) $(CFLAGS) giftool.c libgif.lib
-    $(CC) $(CFLAGS) gifwedge.c libgif.lib
+    $(CC) $(CFLAGS) gif2rgb.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) gifbg.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) gifbuild.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) gifclrmp.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) gifcolor.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) gifecho.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) giffilter.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) giffix.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) gifhisto.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) gifinto.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) gifsponge.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) giftext.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) giftool.c libgif.lib libutil.lib
+    $(CC) $(CFLAGS) gifwedge.c libgif.lib libutil.lib

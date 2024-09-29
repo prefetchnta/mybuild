@@ -107,7 +107,7 @@ SPDX-License-Identifier: MIT
 **************************************************************************/
 
 #include <stdarg.h>
-#include <stdbool.h>
+//#include <stdbool.h> /* FUCK IT */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -181,11 +181,12 @@ bool GAGetArgs(int argc, char **argv, char *CtrlStr, ...) {
 
 	argv++; /* Skip the program name (first in argv/c list). */
 	while (argv < (char **)argv_end) {
+		char *Option; /* FUCK IT */
 		bool Error = false;
 		if (!GAOptionExists(argv_end, (const char **)argv)) {
 			break; /* The loop. */
 		}
-		char *Option = *argv++;
+		Option = *argv++; /* FUCK IT */
 		if ((Error = GAUpdateParameters(
 		         Parameters, &ParamCount, Option, CtrlStrCopy, CtrlStr,
 		         (char **)argv_end, &argv)) != false) {

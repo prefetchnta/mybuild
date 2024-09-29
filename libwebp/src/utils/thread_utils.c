@@ -25,7 +25,7 @@ typedef HANDLE pthread_t;
 typedef CRITICAL_SECTION pthread_mutex_t;
 
 // Windows Vista / Server 2008 or greater
-#if (_MSC_VER > 1600) && (_WIN32_WINNT >= 0x0600)
+#if (_MSC_VER > 1600) && (_WIN32_WINNT >= 0x0600) /* FUCK IT */
 #define USE_WINDOWS_CONDITION_VARIABLE
 typedef CONDITION_VARIABLE pthread_cond_t;
 #else
@@ -106,7 +106,7 @@ static int pthread_join(pthread_t thread, void** value_ptr) {
 static int pthread_mutex_init(pthread_mutex_t* const mutex, void* mutexattr) {
   (void)mutexattr;
 // Windows Vista / Server 2008 or greater
-#if (_MSC_VER > 1600) && (_WIN32_WINNT >= 0x0600)
+#if (_MSC_VER > 1600) && (_WIN32_WINNT >= 0x0600) /* FUCK IT */
   InitializeCriticalSectionEx(mutex, 0 /*dwSpinCount*/, 0 /*Flags*/);
 #else
   InitializeCriticalSection(mutex);

@@ -909,6 +909,8 @@ int vlc_tbl1[1024] = { 0 };
   */
 OPJ_BOOL vlc_init_tables()
 {
+    int i; /* FUCK IT */
+    size_t j; /* FUCK IT */
     const OPJ_BOOL debug = OPJ_FALSE; //useful for checking
 
     // number of entries in the table
@@ -924,12 +926,12 @@ OPJ_BOOL vlc_init_tables()
     // this is to convert table entries into values for decoder look up
     // There can be at most 1024 possibilities, not all of them are valid.
     //
-    for (int i = 0; i < 1024; ++i) {
+    for (i = 0; i < 1024; ++i) { /* FUCK IT */
         int cwd = i & 0x7F; // from i extract codeword
         int c_q = i >> 7;   // from i extract context
         // See if this case exist in the table, if so then set the entry in
         // vlc_tbl0
-        for (size_t j = 0; j < tbl0_size; ++j)
+        for (j = 0; j < tbl0_size; ++j) /* FUCK IT */
             if (tbl0[j].c_q == c_q) // this is an and operation
                 if (tbl0[j].cwd == (cwd & ((1 << tbl0[j].cwd_len) - 1))) {
                     if (debug) {
@@ -946,10 +948,10 @@ OPJ_BOOL vlc_init_tables()
     }
 
     // this the same as above but for non-initial rows
-    for (int i = 0; i < 1024; ++i) {
+    for (i = 0; i < 1024; ++i) { /* FUCK IT */
         int cwd = i & 0x7F; //7 bits
         int c_q = i >> 7;
-        for (size_t j = 0; j < tbl1_size; ++j)
+        for (j = 0; j < tbl1_size; ++j) /* FUCK IT */
             if (tbl1[j].c_q == c_q) // this is an and operation
                 if (tbl1[j].cwd == (cwd & ((1 << tbl1[j].cwd_len) - 1))) {
                     if (debug) {

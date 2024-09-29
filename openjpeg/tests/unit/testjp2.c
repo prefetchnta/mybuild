@@ -36,7 +36,7 @@ static void test_colorspace(const char* pszDirectory)
     opj_codec_t* l_codec = NULL;                /* Handle to a decompressor */
     opj_dparameters_t parameters;               /* decompression parameters */
 
-    snprintf(szFile, sizeof(szFile), "%s/input/conformance/file1.jp2",
+    _snprintf(szFile, sizeof(szFile), "%s/input/conformance/file1.jp2", /* FUCK IT */
              pszDirectory);
     l_stream = opj_stream_create_default_file_stream(szFile, 1);
     if (!l_stream) {
@@ -87,7 +87,7 @@ static void test_iccprofile(const char* pszDirectory)
     opj_codec_t* l_codec = NULL;                /* Handle to a decompressor */
     opj_dparameters_t parameters;               /* decompression parameters */
 
-    snprintf(szFile, sizeof(szFile), "%s/input/nonregression/relax.jp2",
+    _snprintf(szFile, sizeof(szFile), "%s/input/nonregression/relax.jp2", /* FUCK IT */
              pszDirectory);
     l_stream = opj_stream_create_default_file_stream(szFile, 1);
     if (!l_stream) {

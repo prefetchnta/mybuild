@@ -7972,7 +7972,7 @@ OPJ_BOOL opj_j2k_setup_encoder(opj_j2k_t *p_j2k,
                           "Not enough memory to allocate comment string\n");
             return OPJ_FALSE;
         }
-        snprintf(cp->comment, cp_comment_buf_size, "%s%s", comment, version);
+        _snprintf(cp->comment, cp_comment_buf_size, "%s%s", comment, version); /* FUCK IT */
 #endif
         /* <<UniPG */
     }

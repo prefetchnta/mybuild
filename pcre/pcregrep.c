@@ -71,9 +71,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include "pcre.h"
 
-#if _MSC_VER
-#define snprintf _snprintf
-#endif
+#if _MSC_VER /* FUCK IT */
+#define snprintf _snprintf /* FUCK IT */
+#endif /* FUCK IT */
 
 #define FALSE 0
 #define TRUE 1

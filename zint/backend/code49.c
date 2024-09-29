@@ -1,8 +1,7 @@
 /* code49.c - Handles Code 49 */
-
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2023 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -29,57 +28,62 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
-#include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include "common.h"
 #include "code49.h"
 
-#define INSET	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%!&*"
+static const char C49_INSET[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%!&*";
 
 /* "!" represents Shift 1 and "&" represents Shift 2, "*" represents FNC1 */
 
-int code_49(struct zint_symbol *symbol, unsigned char source[], const int length) {
+INTERNAL int code49(struct zint_symbol *symbol, unsigned char source[], int length) {
     int i, j, rows, M, x_count, y_count, z_count, posn_val, local_value;
     char intermediate[170] = "";
+    char *d = intermediate;
     int codewords[170], codeword_count;
     int c_grid[8][8]; /* Refers to table 3 */
     int w_grid[8][4]; /* Refets to table 2 */
     int pad_count = 0;
     char pattern[80];
+    int bp = 0; /* Initialize to suppress gcc -Wmaybe-uninitialized warning */
     int gs1;
-    size_t h;
+    int h;
+    int error_number = 0;
 
     if (length > 81) {
-        strcpy(symbol->errtxt, "430: Input too long");
+        strcpy(symbol->errtxt, "430: Input too long (81 character maximum)");
         return ZINT_ERROR_TOO_LONG;
     }
-    if (symbol->input_mode == GS1_MODE) {
+    if ((symbol->input_mode & 0x07) == GS1_MODE) {
         gs1 = 1;
-        strcpy(intermediate, "*"); /* FNC1 */
+        *d++ = '*'; /* FNC1 */
     } else {
         gs1 = 0;
     }
 
     for (i = 0; i < length; i++) {
         if (source[i] > 127) {
-            strcpy(symbol->errtxt, "431: Invalid characters in input data");
+            strcpy(symbol->errtxt, "431: Invalid character in input data, extended ASCII not allowed");
             return ZINT_ERROR_INVALID_DATA;
         }
-        if (gs1 && (source[i] == '['))
-            strcat(intermediate, "*"); /* FNC1 */
-        else
-            strcat(intermediate, c49_table7[source[i]]);
+        if (gs1 && (source[i] == '[')) {
+            *d++ = '*'; /* FNC1 */
+        } else {
+            const char *const entry = c49_table7[source[i]];
+            memcpy(d, entry, 2);
+            d += entry[1] ? 2 : 1;
+        }
     }
 
     codeword_count = 0;
     i = 0;
-    h = strlen(intermediate);
+    h = d - intermediate;
     do {
-        if ((intermediate[i] >= '0') && (intermediate[i] <= '9')) {
+        if (z_isdigit(intermediate[i])) {
             /* Numeric data */
-            for (j = 0; (intermediate[i + j] >= '0') && (intermediate[i + j] <= '9'); j++);
+            for (j = 0; z_isdigit(intermediate[i + j]); j++);
             if (j >= 5) {
                 /* Use Numeric Encodation Method */
                 int block_count, c;
@@ -142,7 +146,7 @@ int code_49(struct zint_symbol *symbol, unsigned char source[], const int length
                 switch (block_remain) {
                     case 1:
                         /* Rule (a) */
-                        codewords[codeword_count] = posn(INSET, intermediate[i]);
+                        codewords[codeword_count] = posn(C49_INSET, intermediate[i]);
                         codeword_count++;
                         i++;
                         break;
@@ -184,12 +188,12 @@ int code_49(struct zint_symbol *symbol, unsigned char source[], const int length
                     codeword_count++;
                 }
             } else {
-                codewords[codeword_count] = posn(INSET, intermediate[i]);
+                codewords[codeword_count] = posn(C49_INSET, intermediate[i]);
                 codeword_count++;
                 i++;
             }
         } else {
-            codewords[codeword_count] = posn(INSET, intermediate[i]);
+            codewords[codeword_count] = posn(C49_INSET, intermediate[i]);
             codeword_count++;
             i++;
         }
@@ -239,6 +243,20 @@ int code_49(struct zint_symbol *symbol, unsigned char source[], const int length
             c_grid[rows][i] = 48; /* Pad */
         }
         rows++;
+    }
+
+    if (symbol->option_1 >= 2 && symbol->option_1 <= 8) { /* Minimum no. of rows */
+        if (symbol->option_1 > rows) {
+            for (j = symbol->option_1 - rows; j > 0; j--) {
+                for (i = 0; i < 7; i++) {
+                    c_grid[rows][i] = 48; /* Pad */
+                }
+                rows++;
+            }
+        }
+    } else if (symbol->option_1 >= 1) {
+        strcpy(symbol->errtxt, "433: Minimum number of rows out of range (2 to 8)");
+        return ZINT_ERROR_INVALID_OPTION;
     }
 
     /* Add row count and mode character */
@@ -298,6 +316,21 @@ int code_49(struct zint_symbol *symbol, unsigned char source[], const int length
     }
     c_grid[rows - 1][7] = j % 49;
 
+    if (symbol->debug & ZINT_DEBUG_PRINT) {
+        fputs("Codewords:\n", stdout);
+        for (i = 0; i < rows; i++) {
+            for (j = 0; j < 8; j++) {
+                printf(" %2d", c_grid[i][j]);
+            }
+            fputc('\n', stdout);
+        }
+    }
+#ifdef ZINT_TEST
+    if (symbol->debug & ZINT_DEBUG_TEST) {
+        debug_test_codeword_dump_int(symbol, (int *)c_grid, rows * 8);
+    }
+#endif
+
     /* Transfer data to symbol character array (w grid) */
     for (i = 0; i < rows; i++) {
         for (j = 0; j < 4; j++) {
@@ -306,27 +339,26 @@ int code_49(struct zint_symbol *symbol, unsigned char source[], const int length
     }
 
     for (i = 0; i < rows; i++) {
-        strcpy(pattern, "10"); /* Start character */
+        bp = 0;
+        bp = bin_append_posn(2, 2, pattern, bp); /* Start character "10" */
         for (j = 0; j < 4; j++) {
             if (i != (rows - 1)) {
                 if (c49_table4[i][j] == 'E') {
                     /* Even Parity */
-                    bin_append(c49_even_bitpattern[w_grid[i][j]], 16, pattern);
+                    bp = bin_append_posn(c49_even_bitpattern[w_grid[i][j]], 16, pattern, bp);
                 } else {
                     /* Odd Parity */
-                    bin_append(c49_odd_bitpattern[w_grid[i][j]], 16, pattern);
+                    bp = bin_append_posn(c49_odd_bitpattern[w_grid[i][j]], 16, pattern, bp);
                 }
             } else {
                 /* Last row uses all even parity */
-                bin_append(c49_even_bitpattern[w_grid[i][j]], 16, pattern);
+                bp = bin_append_posn(c49_even_bitpattern[w_grid[i][j]], 16, pattern, bp);
             }
         }
-        strcat(pattern, "1111"); /* Stop character */
+        bp = bin_append_posn(15, 4, pattern, bp); /* Stop character "1111" */
 
         /* Expand into symbol */
-        symbol->row_height[i] = 10;
-
-        for (j = 0; j < strlen(pattern); j++) {
+        for (j = 0; j < bp; j++) {
             if (pattern[j] == '1') {
                 set_module(symbol, i, j);
             }
@@ -334,13 +366,27 @@ int code_49(struct zint_symbol *symbol, unsigned char source[], const int length
     }
 
     symbol->rows = rows;
-    symbol->width = strlen(pattern);
-    symbol->whitespace_width = 10;
-    if (!(symbol->output_options & BARCODE_BIND)) {
-        symbol->output_options += BARCODE_BIND;
-    }
-    symbol->border_width = 2;
+    symbol->width = bp;
 
-    return 0;
+    if (symbol->output_options & COMPLIANT_HEIGHT) {
+        /* ANSI/AIM BC6-2000 Section 2.6 minimum 8X; use 10X as default
+           Formula 2 H = ((h + g)r + g)X = rows * row_height + (rows - 1) * separator as borders not included
+           in symbol->height (added on) */
+        const int separator = symbol->option_3 >= 1 && symbol->option_3 <= 4 ? symbol->option_3 : 1;
+        const float min_row_height = stripf((8.0f * rows + separator * (rows - 1)) / rows);
+        const float default_height = 10.0f * rows + separator * (rows - 1);
+        error_number = set_height(symbol, min_row_height, default_height, 0.0f, 0 /*no_errtxt*/);
+    } else {
+        (void) set_height(symbol, 0.0f, 10.0f * rows, 0.0f, 1 /*no_errtxt*/);
+    }
+
+    symbol->output_options |= BARCODE_BIND;
+
+    if (symbol->border_width == 0) { /* Allow override if non-zero */
+        symbol->border_width = 1; /* ANSI/AIM BC6-2000 Section 2.1 (note change from previous default 2) */
+    }
+
+    return error_number;
 }
 
+/* vim: set ts=4 sw=4 et : */

@@ -7,9 +7,10 @@ build/
 *.pro.user
 .directory
 CMakeLists.txt.user*
-Makefile
 backend/Makefile
 frontend/Makefile
+docs/manual.pdf
+docs/zint.1.tex
 build-*
 win32/*.VC.opendb
 win32/*.VC.db
@@ -17,3 +18,6 @@ win32/Debug
 win32/Release
 win32/x64
 extern/*
+
+.vscode/
+out/

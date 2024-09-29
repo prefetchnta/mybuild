@@ -15,179 +15,208 @@
   </property>
   <property name="windowIcon">
    <iconset>
-    <normaloff>images/zint.png</normaloff>images/zint.png</iconset>
+    <normaloff>:res/zint-qt.ico</normaloff>:res/zint-qt.ico</iconset>
   </property>
   <property name="modal">
    <bool>true</bool>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_6">
+  <layout class="QVBoxLayout" name="vertLayoutSeq">
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_9">
+    <layout class="QHBoxLayout" name="horzLayoutSeq">
      <item>
-      <widget class="QGroupBox" name="groupBox">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="title">
-        <string>Create Sequence</string>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_5">
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout">
-          <item>
-           <layout class="QVBoxLayout" name="verticalLayout">
-            <item>
-             <widget class="QLabel" name="label">
-              <property name="text">
-               <string>Start Value:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLabel" name="label_2">
-              <property name="text">
-               <string>End Value:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLabel" name="lblIncrement">
-              <property name="text">
-               <string>Increment By:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLabel" name="label_4">
-              <property name="text">
-               <string>Format:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLabel" name="label_5">
-              <property name="text">
-               <string>Sequence:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLabel" name="label_6">
-              <property name="text">
-               <string>Sequence File:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLabel" name="label_7">
-              <property name="text">
-               <string>Generate Bar Codes:</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
+      <layout class="QVBoxLayout" name="vertLayoutSeqCreate">
+       <item>
+        <widget class="QGroupBox" name="groupBoxSeqCreate">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="title">
+          <string>Create Sequence</string>
+         </property>
+         <property name="toolTip">
+          <string>Generate a sequence</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayoutSeqCreate">
+          <item row="0" column="0">
+           <widget class="QLabel" name="lblSeqStartVal">
+            <property name="toolTip">
+             <string>Start sequence at this value</string>
+            </property>
+            <property name="text">
+             <string>&amp;Start Value:</string>
+            </property>
+            <property name="buddy">
+             <cstring>spnSeqStartVal</cstring>
+            </property>
+           </widget>
           </item>
-          <item>
-           <layout class="QVBoxLayout" name="verticalLayout_2">
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="spnSeqStartVal">
+            <property name="toolTip">
+             <string>Start sequence at this value</string>
+            </property>
+            <property name="frame">
+             <bool>true</bool>
+            </property>
+            <property name="maximum">
+             <number>999999999</number>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="lblSeqEndVal">
+            <property name="toolTip">
+             <string>End sequence at this value</string>
+            </property>
+            <property name="text">
+             <string>End &amp;Value:</string>
+            </property>
+            <property name="buddy">
+             <cstring>spnSeqEndVal</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="spnSeqEndVal">
+            <property name="toolTip">
+             <string>End sequence at this value</string>
+            </property>
+            <property name="maximum">
+             <number>999999999</number>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="lblSeqIncVal">
+            <property name="toolTip">
+             <string>Go from start to end in steps of this amount</string>
+            </property>
+            <property name="text">
+             <string>Increment &amp;By:</string>
+            </property>
+            <property name="buddy">
+             <cstring>spnSeqIncVal</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="spnSeqIncVal">
+            <property name="toolTip">
+             <string>Go from start to end in steps of this amount</string>
+            </property>
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>999999999</number>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="lblSeqFormat">
+            <property name="toolTip">
+             <string>Format sequence using special characters&lt;table cellspacing=&quot;3&quot;&gt;
+&lt;tr&gt;&lt;td&gt;$&lt;/td&gt;&lt;td&gt;Number or '0'&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;#&lt;/td&gt;&lt;td&gt;Number or space&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;*&lt;/td&gt;&lt;td&gt;Number or '*'&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Other&lt;/td&gt;&lt;td&gt;Insert literally&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;</string>
+            </property>
+            <property name="text">
+             <string>F&amp;ormat:</string>
+            </property>
+            <property name="buddy">
+             <cstring>linSeqFormat</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0" colspan="2">
+           <widget class="QLineEdit" name="linSeqFormat">
+            <property name="toolTip">
+             <string>Format sequence using special characters&lt;table cellspacing=&quot;3&quot;&gt;
+&lt;tr&gt;&lt;td&gt;$&lt;/td&gt;&lt;td&gt;Number or '0'&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;#&lt;/td&gt;&lt;td&gt;Number or space&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;*&lt;/td&gt;&lt;td&gt;Number or '*'&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Other&lt;/td&gt;&lt;td&gt;Insert literally&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;</string>
+            </property>
+            <property name="text">
+             <string>$$$$$$</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0" colspan="2">
+           <layout class="QHBoxLayout" name="horzLayoutSeqCreateBtn">
             <item>
-             <widget class="QLineEdit" name="linStartVal">
-              <property name="text">
-               <string>1</string>
+             <spacer name="horzSpacerSeqCreateBtn">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
               </property>
-              <property name="frame">
-               <bool>true</bool>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
               </property>
-             </widget>
+             </spacer>
             </item>
             <item>
-             <widget class="QLineEdit" name="linEndVal">
-              <property name="text">
-               <string>10</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLineEdit" name="linIncVal">
-              <property name="text">
-               <string>1</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLineEdit" name="linFormat">
-              <property name="text">
-               <string>$$$$$$</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btnCreate">
+             <widget class="QPushButton" name="btnSeqCreate">
               <property name="toolTip">
-               <string>Create a data sequence</string>
+               <string>Generate a data sequence</string>
               </property>
               <property name="text">
-               <string>Create</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btnImport">
-              <property name="toolTip">
-               <string>Get a data sequence from file</string>
-              </property>
-              <property name="text">
-               <string>Import...</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btnExport">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="toolTip">
-               <string>Save the symbols to file</string>
-              </property>
-              <property name="text">
-               <string>Export...</string>
+               <string>Crea&amp;te</string>
               </property>
              </widget>
             </item>
            </layout>
           </item>
          </layout>
-        </item>
-       </layout>
-      </widget>
+        </widget>
+       </item>
+       <item>
+        <spacer name="vertSpacerCreate">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
      </item>
      <item>
-      <widget class="QGroupBox" name="groupBox_2">
+      <widget class="QGroupBox" name="groupBoxSeqPreview">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
+       <property name="toolTip">
+        <string>The data to be encoded, one line per symbol</string>
+       </property>
        <property name="title">
-        <string>Sequence Preview</string>
+        <string>Sequence &amp;Data</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_4">
+       <layout class="QVBoxLayout" name="vertLayoutSeqPreview">
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout_3">
-          <item>
-           <widget class="QPlainTextEdit" name="txtPreview">
-            <property name="toolTip">
-             <string>The data to be encoded, one line per symbol</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <widget class="QPlainTextEdit" name="txtSeqPreview">
+          <property name="toolTip">
+           <string>The data to be encoded, one line per symbol</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </widget>
@@ -195,9 +224,29 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_10">
+    <layout class="QHBoxLayout" name="horzLayoutSeqBtns">
      <item>
-      <spacer name="horizontalSpacer_2">
+      <widget class="QPushButton" name="btnSeqFromFile">
+       <property name="toolTip">
+        <string>Import a data sequence from a file</string>
+       </property>
+       <property name="text">
+        <string>&amp;From File...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnSeqClear">
+       <property name="toolTip">
+        <string>Clear the sequence data</string>
+       </property>
+       <property name="text">
+        <string> C&amp;lear</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horzSpacerSeqBtns">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
@@ -210,16 +259,25 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="btnReset">
+      <widget class="QPushButton" name="btnSeqExport">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="toolTip">
+        <string>Save the symbols to files</string>
+       </property>
        <property name="text">
-        <string>Reset</string>
+        <string>&amp;Export...</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="btnClose">
+      <widget class="QPushButton" name="btnSeqClose">
+       <property name="toolTip">
+        <string>Close window</string>
+       </property>
        <property name="text">
-        <string>Close</string>
+        <string>&amp;Close</string>
        </property>
       </widget>
      </item>

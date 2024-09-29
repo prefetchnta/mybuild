@@ -1,6 +1,6 @@
 /*
     Zint Barcode Generator - the open source barcode generator
-    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2022 Robin Stuart <rstuart114@gmail.com>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,8 +16,9 @@
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 
-#include <QDebug>
+//#include <QDebug>
 #include <QFile>
 #include <QUiLoader>
 #include <QFileDialog>
@@ -26,153 +27,169 @@
 
 #include "sequencewindow.h"
 #include "exportwindow.h"
-#include <stdio.h>
 
-SequenceWindow::SequenceWindow()
+// Shorthand
+#define QSL QStringLiteral
+
+SequenceWindow::SequenceWindow(BarcodeItem *bc) : m_bc(bc)
 {
-	setupUi(this);
-        QSettings settings;
-	QValidator *intvalid = new QIntValidator(this);
+    setupUi(this);
+    QSettings settings;
+#if QT_VERSION < 0x60000
+    settings.setIniCodec("UTF-8");
+#endif
 
-        linStartVal->setText(settings.value("studio/sequence/start_value", "1").toString());
-        linEndVal->setText(settings.value("studio/sequence/end_value", "10").toString());
-        linIncVal->setText(settings.value("studio/sequence/increment", "1").toString());
-        linFormat->setText(settings.value("studio/sequence/format", "$$$$$$").toString());
+    QByteArray geometry = settings.value(QSL("studio/sequence/window_geometry")).toByteArray();
+    restoreGeometry(geometry);
 
-	linStartVal->setValidator(intvalid);
-	linEndVal->setValidator(intvalid);
-	linIncVal->setValidator(intvalid);
-	connect(btnClose, SIGNAL( clicked( bool )), SLOT(quit_now()));
-	connect(btnReset, SIGNAL( clicked( bool )), SLOT(reset_preview()));
-	connect(btnCreate, SIGNAL( clicked( bool )), SLOT(create_sequence()));
-	connect(txtPreview, SIGNAL( textChanged()), SLOT(check_generate()));
-	connect(btnImport, SIGNAL( clicked( bool )), SLOT(import()));
-	connect(btnExport, SIGNAL( clicked( bool )), SLOT(generate_sequence()));
+    spnSeqStartVal->setValue(settings.value(QSL("studio/sequence/start_value"), 1).toInt());
+    spnSeqEndVal->setValue(settings.value(QSL("studio/sequence/end_value"), 10).toInt());
+    spnSeqIncVal->setValue(settings.value(QSL("studio/sequence/increment"), 1).toInt());
+    linSeqFormat->setText(settings.value(QSL("studio/sequence/format"), QSL("$$$$$$")).toString());
+    txtSeqPreview->setPlainText(settings.value(QSL("studio/sequence/preview"), QSL("")).toString());
+
+    QIcon closeIcon(QIcon::fromTheme(QSL("window-close"), QIcon(QSL(":res/x.svg"))));
+    QIcon clearIcon(QSL(":res/delete.svg"));
+    btnSeqClose->setIcon(closeIcon);
+    btnSeqClear->setIcon(clearIcon);
+    check_generate();
+
+    connect(btnSeqClose, SIGNAL( clicked( bool )), SLOT(close()));
+    connect(btnSeqClear, SIGNAL( clicked( bool )), SLOT(clear_preview()));
+    connect(btnSeqCreate, SIGNAL( clicked( bool )), SLOT(create_sequence()));
+    connect(txtSeqPreview, SIGNAL( textChanged()), SLOT(check_generate()));
+    connect(btnSeqFromFile, SIGNAL( clicked( bool )), SLOT(from_file()));
+    connect(btnSeqExport, SIGNAL( clicked( bool )), SLOT(generate_sequence()));
 }
 
 SequenceWindow::~SequenceWindow()
 {
     QSettings settings;
+#if QT_VERSION < 0x60000
+    settings.setIniCodec("UTF-8");
+#endif
+    settings.setValue(QSL("studio/sequence/window_geometry"), saveGeometry());
 
-    settings.setValue("studio/sequence/start_value", linStartVal->text());
-    settings.setValue("studio/sequence/end_value", linEndVal->text());
-    settings.setValue("studio/sequence/increment", linIncVal->text());
-    settings.setValue("studio/sequence/format", linFormat->text());
+    settings.setValue(QSL("studio/sequence/start_value"), spnSeqStartVal->value());
+    settings.setValue(QSL("studio/sequence/end_value"), spnSeqEndVal->value());
+    settings.setValue(QSL("studio/sequence/increment"), spnSeqIncVal->value());
+    settings.setValue(QSL("studio/sequence/format"), linSeqFormat->text());
+    settings.setValue(QSL("studio/sequence/preview"), txtSeqPreview->toPlainText());
 }
 
-void SequenceWindow::quit_now()
+void SequenceWindow::clear_preview()
 {
-	close();
+    txtSeqPreview->clear();
 }
 
-void SequenceWindow::reset_preview()
+QString SequenceWindow::apply_format(const QString& raw_number)
 {
-	txtPreview->clear();
-}
+    QString adjusted, reversed;
+    QString format;
+    int format_len, input_len, i, inpos;
+    QChar format_qchar;
 
-QString SequenceWindow::apply_format(QString raw_number)
-{
-	QString adjusted, reversed;
-	QString format;
-	int format_len, input_len, i, inpos;
-	QChar format_qchar;
+    format = linSeqFormat->text();
+    input_len = raw_number.length();
+    format_len = format.length();
 
-	format = linFormat->text();
-	input_len = raw_number.length();
-	format_len = format.length();
+    inpos = input_len;
 
-	inpos = input_len;
-
-	for(i = format_len; i > 0; i--) {
-		format_qchar = format[i - 1];
+    for (i = format_len; i > 0; i--) {
+        format_qchar = format[i - 1];
         char format_char = format_qchar.toLatin1();
-		switch(format_char) {
-			case '#':
-				if (inpos > 0) {
-					adjusted += raw_number[inpos - 1];
-					inpos--;
-				} else {
-					adjusted += ' ';
-				}
-				break;
-			case '$':
-				if (inpos > 0) {
-					adjusted += raw_number[inpos - 1];
-					inpos--;
-				} else {
-					adjusted += '0';
-				}
-				break;
-			case '*':
-				if (inpos > 0) {
-					adjusted += raw_number[inpos - 1];
-					inpos--;
-				} else {
-					adjusted += '*';
-				}
-				break;
-			default:
-				adjusted += format_char;
-				break;
-		}
-	}
+        switch (format_char) {
+            case '#':
+                if (inpos > 0) {
+                    adjusted += raw_number[inpos - 1];
+                    inpos--;
+                } else {
+                    adjusted += ' ';
+                }
+                break;
+            case '$':
+                if (inpos > 0) {
+                    adjusted += raw_number[inpos - 1];
+                    inpos--;
+                } else {
+                    adjusted += '0';
+                }
+                break;
+            case '*':
+                if (inpos > 0) {
+                    adjusted += raw_number[inpos - 1];
+                    inpos--;
+                } else {
+                    adjusted += '*';
+                }
+                break;
+            default:
+                adjusted += format_char;
+                break;
+        }
+    }
 
-	for(i = format_len; i > 0; i--) {
-		reversed += adjusted[i - 1];
-	}
+    for (i = format_len; i > 0; i--) {
+        reversed += adjusted[i - 1];
+    }
 
-	return reversed;
+    return reversed;
 }
 
 void SequenceWindow::create_sequence()
 {
-	QString startval, endval, incval, part, outputtext;
-	int start, stop, step, i;
-	bool ok;
+    QStringList outputtext;
+    int start, stop, step, i;
 
-	startval = linStartVal->text();
-	endval = linEndVal->text();
-	incval = linIncVal->text();
-	start = startval.toInt(&ok, 10);
-	stop = endval.toInt(&ok, 10);
-	step = incval.toInt(&ok, 10);
+    start = spnSeqStartVal->value();
+    stop = spnSeqEndVal->value();
+    step = spnSeqIncVal->value();
 
-	if((stop <= start) || (step <= 0)) {
-		QMessageBox::critical(this, tr("Sequence Error"), tr("One or more of the input values is incorrect."));
-		return;
-	}
+    if (stop < start) {
+        QMessageBox::critical(this, tr("Sequence Error"),
+                                tr("End Value must be greater than or equal to Start Value."));
+        return;
+    }
+    if ((stop - start) / step > 10000) {
+        QMessageBox::critical(this, tr("Sequence Error"), tr("The maximum sequence allowed is 10,000 items."));
+        return;
+    }
 
-	for(i = start; i <= stop; i += step) {
-		part = apply_format(QString::number(i, 10));
-		part += '\n';
-		outputtext += part;
-	}
+    for (i = start; i <= stop; i += step) {
+        outputtext << apply_format(QString::number(i, 10));
+    }
 
-	txtPreview->setPlainText(outputtext);
+    txtSeqPreview->setPlainText(outputtext.join('\n'));
 }
 
 void SequenceWindow::check_generate()
 {
-	QString preview_copy;
+    QString preview_copy;
 
-	preview_copy = txtPreview->toPlainText();
-	if(preview_copy.isEmpty()) {
-		btnExport->setEnabled(false);
-	} else {
-		btnExport->setEnabled(true);
-	}
+    preview_copy = txtSeqPreview->toPlainText();
+    if (preview_copy.isEmpty()) {
+        btnSeqExport->setEnabled(false);
+        btnSeqClear->setEnabled(false);
+    } else {
+        btnSeqExport->setEnabled(true);
+        btnSeqClear->setEnabled(true);
+    }
 }
 
-void SequenceWindow::import()
+void SequenceWindow::from_file()
 {
     QSettings settings;
+#if QT_VERSION < 0x60000
+    settings.setIniCodec("UTF-8");
+#endif
     QFileDialog import_dialog;
     QString filename;
     QFile file;
     QByteArray outstream;
 
-    import_dialog.setWindowTitle("Import File");
-    import_dialog.setDirectory(settings.value("studio/default_dir", QDir::toNativeSeparators(QDir::homePath())).toString());
+    import_dialog.setWindowTitle(tr("Import File"));
+    import_dialog.setDirectory(settings.value(QSL("studio/default_dir"),
+                                QDir::toNativeSeparators(QDir::homePath())).toString());
 
     if (import_dialog.exec()) {
         filename = import_dialog.selectedFiles().at(0);
@@ -181,24 +198,23 @@ void SequenceWindow::import()
     }
 
     file.setFileName(filename);
-    if(!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QMessageBox::critical(this, tr("Open Error"), tr("Could not open selected file."));
         return;
     }
 
     outstream = file.readAll();
 
-    txtPreview->setPlainText(QString(outstream));
+    txtSeqPreview->setPlainText(QString(outstream));
     file.close();
 
-    settings.setValue("studio/default_dir", filename.mid(0, filename.lastIndexOf(QDir::separator())));
+    settings.setValue(QSL("studio/default_dir"), filename.mid(0, filename.lastIndexOf(QDir::separator())));
 }
 
 void SequenceWindow::generate_sequence()
 {
-	ExportWindow dlg;
-	dlg.barcode = barcode;
-	dlg.output_data = txtPreview->toPlainText();
-	dlg.exec();
+    ExportWindow dlg(m_bc, txtSeqPreview->toPlainText());
+    dlg.exec();
 }
 
+/* vim: set ts=4 sw=4 et : */

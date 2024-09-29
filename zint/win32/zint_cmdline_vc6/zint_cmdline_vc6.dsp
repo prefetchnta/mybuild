@@ -42,7 +42,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\..\backend" /I "..\..\..\zlib" /I "..\..\..\lpng" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /D ZINT_VERSION="\"2.6.2\"" /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\..\backend" /I "..\..\..\zlib" /I "..\..\..\lpng" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /D ZINT_VERSION="\"2.13.0\"" /c
 # ADD BASE RSC /l 0x407 /d "NDEBUG"
 # ADD RSC /l 0x407 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -66,7 +66,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
-# ADD CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /I "..\..\backend" /I "..\..\..\lpng" /I "..\..\..\zlib" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "NO_PNG" /D "DEBUG" /YX /FD /GZ /D ZINT_VERSION="\"2.6\"" /c
+# ADD CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /I "..\..\backend" /I "..\..\..\lpng" /I "..\..\..\zlib" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "ZINT_NO_PNG" /D "DEBUG" /YX /FD /GZ /D ZINT_VERSION="\"2.13.0\"" /c
 # ADD BASE RSC /l 0x407 /d "_DEBUG"
 # ADD RSC /l 0x407 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -97,6 +97,10 @@ SOURCE=..\..\backend\auspost.c
 # Begin Source File
 
 SOURCE=..\..\backend\aztec.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\backend\bc412.c
 # End Source File
 # Begin Source File
 
@@ -152,11 +156,15 @@ SOURCE=..\..\backend\emf.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\frontend\getopt.c
+SOURCE=..\..\backend\general_field.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\frontend\getopt1.c
+SOURCE=..\..\getopt\getopt.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\getopt\getopt1.c
 # End Source File
 # Begin Source File
 
@@ -204,6 +212,10 @@ SOURCE=..\..\backend\medical.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\backend\output.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\backend\pcx.c
 # End Source File
 # Begin Source File
@@ -240,10 +252,6 @@ SOURCE=..\..\backend\reedsol.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\backend\render.c
-# End Source File
-# Begin Source File
-
 SOURCE=..\..\backend\rss.c
 # End Source File
 # Begin Source File
@@ -260,7 +268,15 @@ SOURCE=..\..\backend\tif.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\backend\ultra.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\backend\upcean.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\backend\vector.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -270,6 +286,14 @@ SOURCE=..\..\backend\upcean.c
 # Begin Group "Resource Files"
 
 # PROP Default_Filter "ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
+# Begin Source File
+
+SOURCE=.\zint.rc
+# End Source File
+# Begin Source File
+
+SOURCE=.\zint_black_vc6.ico
+# End Source File
 # End Group
 # End Target
 # End Project

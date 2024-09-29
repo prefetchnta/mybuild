@@ -1,8 +1,7 @@
 /* dmatrix.h - Handles Data Matrix ECC 200 */
-
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2022 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -29,71 +28,58 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
 /*
-    Containes Extended Rectangular Data Matrix (DMRE)
+    Contains Extended Rectangular Data Matrix (DMRE)
     See http://www.dmre.info for information
     Contact: harald.oehlmann@eurodatacouncil.org
  */
 
-#include "common.h"
+#ifndef Z_DMATRIX_H
+#define Z_DMATRIX_H
 
-#ifndef __IEC16022ECC200_H
-#define __IEC16022ECC200_H
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
+#define DM_ASCII    1
+#define DM_C40      2
+#define DM_TEXT     3
+#define DM_X12      4
+#define DM_EDIFACT  5
+#define DM_BASE256  6
 
-extern int data_matrix_200(struct zint_symbol *symbol, const unsigned char source[], const size_t in_length);
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
-
-#define MAXBARCODE 3116
-
-#define DM_NULL         0
-#define DM_ASCII	1
-#define DM_C40		2
-#define DM_TEXT		3
-#define DM_X12		4
-#define DM_EDIFACT	5
-#define DM_BASE256	6
-
-static const char c40_shift[] = {
+static const char dm_c40_shift[] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
 };
 
-static const char c40_value[] = {
+static const char dm_c40_value[] = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
     3, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
     15, 16, 17, 18, 19, 20, 21, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
     22, 23, 24, 25, 26, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
 };
 
-static const char text_shift[] = {
+static const char dm_text_shift[] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
     2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3
 };
 
-static const char text_value[] = {
+static const char dm_text_value[] = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
     3, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
     15, 16, 17, 18, 19, 20, 21, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
     22, 23, 24, 25, 26, 0, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 27, 28, 29, 30, 31
 };
 
-// Position in option array [symbol option value - 1]
-// The position in the option array is by increasing total data codewords with square first
-// The last comment value is the total data codewords value.
-// The index of this array is the --vers parameter value -1 and is given as first comment value
+/* Position in option array [symbol option value - 1]
+   The position in the option array is by increasing total data codewords with square first
+   The last comment value is the total data codewords value.
+   The index of this array is the --vers parameter value -1 and is given as first comment value */
 
-static const unsigned short int intsymbol[] = {
+static const unsigned short dm_intsymbol[] = {
 /* Standard DM */
      0, /*  1: 10x10 ,  3*/  1, /*  2: 12x12 ,  5*/  3, /*  3: 14x14 ,  8*/  5, /*  4: 16x16 , 12*/
      7, /*  5: 18x18 , 18*/  9, /*  6: 20x20 , 22*/ 12, /*  7: 22x22 , 30*/ 15, /*  8: 24x24 , 36*/
@@ -103,24 +89,23 @@ static const unsigned short int intsymbol[] = {
     44, /* 21:104x104,816*/ 45, /* 22:120x120,1050*/46, /* 23:132x132,1304*/47, /* 24:144x144,1558*/
      2, /* 25:  8x18 ,  5*/  4, /* 26:  8x32 , 10*/  6, /* 27: 12x26 , 16*/ 10, /* 28: 12x36 , 22*/
     13, /* 29: 16x36 , 32*/ 20, /* 30: 16x48 , 49*/
-/* DMRE */    
+/* DMRE */
      8, /* 31:  8x48 , 18*/ 11, /* 32:  8x64 , 24*/ 14, /* 33:  8x80 , 32*/ 16, /* 34:  8x96 , 38*/
     21, /* 35:  8x120, 49*/ 25, /* 36:  8x144, 63*/ 17, /* 37: 12x64 , 43*/ 26, /* 38: 12x88 , 64*/
     24, /* 39: 16x64 , 62*/ 19, /* 40: 20x36 , 44*/ 22, /* 41: 20x44 , 56*/ 30, /* 42: 20x64 , 84*/
     28, /* 43: 22x48 , 72*/ 29, /* 44: 24x48 , 80*/ 33, /* 45: 24x64 ,108*/ 27, /* 46: 26x40 , 70*/
     32, /* 47: 26x48 , 90*/ 35, /* 48: 26x64 ,118*/
-    0
 };
 
-// Number of DM Sizes
+/* Number of DM Sizes */
 #define DMSIZESCOUNT 48
-// Number of 144x144 for special interlace
+/* Number of 144x144 for special interlace */
 #define INTSYMBOL144 47
 
-// Is the current code a DMRE code ?
-// This is the case, if intsymbol index >= 30
+/* Is the current code a DMRE code ?
+   This is the case, if dm_intsymbol index >= 30 */
 
-static const char isDMRE[] = {
+static const char dm_isDMRE[] = {
     /* 0*/ 0, /*  10x10,  3*/ 0, /* 12x12 ,  5*/ 0, /*  8x18 ,  5*/ 0, /* 14x14 ,  8*/
     /* 4*/ 0, /*  8x32 , 10*/ 0, /* 16x16 , 12*/ 0, /* 12x26 , 16*/ 0, /* 18x18 , 18*/
     /* 8*/ 1, /*  8x48 , 18*/ 0, /* 20x20 , 22*/ 0, /* 12x36 , 22*/ 1, /*  8x64 , 24*/
@@ -135,9 +120,9 @@ static const char isDMRE[] = {
     /*44*/ 0, /*104x104,816*/ 0, /*120x120,1050*/0, /*132x132,1304*/0  /*144x144,1558*/
 };
 
-// Horizontal matrix size
+/* Horizontal matrix size */
 
-static const unsigned short int matrixH[] = {
+static const unsigned short dm_matrixH[] = {
     /* 0*/ 10, /* 10x10 ,  3*/ 12, /* 12x12 , 5 */  8, /*  8x18 ,  5*/ 14, /* 14x14 ,  8*/
     /* 4*/  8, /*  8x32 , 10*/ 16, /* 16x16 , 12*/ 12, /* 12x26 , 16*/ 18, /* 18x18 , 18*/
     /* 8*/  8, /*  8x48 , 18*/ 20, /* 20x20 , 22*/ 12, /* 12x36 , 22*/  8, /*  8x64 , 24*/
@@ -152,9 +137,9 @@ static const unsigned short int matrixH[] = {
     /*44*/104, /*104x104,816*/ 120,/*120x120,1050*/132,/*132x132,1304*/144 /*144x144,1558*/
 };
 
-// Vertical matrix sizes
+/* Vertical matrix sizes */
 
-static const unsigned short int matrixW[] = {
+static const unsigned short dm_matrixW[] = {
     /* 0*/ 10, /* 10x10 */ 12, /* 12x12 */ 18, /*  8x18 */ 14, /* 14x14 */
     /* 4*/ 32, /*  8x32 */ 16, /* 16x16 */ 26, /* 12x26 */ 18, /* 18x18 */
     /* 8*/ 48, /*  8x48 */ 20, /* 20x20 */ 36, /* 12x36 */ 64, /*  8x64 */
@@ -170,77 +155,77 @@ static const unsigned short int matrixW[] = {
 
 };
 
-// Horizontal submodule size (including subfinder)
+/* Horizontal submodule size (including subfinder) */
 
-static const unsigned short int matrixFH[] = {
+static const unsigned short dm_matrixFH[] = {
     /* 0*/ 10, /* 10x10 */ 12, /* 12x12 */  8, /*  8x18 */ 14, /* 14x14 */
     /* 4*/  8, /*  8x32 */ 16, /* 16x16 */ 12, /* 12x26 */ 18, /* 18x18 */
     /* 8*/  8, /*  8x48 */ 20, /* 20x20 */ 12, /* 12x36 */  8, /*  8x64 */
     /*12*/ 22, /* 22x22 */ 16, /* 16x36 */  8, /*  8x80 */ 24, /* 24x24 */
-	/*16*/  8, /*  8x96 */ 12, /* 12x64 */ 26, /* 26x26 */ 20, /* 20x36 */
+    /*16*/  8, /*  8x96 */ 12, /* 12x64 */ 26, /* 26x26 */ 20, /* 20x36 */
     /*20*/ 16, /* 16x48 */  8, /*  8x120*/ 20, /* 20x44 */ 16, /* 32x32 */
     /*24*/ 16, /* 16x64 */  8, /*  8x144*/ 12, /* 12x88 */ 26, /* 26x40 */
     /*28*/ 22, /* 22x48 */ 24, /* 24x48 */ 20, /* 20x64 */ 18, /* 36x36 */
     /*32*/ 26, /* 26x48 */ 24, /* 24x64 */ 20, /* 40x40 */ 26, /* 26x64 */
     /*36*/ 22, /* 44x44 */ 24, /* 48x48 */ 26, /* 52x52 */ 16, /* 64x64 */
     /*40*/ 18, /* 72x72 */ 20, /* 80x80 */ 22, /* 88x88 */ 24, /* 96x96 */
-	/*44*/ 26, /*104x104*/ 20, /*120x120*/ 22, /*132x132*/ 24  /*144x144*/
+    /*44*/ 26, /*104x104*/ 20, /*120x120*/ 22, /*132x132*/ 24  /*144x144*/
 };
 
-// Vertical submodule size (including subfinder)
+/* Vertical submodule size (including subfinder) */
 
-static const unsigned short int matrixFW[] = {
+static const unsigned short dm_matrixFW[] = {
     /* 0*/ 10, /* 10x10 */ 12, /* 12x12 */ 18, /*  8x18 */ 14, /* 14x14 */
     /* 4*/ 16, /*  8x32 */ 16, /* 16x16 */ 26, /* 12x26 */ 18, /* 18x18 */
     /* 8*/ 24, /*  8x48 */ 20, /* 20x20 */ 18, /* 12x36 */ 16, /*  8x64 */
     /*12*/ 22, /* 22x22 */ 18, /* 16x36 */ 20, /*  8x80 */ 24, /* 24x24 */
-	/*16*/ 24, /*  8x96 */ 16, /* 12x64 */ 26, /* 26x26 */ 18, /* 20x36 */
+    /*16*/ 24, /*  8x96 */ 16, /* 12x64 */ 26, /* 26x26 */ 18, /* 20x36 */
     /*20*/ 24, /* 16x48 */ 20, /*  8x120*/ 22, /* 20x44 */ 16, /* 32x32 */
     /*24*/ 16, /* 16x64 */ 24, /*  8x144*/ 22, /* 12x88 */ 20, /* 26x40 */
     /*28*/ 24, /* 22x48 */ 24, /* 24x48 */ 16, /* 20x64 */ 18, /* 36x36 */
     /*32*/ 24, /* 26x48 */ 16, /* 24x64 */ 20, /* 40x40 */ 16, /* 26x64 */
     /*36*/ 22, /* 44x44 */ 24, /* 48x48 */ 26, /* 52x52 */ 16, /* 64x64 */
     /*40*/ 18, /* 72x72 */ 20, /* 80x80 */ 22, /* 88x88 */ 24, /* 96x96 */
-	/*44*/ 26, /*104x104*/ 20, /*120x120*/ 22, /*132x132*/ 24  /*144x144*/
+    /*44*/ 26, /*104x104*/ 20, /*120x120*/ 22, /*132x132*/ 24  /*144x144*/
 };
 
-// Total Data Codewords
+/* Total Data Codewords */
 
-static const unsigned short int matrixbytes[] = {
+static const unsigned short dm_matrixbytes[] = {
     /* 0*/   3, /* 10x10 */   5, /* 12x12 */   5, /*  8x18 */   8, /* 14x14 */
     /* 4*/  10, /*  8x32 */  12, /* 16x16 */  16, /* 12x26 */  18, /* 18x18 */
     /* 8*/  18, /*  8x48 */  22, /* 20x20 */  22, /* 12x36 */  24, /*  8x64 */
     /*12*/  30, /* 22x22 */  32, /* 16x36 */  32, /*  8x80 */  36, /* 24x24 */
-	/*16*/  38, /*  8x96 */  43, /* 12x64 */  44, /* 26x26 */  44, /* 20x36 */
+    /*16*/  38, /*  8x96 */  43, /* 12x64 */  44, /* 26x26 */  44, /* 20x36 */
     /*20*/  49, /* 16x48 */  49, /*  8x120*/  56, /* 20x44 */  62, /* 32x32 */
     /*24*/  62, /* 16x64 */  63, /*  8x144*/  64, /* 12x88 */  70, /* 26x40 */
     /*28*/  72, /* 22x48 */  80, /* 24x48 */  84, /* 20x64 */  86, /* 36x36 */
     /*32*/  90, /* 26x48 */ 108, /* 24x64 */ 114, /* 40x40 */ 118, /* 26x64 */
     /*36*/ 144, /* 44x44 */ 174, /* 48x48 */ 204, /* 52x52 */ 280, /* 64x64 */
     /*40*/ 368, /* 72x72 */ 456, /* 80x80 */ 576, /* 88x88 */ 696, /* 96x96 */
-	/*44*/ 816, /*104x104*/1050, /*120x120*/1304, /*132x132*/1558  /*144x144*/
+    /*44*/ 816, /*104x104*/1050, /*120x120*/1304, /*132x132*/1558  /*144x144*/
 };
 
-// Data Codewords per RS-Block
+/* Data Codewords per RS-Block */
 
-static const unsigned short int matrixdatablock[] = {
+static const unsigned short dm_matrixdatablock[] = {
     /* 0*/   3, /* 10x10 */   5, /* 12x12 */   5, /*  8x18 */   8, /* 14x14 */
     /* 4*/  10, /*  8x32 */  12, /* 16x16 */  16, /* 12x26 */  18, /* 18x18 */
     /* 8*/  18, /*  8x48 */  22, /* 20x20 */  22, /* 12x36 */  24, /*  8x64 */
     /*12*/  30, /* 22x22 */  32, /* 16x36 */  32, /*  8x80 */  36, /* 24x24 */
-	/*16*/  38, /*  8x96 */  43, /* 12x64 */  44, /* 26x26 */  44, /* 20x36 */
+    /*16*/  38, /*  8x96 */  43, /* 12x64 */  44, /* 26x26 */  44, /* 20x36 */
     /*20*/  49, /* 16x48 */  49, /*  8x120*/  56, /* 20x44 */  62, /* 32x32 */
     /*24*/  62, /* 16x64 */  63, /*  8x144*/  64, /* 12x88 */  70, /* 26x40 */
     /*28*/  72, /* 22x48 */  80, /* 24x48 */  84, /* 20x64 */  86, /* 36x36 */
     /*32*/  90, /* 26x48 */ 108, /* 24x64 */ 114, /* 40x40 */ 118, /* 26x64 */
     /*36*/ 144, /* 44x44 */ 174, /* 48x48 */ 102, /* 52x52 */ 140, /* 64x64 */
     /*40*/  92, /* 72x72 */ 114, /* 80x80 */ 144, /* 88x88 */ 174, /* 96x96 */
-	/*44*/ 136, /*104x104*/ 175, /*120x120*/ 163, /*132x132*/ 156 /* 144x144*/
+    /*44*/ 136, /*104x104*/ 175, /*120x120*/ 163, /*132x132*/ 156 /* 144x144*/
 };
 
-// ECC Codewords per RS-Block
+/* ECC Codewords per RS-Block */
 
-static const unsigned short int matrixrsblock[] = {
+static const unsigned short dm_matrixrsblock[] = {
     /* 0*/  5, /* 10x10 */  7, /* 12x12 */  7, /*  8x18 */ 10, /* 14x14 */
     /* 4*/ 11, /*  8x32 */ 12, /* 16x16 */ 14, /* 12x26 */ 14, /* 18x18 */
     /* 8*/ 15, /*  8x48 */ 18, /* 20x20 */ 18, /* 12x36 */ 18, /*  8x64 */
@@ -251,10 +236,9 @@ static const unsigned short int matrixrsblock[] = {
     /*28*/ 38, /* 22x48 */ 41, /* 24x48 */ 42, /* 20x64 */ 42, /* 36x36 */
     /*32*/ 42, /* 26x48 */ 46, /* 24x64 */ 48, /* 40x40 */ 50, /* 26x64 */
     /*36*/ 56, /* 44x44 */ 68, /* 48x48 */ 42, /* 52x52 */ 56, /* 64x64 */
-	/*40*/ 36, /* 72x72 */ 48, /* 80x80 */ 56, /* 88x88 */ 68, /* 96x96 */
+    /*40*/ 36, /* 72x72 */ 48, /* 80x80 */ 56, /* 88x88 */ 68, /* 96x96 */
     /*44*/ 56, /*104x104*/ 68, /*120x120*/ 62, /*132x132*/ 62  /*144x144*/
 };
 
-
-#endif
-
+/* vim: set ts=4 sw=4 et : */
+#endif /* Z_DMATRIX_H */

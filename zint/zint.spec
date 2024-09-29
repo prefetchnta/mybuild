@@ -1,5 +1,5 @@
 Name:      zint
-Version:   2.6.7
+Version:   2.13.0
 Release:   2%{?dist}
 Summary:   A barcode generator and library
 License:   GPLv3+
@@ -41,7 +41,7 @@ Requires:      %{name} = %{version}-%{release}
 %description -n zint-devel 
 C library and header files needed to develop applications using %{name}.
 The API documentation can be found ont the project website:
-http://www.zint.org.uk/zintSite/Manual.aspx
+https://zint.org.uk/manual/
 
 
 %package -n zint-qt
@@ -72,11 +72,8 @@ C library and header files needed to develop applications using %{name}-qt.
 %setup -q
 %patch0 -p1
 
-# remove BSD-licensed file required for Windows only (just to ensure that this package is plain GPLv3+)
-rm -f backend/ms_stdint.h
-
 # remove bundled getopt sources (we use the corresponding Fedora package instead)
-rm -f frontend/getopt*.*
+rm -rf getopt
 
 %build
 %cmake CMakeLists.txt
@@ -138,8 +135,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 
-* Mon Oct 7 2019 Harald Oehlmann <oehhar@sourceforge.net> - 2.6.7
-- Version -> 2.6.7
+* Sat Feb 1 2020 Harald Oehlmann <oehhar@sourceforge.net> - 2.7.1
+- Version -> 2.7.1
+
+* Thu Dec 5 2019 Harald Oehlmann <oehhar@sourceforge.net> - 2.7.0
+- Version -> 2.7.0
 
 * Wed Sep 18 2019 Harald Oehlmann <oehhar@sourceforge.net> - 2.6.6
 - Version -> 2.6.6

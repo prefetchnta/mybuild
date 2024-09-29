@@ -1,19 +1,35 @@
-# (c) 2008 by BogDan Vatra < bogdan@licentia.eu >
+# Copyright (C) 2008 by BogDan Vatra < bogdan@licentia.eu >
+# Copyright (C) 2009-2021 Robin Stuart <rstuart114@gmail.com>
+# vim: set ts=4 sw=4 et :
 
 project(zint_frontend)
 
-set(zint_frontend_SRCS main.c )
+set(${PROJECT_NAME}_SRCS main.c)
 
-include_directories(BEFORE "${CMAKE_SOURCE_DIR}/backend")
+add_executable(${PROJECT_NAME} ${zint_frontend_SRCS})
 
-add_executable(zint_frontend ${zint_frontend_SRCS})
+if(WIN32)
+    target_sources(${PROJECT_NAME} PRIVATE zint.rc)
+endif()
 
-set_target_properties(zint_frontend PROPERTIES   OUTPUT_NAME "zint")
+target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../backend")
 
-add_dependencies(zint_frontend zint)
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "zint")
 
-link_directories( "${CMAKE_BINARY_DIR}/backend" )
+if(ZINT_SHARED)
+    target_link_libraries(${PROJECT_NAME} zint)
+else()
+    target_link_libraries(${PROJECT_NAME} zint-static)
+endif()
+if(NOT HAVE_GETOPT)
+    target_link_libraries(${PROJECT_NAME} zint_bundled_getopt)
+endif()
 
-target_link_libraries(zint_frontend zint)
+install(TARGETS ${PROJECT_NAME} DESTINATION "${BIN_INSTALL_DIR}" RUNTIME)
+if(UNIX)
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../docs/zint.1" DESTINATION "${MAN_INSTALL_DIR}/man1" COMPONENT doc)
+endif()
 
-install(TARGETS zint_frontend DESTINATION "${BIN_INSTALL_DIR}" RUNTIME)
+if(ZINT_TEST)
+    add_subdirectory(tests)
+endif()

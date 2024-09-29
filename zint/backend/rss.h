@@ -1,8 +1,7 @@
 /* rss.h - Data tables for Reduced Space Symbology */
-
 /*
     libzint - the open source barcode library
-    Copyright (C) 2007-2017 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2007-2022 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -29,16 +28,13 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
-#define NUMERIC		110
-#define ALPHA		97
-#define ISOIEC		105
-#define	INVALID_CHAR	100
-#define	ANY_ENC		120
-#define ALPHA_OR_ISO	121
+#ifndef Z_RSS_H
+#define Z_RSS_H
 
 /* RSS-14 Tables */
-static const unsigned short int g_sum_table[9] = {
+static const unsigned short g_sum_table[9] = {
     0, 161, 961, 2015, 2715, 0, 336, 1036, 1516
 };
 
@@ -62,7 +58,6 @@ static const char widest_even[9] = {
     1, 3, 5, 6, 8, 7, 5, 3, 1
 };
 
-static int widths[8];
 static const char finder_pattern[45] = {
     3, 8, 2, 1, 1,
     3, 5, 5, 1, 1,
@@ -84,7 +79,7 @@ static const char checksum_weight[32] = {
 };
 
 /* RSS Limited Tables */
-static const unsigned short int t_even_ltd[7] = {
+static const unsigned short t_even_ltd[7] = {
     28, 728, 6454, 203, 2408, 1, 16632
 };
 
@@ -203,11 +198,11 @@ static const char finder_pattern_ltd[1246] = {
 };
 
 /* RSS Expanded Tables */
-static const unsigned short int g_sum_exp[5] = {
+static const unsigned short g_sum_exp[5] = {
     0, 348, 1388, 2948, 3988
 };
 
-static const unsigned short int t_even_exp[5] = {
+static const unsigned short t_even_exp[5] = {
     4, 20, 52, 104, 204
 };
 
@@ -227,7 +222,7 @@ static const char widest_even_exp[5] = {
     2, 4, 5, 6, 8
 };
 
-static const unsigned short int checksum_weight_exp[184] = {
+static const unsigned short checksum_weight_exp[184] = {
     /* Table 14 */
     1, 3, 9, 27, 81, 32, 96, 77,
     20, 60, 180, 118, 143, 7, 21, 63,
@@ -297,3 +292,5 @@ static const char weight_rows[210] = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 11, 12, 17, 18, 15, 16, 21, 22, 19, 20
 };
 
+/* vim: set ts=4 sw=4 et : */
+#endif /* Z_RSS_H */

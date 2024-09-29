@@ -36,7 +36,7 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <AdditionalIncludeDirectories>..\backend;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_WIN32;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;ZINT_VERSION="2.6.7";ZINT_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WIN32;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;ZINT_VERSION="2.13.0";ZINT_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling />
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -53,13 +53,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\frontend\getopt.c" />
-    <ClCompile Include="..\frontend\getopt1.c" />
+    <ClCompile Include="..\getopt\getopt.c" />
+    <ClCompile Include="..\getopt\getopt1.c" />
     <ClCompile Include="..\frontend\main.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\frontend\resource.h" />
-    <ClInclude Include="frontend\getopt.h" />
+    <ClInclude Include="..\getopt\getopt.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\frontend\zint.rc" />

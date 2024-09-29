@@ -1,8 +1,7 @@
 /* code128.c - Handles Code 128 and derivatives */
-
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008-2019 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008-2023 Robin Stuart <rstuart114@gmail.com>
     Bugfixes thanks to Christian Sakowski and BogDan Vatra
 
     Redistribution and use in source and binary forms, with or without
@@ -30,96 +29,97 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
+#include <assert.h>
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#ifdef _MSC_VER
-#include <malloc.h>
-#endif
 #include "common.h"
+#include "code128.h"
 #include "gs1.h"
 
-#define TRUE 1
-#define FALSE 0
-#define SHIFTA 90
-#define LATCHA 91
-#define SHIFTB 92
-#define LATCHB 93
-#define SHIFTC 94
-#define LATCHC 95
-#define AORB 96
-#define ABORC 97
+#define C128_SYMBOL_MAX 99
 
-#define DPDSET	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ*"
-
-static int list[2][170];
+static const char KRSET[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+#define KRSET_F (IS_NUM_F | IS_UPR_F)
 
 /* Code 128 tables checked against ISO/IEC 15417:2007 */
 
-static const char *C128Table[107] = {
-    /* Code 128 character encodation - Table 1 */
-    "212222", "222122", "222221", "121223", "121322", "131222", "122213",
-    "122312", "132212", "221213", "221312", "231212", "112232", "122132", "122231", "113222",
-    "123122", "123221", "223211", "221132", "221231", "213212", "223112", "312131", "311222",
-    "321122", "321221", "312212", "322112", "322211", "212123", "212321", "232121", "111323",
-    "131123", "131321", "112313", "132113", "132311", "211313", "231113", "231311", "112133",
-    "112331", "132131", "113123", "113321", "133121", "313121", "211331", "231131", "213113",
-    "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111", "314111",
-    "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214",
-    "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112",
-    "134111", "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112",
-    "421211", "212141", "214121", "412121", "111143", "111341", "131141", "114113", "114311",
-    "411113", "411311", "113141", "114131", "311141", "411131", "211412", "211214", "211232",
-    "2331112"
+INTERNAL_DATA const char C128Table[107][6] = { /* Used by CODABLOCKF and CODE16K also */
+    /* Code 128 character encodation - Table 1 (with final CODE16K-only character in place of Stop character) */
+    {'2','1','2','2','2','2'}, {'2','2','2','1','2','2'}, {'2','2','2','2','2','1'}, {'1','2','1','2','2','3'},
+    {'1','2','1','3','2','2'}, {'1','3','1','2','2','2'}, {'1','2','2','2','1','3'}, {'1','2','2','3','1','2'},
+    {'1','3','2','2','1','2'}, {'2','2','1','2','1','3'}, {'2','2','1','3','1','2'}, {'2','3','1','2','1','2'},
+    {'1','1','2','2','3','2'}, {'1','2','2','1','3','2'}, {'1','2','2','2','3','1'}, {'1','1','3','2','2','2'},
+    {'1','2','3','1','2','2'}, {'1','2','3','2','2','1'}, {'2','2','3','2','1','1'}, {'2','2','1','1','3','2'},
+    {'2','2','1','2','3','1'}, {'2','1','3','2','1','2'}, {'2','2','3','1','1','2'}, {'3','1','2','1','3','1'},
+    {'3','1','1','2','2','2'}, {'3','2','1','1','2','2'}, {'3','2','1','2','2','1'}, {'3','1','2','2','1','2'},
+    {'3','2','2','1','1','2'}, {'3','2','2','2','1','1'}, {'2','1','2','1','2','3'}, {'2','1','2','3','2','1'},
+    {'2','3','2','1','2','1'}, {'1','1','1','3','2','3'}, {'1','3','1','1','2','3'}, {'1','3','1','3','2','1'},
+    {'1','1','2','3','1','3'}, {'1','3','2','1','1','3'}, {'1','3','2','3','1','1'}, {'2','1','1','3','1','3'},
+    {'2','3','1','1','1','3'}, {'2','3','1','3','1','1'}, {'1','1','2','1','3','3'}, {'1','1','2','3','3','1'},
+    {'1','3','2','1','3','1'}, {'1','1','3','1','2','3'}, {'1','1','3','3','2','1'}, {'1','3','3','1','2','1'},
+    {'3','1','3','1','2','1'}, {'2','1','1','3','3','1'}, {'2','3','1','1','3','1'}, {'2','1','3','1','1','3'},
+    {'2','1','3','3','1','1'}, {'2','1','3','1','3','1'}, {'3','1','1','1','2','3'}, {'3','1','1','3','2','1'},
+    {'3','3','1','1','2','1'}, {'3','1','2','1','1','3'}, {'3','1','2','3','1','1'}, {'3','3','2','1','1','1'},
+    {'3','1','4','1','1','1'}, {'2','2','1','4','1','1'}, {'4','3','1','1','1','1'}, {'1','1','1','2','2','4'},
+    {'1','1','1','4','2','2'}, {'1','2','1','1','2','4'}, {'1','2','1','4','2','1'}, {'1','4','1','1','2','2'},
+    {'1','4','1','2','2','1'}, {'1','1','2','2','1','4'}, {'1','1','2','4','1','2'}, {'1','2','2','1','1','4'},
+    {'1','2','2','4','1','1'}, {'1','4','2','1','1','2'}, {'1','4','2','2','1','1'}, {'2','4','1','2','1','1'},
+    {'2','2','1','1','1','4'}, {'4','1','3','1','1','1'}, {'2','4','1','1','1','2'}, {'1','3','4','1','1','1'},
+    {'1','1','1','2','4','2'}, {'1','2','1','1','4','2'}, {'1','2','1','2','4','1'}, {'1','1','4','2','1','2'},
+    {'1','2','4','1','1','2'}, {'1','2','4','2','1','1'}, {'4','1','1','2','1','2'}, {'4','2','1','1','1','2'},
+    {'4','2','1','2','1','1'}, {'2','1','2','1','4','1'}, {'2','1','4','1','2','1'}, {'4','1','2','1','2','1'},
+    {'1','1','1','1','4','3'}, {'1','1','1','3','4','1'}, {'1','3','1','1','4','1'}, {'1','1','4','1','1','3'},
+    {'1','1','4','3','1','1'}, {'4','1','1','1','1','3'}, {'4','1','1','3','1','1'}, {'1','1','3','1','4','1'},
+    {'1','1','4','1','3','1'}, {'3','1','1','1','4','1'}, {'4','1','1','1','3','1'}, {'2','1','1','4','1','2'},
+    {'2','1','1','2','1','4'}, {'2','1','1','2','3','2'}, {/* Only used by CODE16K */ '2','1','1','1','3','3'}
 };
 
 /* Determine appropriate mode for a given character */
-int parunmodd(const unsigned char llyth) {
+INTERNAL int c128_parunmodd(const unsigned char llyth) {
     int modd;
-    modd = 0;
 
     if (llyth <= 31) {
-        modd = SHIFTA;
+        modd = C128_SHIFTA;
     } else if ((llyth >= 48) && (llyth <= 57)) {
-        modd = ABORC;
+        modd = C128_ABORC;
     } else if (llyth <= 95) {
-        modd = AORB;
+        modd = C128_AORB;
     } else if (llyth <= 127) {
-        modd = SHIFTB;
+        modd = C128_SHIFTB;
     } else if (llyth <= 159) {
-        modd = SHIFTA;
+        modd = C128_SHIFTA;
     } else if (llyth <= 223) {
-        modd = AORB;
+        modd = C128_AORB;
     } else {
-        modd = SHIFTB;
+        modd = C128_SHIFTB;
     }
 
     return modd;
 }
 
 /**
- * bring together same type blocks
+ * Bring together same type blocks
  */
-void grwp(int *indexliste) {
+static void c128_grwp(int list[2][C128_MAX], int *p_indexliste) {
 
     /* bring together same type blocks */
-    if (*(indexliste) > 1) {
+    if (*p_indexliste > 1) {
         int i = 1;
-        while (i < *(indexliste)) {
+        while (i < *p_indexliste) {
             if (list[1][i - 1] == list[1][i]) {
                 int j;
                 /* bring together */
                 list[0][i - 1] = list[0][i - 1] + list[0][i];
                 j = i + 1;
 
-                /* decreace the list */
-                while (j < *(indexliste)) {
+                /* decrease the list */
+                while (j < *p_indexliste) {
                     list[0][j - 1] = list[0][j];
                     list[1][j - 1] = list[1][j];
                     j++;
                 }
-                *(indexliste) = *(indexliste) - 1;
+                *p_indexliste = *p_indexliste - 1;
                 i--;
             }
             i++;
@@ -130,132 +130,128 @@ void grwp(int *indexliste) {
 /**
  * Implements rules from ISO 15417 Annex E
  */
-void dxsmooth(int *indexliste) {
+INTERNAL void c128_dxsmooth(int list[2][C128_MAX], int *p_indexliste, const char *manual_set) {
     int i, last, next;
+    const int indexliste = *p_indexliste;
 
-    for (i = 0; i < *(indexliste); i++) {
-        int current = list[1][i];
+    for (i = 0; i < indexliste; i++) {
+        int current = list[1][i]; /* Either C128_ABORC, C128_AORB, C128_SHIFTA or C128_SHIFTB */
         int length = list[0][i];
         if (i != 0) {
             last = list[1][i - 1];
         } else {
-            last = FALSE;
+            last = 0;
         }
-        if (i != *(indexliste) - 1) {
+        if (i != indexliste - 1) {
             next = list[1][i + 1];
         } else {
-            next = FALSE;
+            next = 0;
         }
 
         if (i == 0) { /* first block */
-            if ((*(indexliste) == 1) && ((length == 2) && (current == ABORC))) {
-                /* Rule 1a */
-                list[1][i] = LATCHC;
-            }
-            if (current == ABORC) {
-                if (length >= 4) {
+            if (current == C128_ABORC) {
+                if (manual_set && manual_set[i]) {
+                    list[1][i] = manual_set[i];
+                    current = manual_set[i];
+                } else if ((indexliste == 1) && (length == 2)) {
+                    /* Rule 1a */
+                    list[1][i] = C128_LATCHC;
+                    current = C128_LATCHC;
+                } else if (length >= 4) {
                     /* Rule 1b */
-                    list[1][i] = LATCHC;
+                    list[1][i] = C128_LATCHC;
+                    current = C128_LATCHC;
                 } else {
-                    list[1][i] = AORB;
-                    current = AORB;
+                    current = C128_AORB; /* Determine below */
                 }
             }
-            if (current == SHIFTA) {
+            if (current == C128_AORB) {
+                if (manual_set && (manual_set[i] == 'A' || manual_set[i] == 'B')) {
+                    list[1][i] = manual_set[i];
+                } else if (next == C128_SHIFTA) {
+                    /* Rule 1c */
+                    list[1][i] = C128_LATCHA;
+                } else {
+                    /* Rule 1d */
+                    list[1][i] = C128_LATCHB;
+                }
+            } else if (current == C128_SHIFTA) {
                 /* Rule 1c */
-                list[1][i] = LATCHA;
-            }
-            if ((current == AORB) && (next == SHIFTA)) {
-                /* Rule 1c */
-                list[1][i] = LATCHA;
-                current = LATCHA;
-            }
-            if (current == AORB) {
+                list[1][i] = C128_LATCHA;
+            } else if (current == C128_SHIFTB) { /* Unless C128_LATCHX set above, can only be C128_SHIFTB */
                 /* Rule 1d */
-                list[1][i] = LATCHB;
+                list[1][i] = C128_LATCHB;
             }
         } else {
-            if ((current == ABORC) && (length >= 4)) {
-                /* Rule 3 */
-                list[1][i] = LATCHC;
-                current = LATCHC;
+            if (current == C128_ABORC) {
+                if (manual_set && manual_set[i]) {
+                    list[1][i] = manual_set[i];
+                    current = manual_set[i];
+                } else if (length >= 4) {
+                    /* Rule 3 - note Rule 3b (odd C blocks) dealt with later */
+                    list[1][i] = C128_LATCHC;
+                    current = C128_LATCHC;
+                } else {
+                    current = C128_AORB; /* Determine below */
+                }
             }
-            if (current == ABORC) {
-                list[1][i] = AORB;
-                current = AORB;
+            if (current == C128_AORB) {
+                if (manual_set && (manual_set[i] == 'A' || manual_set[i] == 'B')) {
+                    list[1][i] = manual_set[i];
+                } else if (last == C128_LATCHA || last == C128_SHIFTB) { /* Maintain state */
+                    list[1][i] = C128_LATCHA;
+                } else if (last == C128_LATCHB || last == C128_SHIFTA) { /* Maintain state */
+                    list[1][i] = C128_LATCHB;
+                } else if (next == C128_SHIFTA) {
+                    list[1][i] = C128_LATCHA;
+                } else {
+                    list[1][i] = C128_LATCHB;
+                }
+            } else if (current == C128_SHIFTA) {
+                if (manual_set && manual_set[i] == 'A') {
+                    list[1][i] = C128_LATCHA;
+                } else if (length > 1) {
+                    /* Rule 4 */
+                    list[1][i] = C128_LATCHA;
+                } else if (last == C128_LATCHA || last == C128_SHIFTB) { /* Maintain state */
+                    list[1][i] = C128_LATCHA;
+                } else if (last == C128_LATCHC) {
+                    list[1][i] = C128_LATCHA;
+                }
+            } else if (current == C128_SHIFTB) { /* Unless C128_LATCHX set above, can only be C128_SHIFTB */
+                if (manual_set && manual_set[i] == 'B') {
+                    list[1][i] = C128_LATCHB;
+                } else if (length > 1) {
+                    /* Rule 5 */
+                    list[1][i] = C128_LATCHB;
+                } else if (last == C128_LATCHB || last == C128_SHIFTA) { /* Maintain state */
+                    list[1][i] = C128_LATCHB;
+                } else if (last == C128_LATCHC) {
+                    list[1][i] = C128_LATCHB;
+                }
             }
-            if ((current == AORB) && (last == LATCHA)) {
-                list[1][i] = LATCHA;
-                current = LATCHA;
-            }
-            if ((current == AORB) && (last == LATCHB)) {
-                list[1][i] = LATCHB;
-                current = LATCHB;
-            }
-            if ((current == AORB) && (next == SHIFTA)) {
-                list[1][i] = LATCHA;
-                current = LATCHA;
-            }
-            if ((current == AORB) && (next == SHIFTB)) {
-                list[1][i] = LATCHB;
-                current = LATCHB;
-            }
-            if (current == AORB) {
-                list[1][i] = LATCHB;
-                current = LATCHB;
-            }
-            if ((current == SHIFTA) && (length > 1)) {
-                /* Rule 4 */
-                list[1][i] = LATCHA;
-                current = LATCHA;
-            }
-            if ((current == SHIFTB) && (length > 1)) {
-                /* Rule 5 */
-                list[1][i] = LATCHB;
-                current = LATCHB;
-            }
-            if ((current == SHIFTA) && (last == LATCHA)) {
-                list[1][i] = LATCHA;
-                current = LATCHA;
-            }
-            if ((current == SHIFTB) && (last == LATCHB)) {
-                list[1][i] = LATCHB;
-                current = LATCHB;
-            }
-            if ((current == SHIFTA) && (last == LATCHC)) {
-                list[1][i] = LATCHA;
-                current = LATCHA;
-            }
-            if ((current == SHIFTB) && (last == LATCHC)) {
-                list[1][i] = LATCHB;
-                current = LATCHB;
-            }
-        } /* Rule 2 is implimented elsewhere, Rule 6 is implied */
+        } /* Rule 2 is implemented elsewhere, Rule 6 is implied */
     }
-    grwp(indexliste);
 
+    c128_grwp(list, p_indexliste);
 }
 
 /**
  * Translate Code 128 Set A characters into barcodes.
- * This set handles all control characters NULL to US.
+ * This set handles all control characters NUL to US.
  */
-void c128_set_a(unsigned char source, char dest[], int values[], int *bar_chars) {
+INTERNAL void c128_set_a(const unsigned char source, int values[], int *bar_chars) {
 
     if (source > 127) {
         if (source < 160) {
-            strcat(dest, C128Table[(source - 128) + 64]);
             values[(*bar_chars)] = (source - 128) + 64;
         } else {
-            strcat(dest, C128Table[(source - 128) - 32]);
             values[(*bar_chars)] = (source - 128) - 32;
         }
     } else {
         if (source < 32) {
-            strcat(dest, C128Table[source + 64]);
             values[(*bar_chars)] = source + 64;
         } else {
-            strcat(dest, C128Table[source - 32]);
             values[(*bar_chars)] = source - 32;
         }
     }
@@ -267,64 +263,154 @@ void c128_set_a(unsigned char source, char dest[], int values[], int *bar_chars)
  * This set handles all characters which are not part of long numbers and not
  * control characters.
  */
-void c128_set_b(unsigned char source, char dest[], int values[], int *bar_chars) {
-    if (source > 127) {
-        strcat(dest, C128Table[source - 32 - 128]);
+INTERNAL int c128_set_b(const unsigned char source, int values[], int *bar_chars) {
+    if (source >= 128 + 32) {
         values[(*bar_chars)] = source - 32 - 128;
-    } else {
-        strcat(dest, C128Table[source - 32]);
+    } else if (source >= 128) { /* Should never happen */
+        return 0; /* Not reached */
+    } else if (source >= 32) {
         values[(*bar_chars)] = source - 32;
+    } else { /* Should never happen */
+        return 0; /* Not reached */
     }
     (*bar_chars)++;
+    return 1;
 }
 
 /* Translate Code 128 Set C characters into barcodes
  * This set handles numbers in a compressed form
  */
-void c128_set_c(unsigned char source_a, unsigned char source_b, char dest[], int values[], int *bar_chars) {
+INTERNAL void c128_set_c(const unsigned char source_a, const unsigned char source_b, int values[], int *bar_chars) {
     int weight;
 
     weight = (10 * ctoi(source_a)) + ctoi(source_b);
-    strcat(dest, C128Table[weight]);
     values[(*bar_chars)] = weight;
     (*bar_chars)++;
 }
 
-/* Handle Code 128 and NVE-18 */
-int code_128(struct zint_symbol *symbol, unsigned char source[], const size_t length) {
-    int i, j, k, values[170] = {0}, bar_characters, read, total_sum;
-    int error_number, indexchaine, indexliste, f_state;
-    size_t sourcelen;
-    char set[170] = {' '}, fset[170] = {' '}, mode, last_set, current_set = ' ';
-    float glyph_count;
+/* Put set data into set[]. If source given (GS1_MODE) then resolves odd C blocks */
+INTERNAL void c128_put_in_set(int list[2][C128_MAX], const int indexliste, char set[C128_MAX],
+                const unsigned char *source) {
+    int read = 0;
+    int i, j;
+
+    for (i = 0; i < indexliste; i++) {
+        for (j = 0; j < list[0][i]; j++) {
+            set[read++] = list[1][i];
+        }
+    }
+    if (source) {
+        /* Watch out for odd-length Mode C blocks */
+        int c_count = 0;
+        for (i = 0; i < read; i++) {
+            if (set[i] == 'C') {
+                if (source[i] == '[') {
+                    if (c_count & 1) {
+                        if ((i - c_count) != 0) {
+                            set[i - c_count] = 'B';
+                        } else {
+                            set[i - 1] = 'B';
+                        }
+                    }
+                    c_count = 0;
+                } else {
+                    c_count++;
+                }
+            } else {
+                if (c_count & 1) {
+                    if ((i - c_count) != 0) {
+                        set[i - c_count] = 'B';
+                    } else {
+                        set[i - 1] = 'B';
+                    }
+                }
+                c_count = 0;
+            }
+        }
+        if (c_count & 1) {
+            if ((i - c_count) != 0) {
+                set[i - c_count] = 'B';
+            } else {
+                set[i - 1] = 'B';
+            }
+        }
+        for (i = 1; i < read - 1; i++) {
+            if ((set[i] == 'C') && ((set[i - 1] == 'B') && (set[i + 1] == 'B'))) {
+                set[i] = 'B';
+            }
+        }
+    }
+}
+
+/* Handle Code 128, 128B and HIBC 128 */
+INTERNAL int code128(struct zint_symbol *symbol, unsigned char source[], int length) {
+    int i, j, k, values[C128_MAX] = {0}, bar_characters = 0, read, total_sum;
+    int error_number, indexchaine, indexliste, f_state = 0;
+    unsigned char src_buf[C128_MAX + 1];
+    unsigned char *src = source;
+    char manual_set[C128_MAX] = {0};
+    int list[2][C128_MAX] = {{0}};
+    char set[C128_MAX] = {0}, fset[C128_MAX], mode, last_set, current_set = ' ';
+    int glyph_count = 0; /* Codeword estimate times 2 */
     char dest[1000];
+    char *d = dest;
 
-    error_number = 0;
-    strcpy(dest, "");
+    /* Suppresses clang-analyzer-core.UndefinedBinaryOperatorResult warning on fset which is fully set */
+    assert(length > 0);
 
-    sourcelen = length;
-
-    j = 0;
-    bar_characters = 0;
-    f_state = 0;
-
-    if (sourcelen > 160) {
-        /* This only blocks rediculously long input - the actual length of the
+    if (length > C128_MAX) {
+        /* This only blocks ridiculously long input - the actual length of the
            resulting barcode depends on the type of data, so this is trapped later */
-        strcpy(symbol->errtxt, "340: Input too long");
+        sprintf(symbol->errtxt, "340: Input too long (%d character maximum)", C128_MAX);
         return ZINT_ERROR_TOO_LONG;
     }
 
-    /* Detect extended ASCII characters */
-    for (i = 0; i < sourcelen; i++) {
-        if (source[i] >= 128)
-            fset[i] = 'f';
+    /* Detect special Code Set escapes for Code 128 in extra escape mode only */
+    if ((symbol->input_mode & EXTRA_ESCAPE_MODE) && symbol->symbology == BARCODE_CODE128) {
+        char manual_ch = '\0';
+        j = 0;
+        for (i = 0; i < length; i++) {
+            if (source[i] == '\\' && i + 2 < length && source[i + 1] == '^'
+                    && ((source[i + 2] >= 'A' && source[i + 2] <= 'C') || source[i + 2] == '^')) {
+                if (source[i + 2] != '^') {
+                    i += 2;
+                    manual_ch = source[i];
+                } else { /* Escape sequence '\^^' */
+                    manual_set[j] = manual_ch;
+                    src_buf[j++] = source[i++];
+                    manual_set[j] = manual_ch;
+                    src_buf[j++] = source[i++];
+                    /* Drop second '^' */
+                }
+            } else {
+                manual_set[j] = manual_ch;
+                src_buf[j++] = source[i];
+            }
+        }
+        if (j != length) {
+            length = j;
+            if (length == 0) {
+                strcpy(symbol->errtxt, "842: No input data");
+                return ZINT_ERROR_INVALID_DATA;
+            }
+            src = src_buf;
+            src[length] = '\0';
+            if (symbol->debug & ZINT_DEBUG_PRINT) {
+                fputs("MSet: ", stdout);
+                for (i = 0; i < length; i++) printf("%c", manual_set[i] ? manual_set[i] : '.');
+                fputc('\n', stdout);
+            }
+        }
     }
-    fset[i] = '\0';
+
+    /* Detect extended ASCII characters */
+    for (i = 0; i < length; i++) {
+        fset[i] = src[i] >= 128 ? 'f' : ' ';
+    }
 
     /* Decide when to latch to extended mode - Annex E note 3 */
     j = 0;
-    for (i = 0; i < sourcelen; i++) {
+    for (i = 0; i < length; i++) {
         if (fset[i] == 'f') {
             j++;
         } else {
@@ -337,7 +423,7 @@ int code_128(struct zint_symbol *symbol, unsigned char source[], const size_t le
             }
         }
 
-        if ((j >= 3) && (i == (sourcelen - 1))) {
+        if ((j >= 3) && (i == (length - 1))) {
             for (k = i; k > (i - 3); k--) {
                 fset[k] = 'F';
             }
@@ -345,13 +431,18 @@ int code_128(struct zint_symbol *symbol, unsigned char source[], const size_t le
     }
 
     /* Decide if it is worth reverting to 646 encodation for a few characters as described in 4.3.4.2 (d) */
-    for (i = 1; i < sourcelen; i++) {
+    for (i = 1; i < length; i++) {
         if ((fset[i - 1] == 'F') && (fset[i] == ' ')) {
             /* Detected a change from 8859-1 to 646 - count how long for */
-            for (j = 0; (fset[i + j] == ' ') && ((i + j) < sourcelen); j++);
-            if ((j < 5) || ((j < 3) && ((i + j) == (sourcelen - 1)))) {
-                /* Uses the same figures recommended by Annex E note 3 */
+            for (j = 0; ((i + j) < length) && (fset[i + j] == ' '); j++);
+            /* Count how many 8859-1 beyond */
+            k = 0;
+            if (i + j < length) {
+                for (k = 1; ((i + j + k) < length) && (fset[i + j + k] != ' '); k++);
+            }
+            if (j < 3 || (j < 5 && k > 2)) {
                 /* Change to shifting back rather than latching back */
+                /* Inverts the same figures recommended by Annex E note 3 */
                 for (k = 0; k < j; k++) {
                     fset[i + k] = 'n';
                 }
@@ -363,44 +454,58 @@ int code_128(struct zint_symbol *symbol, unsigned char source[], const size_t le
     indexliste = 0;
     indexchaine = 0;
 
-    mode = parunmodd(source[indexchaine]);
-    if ((symbol->symbology == BARCODE_CODE128B) && (mode == ABORC)) {
-        mode = AORB;
-    }
-
-    for (i = 0; i < 170; i++) {
-        list[0][i] = 0;
+    mode = c128_parunmodd(src[indexchaine]);
+    if (mode == C128_ABORC
+            && (symbol->symbology == BARCODE_CODE128AB
+                || (manual_set[indexchaine] == 'A' || manual_set[indexchaine] == 'B'))) {
+        mode = C128_AORB;
     }
 
     do {
         list[1][indexliste] = mode;
-        while ((list[1][indexliste] == mode) && (indexchaine < sourcelen)) {
+        while ((list[1][indexliste] == mode) && (indexchaine < length)) {
             list[0][indexliste]++;
             indexchaine++;
-            mode = parunmodd(source[indexchaine]);
-            if ((symbol->symbology == BARCODE_CODE128B) && (mode == ABORC)) {
-                mode = AORB;
+            if (indexchaine == length) {
+                break;
+            }
+            mode = c128_parunmodd(src[indexchaine]);
+            if (mode == C128_ABORC
+                    && (symbol->symbology == BARCODE_CODE128AB
+                        || (manual_set[indexchaine] == 'A' || manual_set[indexchaine] == 'B'))) {
+                mode = C128_AORB;
+            }
+            if (manual_set[indexchaine] != manual_set[indexchaine - 1]) {
+                break;
             }
         }
         indexliste++;
-    } while (indexchaine < sourcelen);
+    } while (indexchaine < length);
 
-    dxsmooth(&indexliste);
+    if (src == src_buf) {
+        /* Need to re-index `manual_set` to have sames indexes as `list` blocks for `c128_dxsmooth()` */
+        j = 0;
+        for (i = 1; i < indexliste; i++) {
+            j += list[0][i - 1];
+            manual_set[i] = manual_set[j];
+        }
+    }
+    c128_dxsmooth(list, &indexliste, src == src_buf ? manual_set : NULL);
 
-    /* Resolve odd length LATCHC blocks */
-    if ((list[1][0] == LATCHC) && (list[0][0] & 1)) {
+    /* Resolve odd length C128_LATCHC blocks */
+    if ((list[1][0] == C128_LATCHC) && (list[0][0] & 1)) {
         /* Rule 2 */
         list[0][1]++;
         list[0][0]--;
         if (indexliste == 1) {
             list[0][1] = 1;
-            list[1][1] = LATCHB;
+            list[1][1] = C128_LATCHB;
             indexliste = 2;
         }
     }
     if (indexliste > 1) {
         for (i = 1; i < indexliste; i++) {
-            if ((list[1][i] == LATCHC) && (list[0][i] & 1)) {
+            if ((list[1][i] == C128_LATCHC) && (list[0][i] & 1)) {
                 /* Rule 3b */
                 list[0][i - 1]++;
                 list[0][i]--;
@@ -408,82 +513,52 @@ int code_128(struct zint_symbol *symbol, unsigned char source[], const size_t le
         }
     }
 
-    /* Put set data into set[] */
+    /* Put set data into set[]. Giving NULL as source as used to resolve odd C blocks which has been done above */
+    c128_put_in_set(list, indexliste, set, NULL /*source*/);
 
-    read = 0;
-    for (i = 0; i < indexliste; i++) {
-        for (j = 0; j < list[0][i]; j++) {
-            switch (list[1][i]) {
-                case SHIFTA: set[read] = 'a';
-                    break;
-                case LATCHA: set[read] = 'A';
-                    break;
-                case SHIFTB: set[read] = 'b';
-                    break;
-                case LATCHB: set[read] = 'B';
-                    break;
-                case LATCHC: set[read] = 'C';
-                    break;
-            }
-            read++;
-        }
-    }
-
-    /* Adjust for strings which start with shift characters - make them latch instead */
-    if (set[0] == 'a') {
-        i = 0;
-        do {
-            set[i] = 'A';
-            i++;
-        } while (set[i] == 'a');
-    }
-
-    if (set[0] == 'b') {
-        i = 0;
-        do {
-            set[i] = 'B';
-            i++;
-        } while (set[i] == 'b');
+    if (symbol->debug & ZINT_DEBUG_PRINT) {
+        printf("Data: %.*s (%d)\n", length, src, length);
+        printf(" Set: %.*s\n", length, set);
+        printf("FSet: %.*s\n", length, fset);
     }
 
     /* Now we can calculate how long the barcode is going to be - and stop it from
        being too long */
-    last_set = ' ';
-    glyph_count = 0.0;
-    for (i = 0; i < sourcelen; i++) {
+    last_set = set[0];
+    for (i = 0; i < length; i++) {
         if ((set[i] == 'a') || (set[i] == 'b')) {
-            glyph_count = glyph_count + 1.0;
+            glyph_count += 2; /* 1 codeword */
         }
         if ((fset[i] == 'f') || (fset[i] == 'n')) {
-            glyph_count = glyph_count + 1.0;
+            glyph_count += 2; /* May be overestimate if in latch */
         }
         if (((set[i] == 'A') || (set[i] == 'B')) || (set[i] == 'C')) {
             if (set[i] != last_set) {
                 last_set = set[i];
-                glyph_count = glyph_count + 1.0;
+                glyph_count += 2;
             }
         }
         if (i == 0) {
             if (fset[i] == 'F') {
-                glyph_count = glyph_count + 2.0;
+                glyph_count += 4; /* 2 codewords */
             }
         } else {
             if ((fset[i] == 'F') && (fset[i - 1] != 'F')) {
-                glyph_count = glyph_count + 2.0;
+                glyph_count += 4;
             }
             if ((fset[i] != 'F') && (fset[i - 1] == 'F')) {
-                glyph_count = glyph_count + 2.0;
+                glyph_count += 4;
             }
         }
 
         if (set[i] == 'C') {
-            glyph_count = glyph_count + 0.5;
+            glyph_count += 1; /* Half a codeword */
         } else {
-            glyph_count = glyph_count + 1.0;
+            glyph_count += 2;
         }
     }
-    if (glyph_count > 60.0) {
-        strcpy(symbol->errtxt, "341: Input too long");
+    if (glyph_count > C128_SYMBOL_MAX * 2) {
+        sprintf(symbol->errtxt, "341: Input too long (%d symbol character maximum)", C128_SYMBOL_MAX);
         return ZINT_ERROR_TOO_LONG;
     }
 
@@ -492,29 +567,19 @@ int code_128(struct zint_symbol *symbol, unsigned char source[], const size_t le
         /* Reader Initialisation mode */
         switch (set[0]) {
             case 'A': /* Start A */
-                strcat(dest, C128Table[103]);
-                values[0] = 103;
+                values[bar_characters++] = 103;
                 current_set = 'A';
-                strcat(dest, C128Table[96]); /* FNC3 */
-                values[1] = 96;
-                bar_characters++;
+                values[bar_characters++] = 96; /* FNC3 */
                 break;
             case 'B': /* Start B */
-                strcat(dest, C128Table[104]);
-                values[0] = 104;
+                values[bar_characters++] = 104;
                 current_set = 'B';
-                strcat(dest, C128Table[96]); /* FNC3 */
-                values[1] = 96;
-                bar_characters++;
+                values[bar_characters++] = 96; /* FNC3 */
                 break;
             case 'C': /* Start C */
-                strcat(dest, C128Table[104]); /* Start B */
-                values[0] = 104;
-                strcat(dest, C128Table[96]); /* FNC3 */
-                values[1] = 96;
-                strcat(dest, C128Table[99]); /* Code C */
-                values[2] = 99;
-                bar_characters += 2;
+                values[bar_characters++] = 104; /* Start B */
+                values[bar_characters++] = 96; /* FNC3 */
+                values[bar_characters++] = 99; /* Code C */
                 current_set = 'C';
                 break;
         }
@@ -522,42 +587,33 @@ int code_128(struct zint_symbol *symbol, unsigned char source[], const size_t le
         /* Normal mode */
         switch (set[0]) {
             case 'A': /* Start A */
-                strcat(dest, C128Table[103]);
-                values[0] = 103;
+                values[bar_characters++] = 103;
                 current_set = 'A';
                 break;
             case 'B': /* Start B */
-                strcat(dest, C128Table[104]);
-                values[0] = 104;
+                values[bar_characters++] = 104;
                 current_set = 'B';
                 break;
             case 'C': /* Start C */
-                strcat(dest, C128Table[105]);
-                values[0] = 105;
+                values[bar_characters++] = 105;
                 current_set = 'C';
                 break;
         }
     }
-    bar_characters++;
-    last_set = set[0];
 
     if (fset[0] == 'F') {
         switch (current_set) {
             case 'A':
-                strcat(dest, C128Table[101]);
-                strcat(dest, C128Table[101]);
-                values[bar_characters] = 101;
-                values[bar_characters + 1] = 101;
+                values[bar_characters++] = 101;
+                values[bar_characters++] = 101;
+                f_state = 1;
                 break;
             case 'B':
-                strcat(dest, C128Table[100]);
-                strcat(dest, C128Table[100]);
-                values[bar_characters] = 100;
-                values[bar_characters + 1] = 100;
+                values[bar_characters++] = 100;
+                values[bar_characters++] = 100;
+                f_state = 1;
                 break;
         }
-        bar_characters += 2;
-        f_state = 1;
     }
 
     /* Encode the data */
@@ -567,19 +623,16 @@ int code_128(struct zint_symbol *symbol, unsigned char source[], const size_t le
         if ((read != 0) && (set[read] != current_set)) {
             /* Latch different code set */
             switch (set[read]) {
-                case 'A': strcat(dest, C128Table[101]);
-                    values[bar_characters] = 101;
-                    bar_characters++;
+                case 'A':
+                    values[bar_characters++] = 101;
                     current_set = 'A';
                     break;
-                case 'B': strcat(dest, C128Table[100]);
-                    values[bar_characters] = 100;
-                    bar_characters++;
+                case 'B':
+                    values[bar_characters++] = 100;
                     current_set = 'B';
                     break;
-                case 'C': strcat(dest, C128Table[99]);
-                    values[bar_characters] = 99;
-                    bar_characters++;
+                case 'C':
+                    values[bar_characters++] = 99;
                     current_set = 'C';
                     break;
             }
@@ -590,272 +643,215 @@ int code_128(struct zint_symbol *symbol, unsigned char source[], const size_t le
                 /* Latch beginning of extended mode */
                 switch (current_set) {
                     case 'A':
-                        strcat(dest, C128Table[101]);
-                        strcat(dest, C128Table[101]);
-                        values[bar_characters] = 101;
-                        values[bar_characters + 1] = 101;
+                        values[bar_characters++] = 101;
+                        values[bar_characters++] = 101;
+                        f_state = 1;
                         break;
                     case 'B':
-                        strcat(dest, C128Table[100]);
-                        strcat(dest, C128Table[100]);
-                        values[bar_characters] = 100;
-                        values[bar_characters + 1] = 100;
+                        values[bar_characters++] = 100;
+                        values[bar_characters++] = 100;
+                        f_state = 1;
                         break;
                 }
-                bar_characters += 2;
-                f_state = 1;
             }
             if ((fset[read] == ' ') && (f_state == 1)) {
                 /* Latch end of extended mode */
                 switch (current_set) {
                     case 'A':
-                        strcat(dest, C128Table[101]);
-                        strcat(dest, C128Table[101]);
-                        values[bar_characters] = 101;
-                        values[bar_characters + 1] = 101;
+                        values[bar_characters++] = 101;
+                        values[bar_characters++] = 101;
+                        f_state = 0;
                         break;
                     case 'B':
-                        strcat(dest, C128Table[100]);
-                        strcat(dest, C128Table[100]);
-                        values[bar_characters] = 100;
-                        values[bar_characters + 1] = 100;
+                        values[bar_characters++] = 100;
+                        values[bar_characters++] = 100;
+                        f_state = 0;
                         break;
                 }
-                bar_characters += 2;
-                f_state = 0;
             }
         }
 
-        if ((fset[read] == 'f') || (fset[read] == 'n')) {
+        if ((fset[read] == 'f' && f_state == 0) || (fset[read] == 'n' && f_state == 1)) {
             /* Shift to or from extended mode */
             switch (current_set) {
                 case 'A':
-                    strcat(dest, C128Table[101]); /* FNC 4 */
-                    values[bar_characters] = 101;
+                    values[bar_characters++] = 101; /* FNC 4 */
                     break;
                 case 'B':
-                    strcat(dest, C128Table[100]); /* FNC 4 */
-                    values[bar_characters] = 100;
+                    values[bar_characters++] = 100; /* FNC 4 */
                     break;
             }
-            bar_characters++;
         }
 
         if ((set[read] == 'a') || (set[read] == 'b')) {
             /* Insert shift character */
-            strcat(dest, C128Table[98]);
-            values[bar_characters] = 98;
-            bar_characters++;
+            values[bar_characters++] = 98;
         }
 
         switch (set[read]) { /* Encode data characters */
             case 'a':
-            case 'A': c128_set_a(source[read], dest, values, &bar_characters);
+            case 'A': c128_set_a(src[read], values, &bar_characters);
                 read++;
                 break;
             case 'b':
-            case 'B': c128_set_b(source[read], dest, values, &bar_characters);
+            case 'B': (void) c128_set_b(src[read], values, &bar_characters);
                 read++;
                 break;
-            case 'C': c128_set_c(source[read], source[read + 1], dest, values, &bar_characters);
+            case 'C': c128_set_c(src[read], src[read + 1], values, &bar_characters);
                 read += 2;
                 break;
         }
 
-    } while (read < sourcelen);
+    } while (read < length);
 
-    /* check digit calculation */
-    total_sum = 0;
+    /* Destination setting and check digit calculation */
+    memcpy(d, C128Table[values[0]], 6);
+    d += 6;
+    total_sum = values[0];
 
-    for (i = 0; i < bar_characters; i++) {
-        if (i > 0) {
-            values[i] *= i;
-        }
-        total_sum += values[i];
+    for (i = 1; i < bar_characters; i++, d += 6) {
+        memcpy(d, C128Table[values[i]], 6);
+        total_sum += values[i] * i; /* Note can't overflow as 106 * C128_SYMBOL_MAX * C128_SYMBOL_MAX = 1038906 */
     }
-    strcat(dest, C128Table[total_sum % 103]);
+    total_sum %= 103;
+    memcpy(d, C128Table[total_sum], 6);
+    d += 6;
+    values[bar_characters++] = total_sum;
 
     /* Stop character */
-    strcat(dest, C128Table[106]);
-    expand(symbol, dest);
+    memcpy(d, "2331112", 7);
+    d += 7;
+    values[bar_characters++] = 106;
+
+    if (symbol->debug & ZINT_DEBUG_PRINT) {
+        fputs("Codewords:", stdout);
+        for (i = 0; i < bar_characters; i++) {
+            printf(" %d", values[i]);
+        }
+        printf(" (%d)\n", bar_characters);
+        printf("Barspaces: %.*s\n", (int) (d - dest), dest);
+        printf("Checksum:  %d\n", total_sum);
+    }
+#ifdef ZINT_TEST
+    if (symbol->debug & ZINT_DEBUG_TEST) {
+        debug_test_codeword_dump_int(symbol, values, bar_characters);
+    }
+#endif
+
+    expand(symbol, dest, d - dest);
+
+    /* ISO/IEC 15417:2007 leaves dimensions/height as application specification */
+
+    error_number = hrt_cpy_iso8859_1(symbol, src, length);
+
     return error_number;
 }
 
-/* Handle EAN-128 (Now known as GS1-128) */
-int ean_128(struct zint_symbol *symbol, unsigned char source[], const size_t length) {
-    int i, j, values[170], bar_characters, read, total_sum;
+/* Handle EAN-128 (Now known as GS1-128), and composite version if `cc_mode` set */
+INTERNAL int gs1_128_cc(struct zint_symbol *symbol, unsigned char source[], int length, const int cc_mode,
+                const int cc_rows) {
+    int i, values[C128_MAX] = {0}, bar_characters = 0, read, total_sum;
     int error_number, indexchaine, indexliste;
-    char set[170], mode, last_set;
-    float glyph_count;
+    int list[2][C128_MAX] = {{0}};
+    char set[C128_MAX] = {0}, mode, last_set;
+    int glyph_count = 0; /* Codeword estimate times 2 */
     char dest[1000];
-    int separator_row, linkage_flag, c_count;
+    char *d = dest;
+    int separator_row = 0, linkage_flag = 0;
+    int reduced_length;
+    unsigned char *reduced = (unsigned char *) z_alloca(length + 1);
 
-    error_number = 0;
-    strcpy(dest, "");
-    linkage_flag = 0;
-
-    j = 0;
-    bar_characters = 0;
-    separator_row = 0;
-
-    memset(values, 0, sizeof (values));
-    memset(set, ' ', sizeof (set));
-
-    if (length > 160) {
-        /* This only blocks rediculously long input - the actual length of the
+    if (length > C128_MAX) {
+        /* This only blocks ridiculously long input - the actual length of the
         resulting barcode depends on the type of data, so this is trapped later */
-        strcpy(symbol->errtxt, "342: Input too long");
+        sprintf(symbol->errtxt, "342: Input too long (%d character maximum)", C128_MAX);
         return ZINT_ERROR_TOO_LONG;
-    }
-    for (i = 0; i < length; i++) {
-        if (source[i] == '\0') {
-            /* Null characters not allowed! */
-            strcpy(symbol->errtxt, "343: NULL character in input data");
-            return ZINT_ERROR_INVALID_DATA;
-        }
     }
 
     /* if part of a composite symbol make room for the separator pattern */
-    if (symbol->symbology == BARCODE_EAN128_CC) {
+    if (symbol->symbology == BARCODE_GS1_128_CC) {
         separator_row = symbol->rows;
         symbol->row_height[symbol->rows] = 1;
         symbol->rows += 1;
     }
 
+    error_number = gs1_verify(symbol, source, length, reduced);
+    if (error_number >= ZINT_ERROR) {
+        return error_number;
+    }
+
+    reduced_length = (int) ustrlen(reduced);
+
     /* Decide on mode using same system as PDF417 and rules of ISO 15417 Annex E */
     indexliste = 0;
     indexchaine = 0;
 
-    mode = parunmodd(source[indexchaine]);
-    if (source[indexchaine] == '[') {
-        mode = ABORC;
-    }
-
-    for (i = 0; i < 170; i++) {
-        list[0][i] = 0;
-    }
+    mode = c128_parunmodd(reduced[indexchaine]);
 
     do {
         list[1][indexliste] = mode;
-        while ((list[1][indexliste] == mode) && (indexchaine < (int) ustrlen(source))) {
+        while ((list[1][indexliste] == mode) && (indexchaine < reduced_length)) {
             list[0][indexliste]++;
             indexchaine++;
-            mode = parunmodd(source[indexchaine]);
-            if (source[indexchaine] == '[') {
-                mode = ABORC;
+            if (indexchaine == reduced_length) {
+                break;
+            }
+            mode = c128_parunmodd(reduced[indexchaine]);
+            if (reduced[indexchaine] == '[') {
+                mode = C128_ABORC;
             }
         }
         indexliste++;
-    } while (indexchaine < (int) ustrlen(source));
+    } while (indexchaine < reduced_length);
 
-    dxsmooth(&indexliste);
+    c128_dxsmooth(list, &indexliste, NULL /*manual_set*/);
 
-    /* Put set data into set[] */
-    read = 0;
-    for (i = 0; i < indexliste; i++) {
-        for (j = 0; j < list[0][i]; j++) {
-            switch (list[1][i]) {
-                case SHIFTA: set[read] = 'a';
-                    break;
-                case LATCHA: set[read] = 'A';
-                    break;
-                case SHIFTB: set[read] = 'b';
-                    break;
-                case LATCHB: set[read] = 'B';
-                    break;
-                case LATCHC: set[read] = 'C';
-                    break;
-            }
-            read++;
-        }
-    }
+    /* Put set data into set[], resolving odd C blocks */
+    c128_put_in_set(list, indexliste, set, reduced);
 
-    /* Watch out for odd-length Mode C blocks */
-    c_count = 0;
-    for (i = 0; i < read; i++) {
-        if (set[i] == 'C') {
-            if (source[i] == '[') {
-                if (c_count & 1) {
-                    if ((i - c_count) != 0) {
-                        set[i - c_count] = 'B';
-                    } else {
-                        set[i - 1] = 'B';
-                    }
-                }
-                c_count = 0;
-            } else {
-                c_count++;
-            }
-        } else {
-            if (c_count & 1) {
-                if ((i - c_count) != 0) {
-                    set[i - c_count] = 'B';
-                } else {
-                    set[i - 1] = 'B';
-                }
-            }
-            c_count = 0;
-        }
-    }
-    if (c_count & 1) {
-        if ((i - c_count) != 0) {
-            set[i - c_count] = 'B';
-        } else {
-            set[i - 1] = 'B';
-        }
-    }
-    for (i = 1; i < read - 1; i++) {
-        if ((set[i] == 'C') && ((set[i - 1] == 'B') && (set[i + 1] == 'B'))) {
-            set[i] = 'B';
-        }
+    if (symbol->debug & ZINT_DEBUG_PRINT) {
+        printf("Data: %s (%d)\n", reduced, reduced_length);
+        printf(" Set: %.*s\n", reduced_length, set);
     }
 
     /* Now we can calculate how long the barcode is going to be - and stop it from
-    being too long */
-    last_set = ' ';
-    glyph_count = 0.0;
-    for (i = 0; i < (int) ustrlen(source); i++) {
-        if ((set[i] == 'a') || (set[i] == 'b')) {
-            glyph_count = glyph_count + 1.0;
-        }
-        if (((set[i] == 'A') || (set[i] == 'B')) || (set[i] == 'C')) {
+       being too long */
+    last_set = set[0];
+    for (i = 0; i < reduced_length; i++) {
+        if ((set[i] == 'A') || (set[i] == 'B') || (set[i] == 'C')) {
             if (set[i] != last_set) {
                 last_set = set[i];
-                glyph_count = glyph_count + 1.0;
+                glyph_count += 2; /* 1 codeword */
             }
+        } else if ((set[i] == 'a') || (set[i] == 'b')) {
+            glyph_count += 2; /* Not reached */
         }
 
-        if ((set[i] == 'C') && (source[i] != '[')) {
-            glyph_count = glyph_count + 0.5;
+        if ((set[i] == 'C') && (reduced[i] != '[')) {
+            glyph_count += 1; /* Half a codeword */
         } else {
-            glyph_count = glyph_count + 1.0;
+            glyph_count += 2;
         }
     }
-    if (glyph_count > 60.0) {
-        strcpy(symbol->errtxt, "344: Input too long");
+    if (glyph_count > C128_SYMBOL_MAX * 2) {
+        sprintf(symbol->errtxt, "344: Input too long (%d symbol character maximum)", C128_SYMBOL_MAX);
         return ZINT_ERROR_TOO_LONG;
     }
 
     /* So now we know what start character to use - we can get on with it! */
     switch (set[0]) {
         case 'A': /* Start A */
-            strcat(dest, C128Table[103]);
-            values[0] = 103;
+            values[bar_characters++] = 103; /* Not reached */
             break;
         case 'B': /* Start B */
-            strcat(dest, C128Table[104]);
-            values[0] = 104;
+            values[bar_characters++] = 104;
             break;
         case 'C': /* Start C */
-            strcat(dest, C128Table[105]);
-            values[0] = 105;
+            values[bar_characters++] = 105;
             break;
     }
-    bar_characters++;
 
-    strcat(dest, C128Table[102]);
-    values[1] = 102;
-    bar_characters++;
+    values[bar_characters++] = 102;
 
     /* Encode the data */
     read = 0;
@@ -863,64 +859,57 @@ int ean_128(struct zint_symbol *symbol, unsigned char source[], const size_t len
 
         if ((read != 0) && (set[read] != set[read - 1])) { /* Latch different code set */
             switch (set[read]) {
-                case 'A': strcat(dest, C128Table[101]);
-                    values[bar_characters] = 101;
-                    bar_characters++;
+                case 'A':
+                    values[bar_characters++] = 101; /* Not reached */
                     break;
-                case 'B': strcat(dest, C128Table[100]);
-                    values[bar_characters] = 100;
-                    bar_characters++;
+                case 'B':
+                    values[bar_characters++] = 100;
                     break;
-                case 'C': strcat(dest, C128Table[99]);
-                    values[bar_characters] = 99;
-                    bar_characters++;
+                case 'C':
+                    values[bar_characters++] = 99;
                     break;
             }
         }
 
         if ((set[read] == 'a') || (set[read] == 'b')) {
             /* Insert shift character */
-            strcat(dest, C128Table[98]);
-            values[bar_characters] = 98;
-            bar_characters++;
+            values[bar_characters++] = 98; /* Not reached */
         }
 
-        if (source[read] != '[') {
+        if (reduced[read] != '[') {
             switch (set[read]) { /* Encode data characters */
                 case 'A':
                 case 'a':
-                    c128_set_a(source[read], dest, values, &bar_characters);
+                    c128_set_a(reduced[read], values, &bar_characters); /* Not reached */
                     read++;
                     break;
                 case 'B':
                 case 'b':
-                    c128_set_b(source[read], dest, values, &bar_characters);
+                    (void) c128_set_b(reduced[read], values, &bar_characters);
                     read++;
                     break;
                 case 'C':
-                    c128_set_c(source[read], source[read + 1], dest, values, &bar_characters);
+                    c128_set_c(reduced[read], reduced[read + 1], values, &bar_characters);
                     read += 2;
                     break;
             }
         } else {
-            strcat(dest, C128Table[102]);
-            values[bar_characters] = 102;
-            bar_characters++;
+            values[bar_characters++] = 102;
             read++;
         }
-    } while (read < (int) ustrlen(source));
+    } while (read < reduced_length);
 
     /* "...note that the linkage flag is an extra code set character between
     the last data character and the Symbol Check Character" (GS1 Specification) */
 
     /* Linkage flags in GS1-128 are determined by ISO/IEC 24723 section 7.4 */
 
-    switch (symbol->option_1) {
+    switch (cc_mode) {
         case 1:
         case 2:
             /* CC-A or CC-B 2D component */
-            switch (set[ustrlen(source) - 1]) {
-                case 'A': linkage_flag = 100;
+            switch (set[reduced_length - 1]) {
+                case 'A': linkage_flag = 100; /* Not reached */
                     break;
                 case 'B': linkage_flag = 99;
                     break;
@@ -930,8 +919,8 @@ int ean_128(struct zint_symbol *symbol, unsigned char source[], const size_t len
             break;
         case 3:
             /* CC-C 2D component */
-            switch (set[ustrlen(source) - 1]) {
-                case 'A': linkage_flag = 99;
+            switch (set[reduced_length - 1]) {
+                case 'A': linkage_flag = 99; /* Not reached */
                     break;
                 case 'B': linkage_flag = 101;
                     break;
@@ -942,32 +931,46 @@ int ean_128(struct zint_symbol *symbol, unsigned char source[], const size_t len
     }
 
     if (linkage_flag != 0) {
-        strcat(dest, C128Table[linkage_flag]);
-        values[bar_characters] = linkage_flag;
-        bar_characters++;
+        values[bar_characters++] = linkage_flag;
     }
 
-    /* check digit calculation */
-    total_sum = 0;
-    for (i = 0; i < bar_characters; i++) {
-        if (i > 0) {
-            values[i] *= i;
+    /* Destination setting and check digit calculation */
+    memcpy(d, C128Table[values[0]], 6);
+    d += 6;
+    total_sum = values[0];
 
-        }
-        total_sum += values[i];
+    for (i = 1; i < bar_characters; i++, d += 6) {
+        memcpy(d, C128Table[values[i]], 6);
+        total_sum += values[i] * i; /* Note can't overflow as 106 * C128_SYMBOL_MAX * C128_SYMBOL_MAX = 1038906 */
     }
-    strcat(dest, C128Table[total_sum % 103]);
-    values[bar_characters] = total_sum % 103;
-    bar_characters++;
+    total_sum %= 103;
+    memcpy(d, C128Table[total_sum], 6);
+    d += 6;
+    values[bar_characters++] = total_sum;
 
     /* Stop character */
-    strcat(dest, C128Table[106]);
-    values[bar_characters] = 106;
-    bar_characters++;
-    expand(symbol, dest);
+    memcpy(d, "2331112", 7);
+    d += 7;
+    values[bar_characters++] = 106;
+
+    if (symbol->debug & ZINT_DEBUG_PRINT) {
+        fputs("Codewords:", stdout);
+        for (i = 0; i < bar_characters; i++) {
+            printf(" %d", values[i]);
+        }
+        printf(" (%d)\n", bar_characters);
+        printf("Barspaces: %.*s\n", (int) (d - dest), dest);
+    }
+#ifdef ZINT_TEST
+    if (symbol->debug & ZINT_DEBUG_TEST) {
+        debug_test_codeword_dump_int(symbol, values, bar_characters);
+    }
+#endif
+
+    expand(symbol, dest, d - dest);
 
     /* Add the separator pattern for composite symbols */
-    if (symbol->symbology == BARCODE_EAN128_CC) {
+    if (symbol->symbology == BARCODE_GS1_128_CC) {
         for (i = 0; i < symbol->width; i++) {
             if (!(module_is_set(symbol, separator_row + 1, i))) {
                 set_module(symbol, separator_row, i);
@@ -975,104 +978,344 @@ int ean_128(struct zint_symbol *symbol, unsigned char source[], const size_t len
         }
     }
 
-    for (i = 0; i < length; i++) {
-        if ((source[i] != '[') && (source[i] != ']')) {
-            symbol->text[i] = source[i];
-        }
-        if (source[i] == '[') {
-            symbol->text[i] = '(';
-        }
-        if (source[i] == ']') {
-            symbol->text[i] = ')';
+    if (reduced_length > 48) { /* GS1 General Specifications 5.4.4.3 */
+        if (error_number == 0) { /* Don't overwrite any `gs1_verify()` warning */
+            strcpy(symbol->errtxt, "843: GS1-128 input too long (48 character maximum)");
+            error_number = ZINT_WARN_NONCOMPLIANT;
         }
     }
+
+    if (symbol->output_options & COMPLIANT_HEIGHT) {
+        /* GS1 General Specifications 21.0.1 5.12.3.2 table 2, including footnote (**):
+           same as ITF-14: "in case of further space constraints" height 5.8mm / 1.016mm (X max) ~ 5.7;
+           default 31.75mm / 0.495mm ~ 64.14 */
+        const float min_height = stripf(5.8f / 1.016f);
+        const float default_height = stripf(31.75f / 0.495f);
+        if (symbol->symbology == BARCODE_GS1_128_CC) {
+            /* Pass back via temporary linear structure */
+            symbol->height = symbol->height ? min_height : default_height;
+        } else {
+            if (error_number == 0) { /* Don't overwrite any `gs1_verify()` warning */
+                error_number = set_height(symbol, min_height, default_height, 0.0f, 0 /*no_errtxt*/);
+            } else {
+                (void) set_height(symbol, min_height, default_height, 0.0f, 1 /*no_errtxt*/);
+            }
+        }
+    } else {
+        const float height = 50.0f;
+        if (symbol->symbology == BARCODE_GS1_128_CC) {
+            symbol->height = height - cc_rows * (cc_mode == 3 ? 3 : 2) - 1.0f;
+        } else {
+            (void) set_height(symbol, 0.0f, height, 0.0f, 1 /*no_errtxt*/);
+        }
+    }
+
+    for (i = 0; i < length && i < (int) sizeof(symbol->text); i++) {
+        if (source[i] == '[') {
+            symbol->text[i] = '(';
+        } else if (source[i] == ']') {
+            symbol->text[i] = ')';
+        } else {
+            symbol->text[i] = source[i];
+        }
+    }
+    if (i == sizeof(symbol->text)) {
+        /* Trumps all other warnings */
+        strcpy(symbol->errtxt, "844: Human Readable Text truncated");
+        error_number = ZINT_WARN_HRT_TRUNCATED;
+        i--;
+    }
+    symbol->text[i] = '\0';
 
     return error_number;
 }
 
+/* Handle EAN-128 (Now known as GS1-128) */
+INTERNAL int gs1_128(struct zint_symbol *symbol, unsigned char source[], int length) {
+    return gs1_128_cc(symbol, source, length, 0 /*cc_mode*/, 0 /*cc_rows*/);
+}
+
 /* Add check digit if encoding an NVE18 symbol */
-int nve_18(struct zint_symbol *symbol, unsigned char source[], int length) {
-    int error_number, zeroes, i, nve_check, total_sum, sourcelen;
-    unsigned char ean128_equiv[25];
+INTERNAL int nve18(struct zint_symbol *symbol, unsigned char source[], int length) {
+    int error_number, zeroes;
+    unsigned char ean128_equiv[23];
 
-    memset(ean128_equiv, 0, 25);
-    sourcelen = length;
-
-    if (sourcelen > 17) {
-        strcpy(symbol->errtxt, "345: Input too long");
+    if (length > 17) {
+        strcpy(symbol->errtxt, "345: Input too long (17 character maximum)");
         return ZINT_ERROR_TOO_LONG;
     }
 
-    error_number = is_sane(NEON, source, length);
-    if (error_number == ZINT_ERROR_INVALID_DATA) {
-        strcpy(symbol->errtxt, "346: Invalid characters in data");
-        return error_number;
+    if (!is_sane(NEON_F, source, length)) {
+        strcpy(symbol->errtxt, "346: Invalid character in data (digits only)");
+        return ZINT_ERROR_INVALID_DATA;
     }
-    zeroes = 17 - sourcelen;
-    strcpy((char *) ean128_equiv, "[00]");
+
+    zeroes = 17 - length;
+    ustrcpy(ean128_equiv, symbol->input_mode & GS1PARENS_MODE ? "(00)" : "[00]");
     memset(ean128_equiv + 4, '0', zeroes);
-    strcpy((char*) ean128_equiv + 4 + zeroes, (char*) source);
+    ustrcpy(ean128_equiv + 4 + zeroes, source);
 
-    total_sum = 0;
-    for (i = sourcelen - 1; i >= 0; i--) {
-        total_sum += ctoi(source[i]);
-
-        if (!(i & 1)) {
-            total_sum += 2 * ctoi(source[i]);
-        }
-    }
-    nve_check = 10 - total_sum % 10;
-    if (nve_check == 10) {
-        nve_check = 0;
-    }
-    ean128_equiv[21] = itoc(nve_check);
+    ean128_equiv[21] = gs1_check_digit(ean128_equiv + 4, 17);
     ean128_equiv[22] = '\0';
 
-    error_number = ean_128(symbol, ean128_equiv, ustrlen(ean128_equiv));
+    error_number = gs1_128(symbol, ean128_equiv, 22);
 
     return error_number;
 }
 
 /* EAN-14 - A version of EAN-128 */
-int ean_14(struct zint_symbol *symbol, unsigned char source[], int length) {
-    int i, count, check_digit;
+INTERNAL int ean14(struct zint_symbol *symbol, unsigned char source[], int length) {
     int error_number, zeroes;
-    unsigned char ean128_equiv[20];
+    unsigned char ean128_equiv[19];
 
     if (length > 13) {
-        strcpy(symbol->errtxt, "347: Input wrong length");
+        strcpy(symbol->errtxt, "347: Input too long (13 character maximum)");
         return ZINT_ERROR_TOO_LONG;
     }
 
-    error_number = is_sane(NEON, source, length);
-    if (error_number == ZINT_ERROR_INVALID_DATA) {
-        strcpy(symbol->errtxt, "348: Invalid character in data");
-        return error_number;
+    if (!is_sane(NEON_F, source, length)) {
+        strcpy(symbol->errtxt, "348: Invalid character in data (digits only)");
+        return ZINT_ERROR_INVALID_DATA;
     }
 
     zeroes = 13 - length;
-    strcpy((char*) ean128_equiv, "[01]");
+    ustrcpy(ean128_equiv, symbol->input_mode & GS1PARENS_MODE ? "(01)" : "[01]");
     memset(ean128_equiv + 4, '0', zeroes);
     ustrcpy(ean128_equiv + 4 + zeroes, source);
 
-    count = 0;
-    for (i = length - 1; i >= 0; i--) {
-        count += ctoi(source[i]);
-
-        if (!(i & 1)) {
-            count += 2 * ctoi(source[i]);
-        }
-    }
-    check_digit = 10 - (count % 10);
-    if (check_digit == 10) {
-        check_digit = 0;
-    }
-    ean128_equiv[17] = itoc(check_digit);
+    ean128_equiv[17] = gs1_check_digit(ean128_equiv + 4, 13);
     ean128_equiv[18] = '\0';
 
-    error_number = ean_128(symbol, ean128_equiv, ustrlen(ean128_equiv));
+    error_number = gs1_128(symbol, ean128_equiv, 18);
 
     return error_number;
 }
 
+/* DPD (Deutscher Paketdienst) Code */
+/* Specification at https://esolutions.dpd.com/dokumente/DPD_Parcel_Label_Specification_2.4.1_EN.pdf
+ * and identification tag info (Barcode ID) at https://esolutions.dpd.com/dokumente/DPD_Routing_Database_1.3_EN.pdf */
+INTERNAL int dpd(struct zint_symbol *symbol, unsigned char source[], int length) {
+    int error_number = 0;
+    int i, p;
+    unsigned char ident_tag;
+    unsigned char local_source_buf[29];
+    unsigned char *local_source;
+    const int mod = 36;
+    const int relabel = symbol->option_2 == 1; /* A "relabel" has no identification tag */
+    int cd; /* Check digit */
 
+    if ((length != 27 && length != 28) || (length == 28 && relabel)) {
+        if (relabel) {
+            strcpy(symbol->errtxt, "830: DPD relabel input wrong length (27 characters required)");
+        } else {
+            strcpy(symbol->errtxt, "349: DPD input wrong length (27 or 28 characters required)");
+        }
+        return ZINT_ERROR_TOO_LONG;
+    }
+
+    if (length == 27 && !relabel) {
+        local_source_buf[0] = '%';
+        ustrcpy(local_source_buf + 1, source);
+        local_source = local_source_buf;
+        length++;
+    } else {
+        local_source = source;
+    }
+
+    ident_tag = local_source[0];
+
+    to_upper(local_source + !relabel, length - !relabel);
+    if (!is_sane(KRSET_F, local_source + !relabel, length - !relabel)) {
+        if (local_source == local_source_buf || relabel) {
+            strcpy(symbol->errtxt, "300: Invalid character in data (alphanumerics only)");
+        } else {
+            strcpy(symbol->errtxt, "299: Invalid character in data (alphanumerics only after first character)");
+        }
+        return ZINT_ERROR_INVALID_DATA;
+    }
+
+    if ((ident_tag < 32) || (ident_tag > 127)) {
+        strcpy(symbol->errtxt, "343: Invalid DPD identification tag (first character), ASCII values 32 to 127 only");
+        return ZINT_ERROR_INVALID_DATA;
+    }
+
+    (void) code128(symbol, local_source, length); /* Only error returned is for large text which can't happen */
+
+    if (!(symbol->output_options & (BARCODE_BOX | BARCODE_BIND | BARCODE_BIND_TOP))) {
+        /* If no option has been selected then uses default bind top option */
+        symbol->output_options |= BARCODE_BIND_TOP; /* Note won't extend over quiet zones for DPD */
+        if (symbol->border_width == 0) { /* Allow override if non-zero */
+            symbol->border_width = 3; /* From examples, not mentioned in spec */
+        }
+    }
+
+    if (symbol->output_options & COMPLIANT_HEIGHT) {
+        /* DPD Parcel Label Specification Version 2.4.1 (19.01.2021) Section 4.6.1.2
+           25mm / 0.4mm (X max) = 62.5 min, 25mm / 0.375 (X) ~ 66.66 default */
+        if (relabel) { /* If relabel then half-size */
+            error_number = set_height(symbol, 31.25f, stripf(12.5f / 0.375f), 0.0f, 0 /*no_errtxt*/);
+        } else {
+            error_number = set_height(symbol, 62.5f, stripf(25.0f / 0.375f), 0.0f, 0 /*no_errtxt*/);
+        }
+    } else {
+        (void) set_height(symbol, 0.0f, relabel ? 25.0f : 50.0f, 0.0f, 1 /*no_errtxt*/);
+    }
+
+    cd = mod;
+
+    p = 0;
+    for (i = !relabel; i < length; i++) {
+        symbol->text[p] = local_source[i];
+        p++;
+
+        cd += posn(KRSET, local_source[i]);
+        if (cd > mod) cd -= mod;
+        cd *= 2;
+        if (cd >= (mod + 1)) cd -= mod + 1;
+
+        switch (i + relabel) {
+            case 4:
+            case 7:
+            case 11:
+            case 15:
+            case 19:
+            case 21:
+            case 24:
+            case 27:
+                symbol->text[p] = ' ';
+                p++;
+                break;
+        }
+    }
+
+    cd = mod + 1 - cd;
+    if (cd == mod) cd = 0;
+
+    if (cd < 10) {
+        symbol->text[p] = cd + '0';
+    } else {
+        symbol->text[p] = (cd - 10) + 'A';
+    }
+    p++;
+
+    symbol->text[p] = '\0';
+
+    /* Some compliance checks */
+    if (!is_sane(NEON_F, local_source + length - 16, 16)) {
+        if (!is_sane(NEON_F, local_source + length - 3, 3)) { /* 3-digit Country Code (ISO 3166-1) */
+            strcpy(symbol->errtxt, "831: Destination Country Code (last 3 characters) should be numeric");
+        } else if (!is_sane(NEON_F, local_source + length - 6, 3)) { /* 3-digit Service Code */
+            strcpy(symbol->errtxt, "832: Service Code (characters 6-4 from end) should be numeric");
+        } else { /* Last 10 characters of Tracking No. */
+            strcpy(symbol->errtxt,
+                "833: Last 10 characters of Tracking Number (characters 16-7 from end) should be numeric");
+        }
+        error_number = ZINT_WARN_NONCOMPLIANT;
+    }
+
+    return error_number;
+}
+
+/* Universal Postal Union S10 */
+/* https://www.upu.int/UPU/media/upu/files/postalSolutions/programmesAndServices/standards/S10-12.pdf */
+INTERNAL int upu_s10(struct zint_symbol *symbol, unsigned char source[], int length) {
+    int i, j;
+    unsigned char local_source[13 + 1];
+    unsigned char have_check_digit = '\0';
+    int check_digit;
+    static const char weights[8] = { 8, 6, 4, 2, 3, 5, 9, 7 };
+    int error_number = 0;
+
+    if (length != 12 && length != 13) {
+        strcpy(symbol->errtxt, "834: Input must be 12 or 13 characters long");
+        return ZINT_ERROR_TOO_LONG;
+    }
+    if (length == 13) { /* Includes check digit - remove for now */
+        have_check_digit = source[10];
+        memcpy(local_source, source, 10);
+        ustrcpy(local_source + 10, source + 11);
+    } else {
+        ustrcpy(local_source, source);
+    }
+    to_upper(local_source, length);
+
+    if (!z_isupper(local_source[0]) || !z_isupper(local_source[1])) {
+        strcpy(symbol->errtxt, "835: Invalid character in Service Indictor (first 2 characters) (alphabetic only)");
+        return ZINT_ERROR_INVALID_DATA;
+    }
+    if (!is_sane(NEON_F, local_source + 2, 12 - 4) || (have_check_digit && !z_isdigit(have_check_digit))) {
+        sprintf(symbol->errtxt, "836: Invalid character in Serial Number (middle %d characters) (digits only)",
+                have_check_digit ? 9 : 8);
+        return ZINT_ERROR_INVALID_DATA;
+    }
+    if (!z_isupper(local_source[10]) || !z_isupper(local_source[11])) {
+        strcpy(symbol->errtxt, "837: Invalid character in Country Code (last 2 characters) (alphabetic only)");
+        return ZINT_ERROR_INVALID_DATA;
+    }
+
+    check_digit = 0;
+    for (i = 2; i < 10; i++) { /* Serial Number only */
+        check_digit += ctoi(local_source[i]) * weights[i - 2];
+    }
+    check_digit %= 11;
+    check_digit = 11 - check_digit;
+    if (check_digit == 10) {
+        check_digit = 0;
+    } else if (check_digit == 11) {
+        check_digit = 5;
+    }
+    if (have_check_digit && ctoi(have_check_digit) != check_digit) {
+        sprintf(symbol->errtxt, "838: Invalid check digit '%c', expecting '%c'", have_check_digit, itoc(check_digit));
+        return ZINT_ERROR_INVALID_CHECK;
+    }
+    /* Add in (back) check digit */
+    local_source[12] = local_source[11];
+    local_source[11] = local_source[10];
+    local_source[10] = itoc(check_digit);
+    local_source[13] = '\0';
+
+    /* Do some checks on the Service Indicator (first char only) and Country Code */
+    if (strchr("JKSTW", local_source[0]) != NULL) { /* These are reserved & cannot be assigned */
+        strcpy(symbol->errtxt, "839: Invalid Service Indicator (first character should not be any of \"JKSTW\")");
+        error_number = ZINT_WARN_NONCOMPLIANT;
+    } else if (strchr("FHIOXY", local_source[0]) != NULL) { /* These aren't allocated as of spec Oct 2017 */
+        strcpy(symbol->errtxt, "840: Non-standard Service Indicator (first 2 characters)");
+        error_number = ZINT_WARN_NONCOMPLIANT;
+    } else if (!gs1_iso3166_alpha2(local_source + 11)) {
+        strcpy(symbol->errtxt, "841: Country code (last two characters) is not ISO 3166-1");
+        error_number = ZINT_WARN_NONCOMPLIANT;
+    }
+
+    (void) code128(symbol, local_source, 13); /* Only error returned is for large text which can't happen */
+
+    j = 0;
+    for (i = 0; i < 13; i++) {
+        if (i == 2 || i == 5 || i == 8 || i == 11) {
+            symbol->text[j++] = ' ';
+        }
+        symbol->text[j++] = local_source[i];
+    }
+    symbol->text[j] = '\0';
+
+    if (symbol->output_options & COMPLIANT_HEIGHT) {
+        /* Universal Postal Union S10 Section 8, using max X 0.51mm & minimum height 12.5mm or 15% of width */
+        const float min_height_min = stripf(12.5f / 0.51f);
+        float min_height = stripf(symbol->width * 0.15f);
+        if (min_height < min_height_min) {
+            min_height = min_height_min;
+        }
+        /* Using 50 as default as none recommended */
+        if (error_number == 0) {
+            error_number = set_height(symbol, min_height, min_height > 50.0f ? min_height : 50.0f, 0.0f,
+                                        0 /*no_errtxt*/);
+        } else {
+            (void) set_height(symbol, min_height, min_height > 50.0f ? min_height : 50.0f, 0.0f, 1 /*no_errtxt*/);
+        }
+    } else {
+        (void) set_height(symbol, 0.0f, 50.0f, 0.0f, 1 /*no_errtxt*/);
+    }
+
+    return error_number;
+}
+
+/* vim: set ts=4 sw=4 et : */

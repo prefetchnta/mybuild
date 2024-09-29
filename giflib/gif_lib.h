@@ -20,7 +20,7 @@ extern "C" {
 #define GIF_ERROR 0
 #define GIF_OK 1
 
-#include "stdbool.h" /* FUCK IT */
+#include "gif_stdbool.h" /* FUCK IT */
 #include <stddef.h>
 
 #define GIF_STAMP "GIFVER" /* First chars in file - GIF stamp.  */

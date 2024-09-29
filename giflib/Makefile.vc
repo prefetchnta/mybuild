@@ -17,8 +17,8 @@ OBJECTS = dgif_lib.obj egif_lib.obj gifalloc.obj gif_err.obj \
           gif_font.obj gif_hash.obj openbsd-reallocarray.obj
 
 UHEADERS = getarg.h
-USOURCES = qprintf.c quantize.c getarg.c
-UOBJECTS = qprintf.obj quantize.obj getarg.obj
+USOURCES = qprintf.c quantize.c getarg.c getopt.c
+UOBJECTS = qprintf.obj quantize.obj getarg.obj getopt.obj
 
 all:
     $(CC) /c $(CFLAGS) $(SOURCES)

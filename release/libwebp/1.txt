@@ -1,4 +1,0 @@
-color0.png
-color1.png
-color2.png
-color3.png

@@ -10,7 +10,6 @@ Windows (Visual Studio 2010 X86 /MD)
 [E] cairo-1.14.12           LIB & DLL               https://www.cairographics.org/releases/
     freetype-2.13.3         DLL (SSE2)              https://sourceforge.net/projects/freetype/files/
     giflib-5.2.2            LIB                     https://sourceforge.net/projects/giflib/files/
-    gs1-syntax-engine       LIB                     https://github.com/gitlost/gs1-syntax-engine.git
 [E] leptonica-1.74.4        DLL                     https://github.com/DanBloomberg/leptonica/releases
     libjpeg-9f              LIB                     http://www.ijg.org/
     libpng-1.6.44           DLL                     http://www.libpng.org/pub/png/libpng.html

@@ -4,10 +4,10 @@ DEPENDPATH += . debug release
 INCLUDEPATH += .
 INCLUDEPATH += ../backend
 INCLUDEPATH += ../backend_qt
-!contains(DEFINES, ZINT_NO_PNG) {
-    INCLUDEPATH += ../../lpng
-    INCLUDEPATH += ../../zlib
-}
+INCLUDEPATH += ../../lpng
+INCLUDEPATH += ../../zlib
+INCLUDEPATH += ../../gs1-syntax-engine/src/c-lib
+
 QT += uitools
 QT += widgets
 QT += svg
@@ -43,6 +43,7 @@ FORMS += extCLI.ui \
          grpDM.ui \
          grpDotCode.ui \
          grpDPD.ui \
+         grpEANAddOn.ui \
          grpGrid.ui \
          grpHX.ui \
          grpITF14.ui \
@@ -52,6 +53,7 @@ FORMS += extCLI.ui \
          grpMQR.ui \
          grpMSICheck.ui \
          grpPDF417.ui \
+         grpPlessey.ui \
          grpPZN.ui \
          grpQR.ui \
          grpRMQR.ui \
@@ -85,13 +87,11 @@ CONFIG += warn_on thread qt
 LIBS += -lQtZint
 QMAKE_LIBDIR += ../backend_qt/release
 LIBS += -lQt5Core
-QMAKE_LIBDIR += C:/qt/5.15.2static/lib
+QMAKE_LIBDIR += C:/qt/5.15.16static/lib
 
-!contains(DEFINES, ZINT_NO_PNG) {
 # Win
-    win32:LIBS += -llibpng -lzlib
-    win32:QMAKE_LIBDIR+=../../lpng/ ../../zlib
+    win32:LIBS += -llibpng -lzlib -lgs1encoders
+    win32:QMAKE_LIBDIR+=../../lpng/ ../../zlib ../../gs1-syntax-engine/src/c-lib
 # Unix
-    #unix:LIBS += -lpng -zlib
+    #unix:LIBS += -lpng -zlib -lgs1encoders
     #unix:QMAKE_LIBDIR += /usr/local/lib /usr/lib/x86_64-linux-gnu/
-}

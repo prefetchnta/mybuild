@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (C) 2022 <rstuart114@gmail.com>
+# Copyright (C) 2022-2025 <rstuart114@gmail.com>
 #
 # Generate the barcode .svg images for manual.pdf (via manual.pmd)
 
@@ -18,7 +18,7 @@ SCALE_UPCEAN=0.5
 # Multipying by 4 now seems necessary on Ubuntu 22.04 with pandoc 2.19
 scales=( SCALE_LINEAR SCALE_2D SCALE_2D_BIGGER SCALE_TRACK SCALE_DOTTY SCALE_ULTRA SCALE_UPCEAN )
 for scale in "${scales[@]}" ; do
-	eval $scale=$(echo "${!scale} * 4" | bc)
+    eval $scale=$(echo "${!scale} * 4" | bc)
 done
 
 zint -b PDF417 -d "This Text" --height=4 --heightperrow --scale=$SCALE_LINEAR -o images/pdf417_heightperrow.svg
@@ -49,20 +49,23 @@ zint -b DPIDENT -d "91232096712" --scale=$SCALE_LINEAR -o images/dpident.svg
 zint -b UPCA --compliantheight -d "72527270270" --scale=$SCALE_UPCEAN -o images/upca.svg
 zint -b UPCA --compliantheight -d "72527270270+12345" --scale=$SCALE_UPCEAN -o images/upca_5.svg
 zint -b UPCA --compliantheight -d "72527270270+12345" --guardwhitespace --scale=$SCALE_UPCEAN -o images/upca_5_gws.svg
-zint -b UPCE --compliantheight -d "1123456" --scale=$SCALE_UPCEAN -o images/upce.svg
-zint -b UPCE --compliantheight -d "1123456+12" --guardwhitespace --scale=$SCALE_UPCEAN -o images/upce_2_gws.svg
-zint -b EANX --compliantheight -d "4512345678906" --scale=$SCALE_UPCEAN -o images/eanx13.svg
-zint -b EANX --compliantheight -d "54321" --scale=$SCALE_UPCEAN -o images/eanx5.svg
-zint -b EANX --compliantheight -d "7432365+54321" --scale=$SCALE_UPCEAN -o images/eanx8_5.svg
-zint -b EANX_CHK --compliantheight -d "74323654" --guardwhitespace --scale=$SCALE_UPCEAN -o images/eanx8_gws.svg
+zint -b UPCE --compliantheight -d "123456" --scale=$SCALE_UPCEAN -o images/upce.svg
+zint -b UPCE --compliantheight -d "123456+12" --guardwhitespace --scale=$SCALE_UPCEAN -o images/upce_2_gws.svg
+zint -b EAN13 --compliantheight -d "451234567890" --scale=$SCALE_UPCEAN -o images/ean13.svg
+zint -b EAN13 --compliantheight -d "451234567890+21" --scale=$SCALE_UPCEAN -o images/ean13_2.svg
+zint -b EAN13 --compliantheight -d "451234567890" --guarddescent=2.5 --guardwhitespace --scale=$SCALE_UPCEAN -o images/ean13_gd_gws.svg
+zint -b EAN8 --compliantheight -d "7432365" --scale=$SCALE_UPCEAN -o images/ean8.svg
+zint -b EAN8 --compliantheight -d "7432365" --guardwhitespace --scale=$SCALE_UPCEAN -o images/ean8_gws.svg
 zint -b ISBNX --compliantheight -d "9789295055124" --scale=$SCALE_UPCEAN -o images/isbnx.svg
 zint -b ISBNX --compliantheight -d "9789295055124" --guardwhitespace --scale=$SCALE_UPCEAN -o images/isbnx_gws.svg
+zint -b EAN_2ADDON --compliantheight -d "12" --scale=$SCALE_UPCEAN -o images/ean_2addon.svg
+zint -b EAN_5ADDON --compliantheight -d "54321" --guardwhitespace --scale=$SCALE_UPCEAN -o images/ean_5addon_gws.svg
 zint -b PLESSEY -d "C64" --scale=$SCALE_LINEAR -o images/plessey.svg
 zint -b MSI_PLESSEY -d "6502" --vers=2 --scale=$SCALE_LINEAR -o images/msi_plessey.svg
 zint -b TELEPEN --compliantheight -d "Z80" --scale=$SCALE_LINEAR -o images/telepen.svg
 zint -b TELEPEN_NUM --compliantheight -d "466X33" --scale=$SCALE_LINEAR -o images/telepen_num.svg
 zint -b CODE39 --compliantheight -d "1A" --vers=1 --scale=$SCALE_LINEAR -o images/code39.svg
-zint -b EXCODE39 --compliantheight -d "123.45$@fd" --scale=$SCALE_LINEAR -o images/excode39.svg
+zint -b EXCODE39 --compliantheight -d "123.45#@fd" --scale=$SCALE_LINEAR -o images/excode39.svg
 zint -b CODE93 --compliantheight -d "C93" --scale=$SCALE_LINEAR -o images/code93.svg
 zint -b PZN --compliantheight -d "2758089" --scale=$SCALE_LINEAR -o images/pzn.svg
 zint -b LOGMARS --compliantheight -d "12345/ABCDE" --vers=1 --scale=$SCALE_LINEAR -o images/logmars.svg
@@ -97,13 +100,14 @@ zint -b DBAR_STK --compliantheight -d "9889876543210" --scale=$SCALE_LINEAR -o i
 zint -b DBAR_OMNSTK --compliantheight -d "9889876543210" --scale=$SCALE_LINEAR -o images/dbar_omnstk.svg
 zint -b DBAR_EXPSTK --compliantheight -d "[01]98898765432106[3202]012345[15]991231" --scale=$SCALE_LINEAR -o images/dbar_expstk.svg
 zint -b CODE49 --compliantheight -d "MULTIPLE ROWS IN CODE 49" --scale=$SCALE_LINEAR -o images/code49.svg
-zint -b EANX_CC --compliantheight -d "[99]1234-abcd" --mode=1 --primary=331234567890 --scale=$SCALE_UPCEAN -o images/eanx_cc_a.svg
-zint -b EANX_CC --compliantheight -d "[99]1234-abcd" --mode=2 --primary=331234567890 --scale=$SCALE_UPCEAN -o images/eanx_cc_b.svg
+zint -b EAN13_CC --compliantheight -d "[99]1234-abcd" --mode=1 --primary=331234567890 --scale=$SCALE_UPCEAN -o images/ean13_cc_a.svg
+zint -b EAN13_CC --compliantheight -d "[99]1234-abcd" --mode=2 --primary=331234567890 --scale=$SCALE_UPCEAN -o images/ean13_cc_b.svg
 zint -b GS1_128_CC --compliantheight -d "[99]1234-abcd" --mode=3 --primary="[01]03312345678903" --scale=$SCALE_UPCEAN -o images/gs1_128_cc_c.svg
 zint -b PHARMA_TWO --compliantheight -d "29876543" --scale=$SCALE_TRACK -o images/pharma_two.svg
 zint -b POSTNET --compliantheight -d "12345678901" --scale=$SCALE_TRACK -o images/postnet.svg
 zint -b PLANET --compliantheight -d "4012345235636" --scale=$SCALE_TRACK -o images/planet.svg
 zint -b CEPNET --compliantheight -d "12345678" --scale=$SCALE_TRACK -o images/cepnet.svg
+zint -b DXFILMEDGE --compliantheight -d "112-1/10A" --scale=$SCALE_TRACK -o images/dxfilmedge.svg
 zint -b AUSPOST --compliantheight -d "96184209" --scale=$SCALE_TRACK -o images/auspost.svg
 zint -b AUSROUTE --compliantheight -d "34567890" --scale=$SCALE_TRACK -o images/ausroute.svg
 zint -b AUSREPLY --compliantheight -d "12345678" --scale=$SCALE_TRACK -o images/ausreply.svg

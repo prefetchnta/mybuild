@@ -35,6 +35,7 @@ FORMS += extCLI.ui \
          grpDM.ui \
          grpDotCode.ui \
          grpDPD.ui \
+         grpEANAddOn.ui \
          grpGrid.ui \
          grpHX.ui \
          grpITF14.ui \
@@ -44,6 +45,7 @@ FORMS += extCLI.ui \
          grpMQR.ui \
          grpMSICheck.ui \
          grpPDF417.ui \
+         grpPlessey.ui \
          grpPZN.ui \
          grpQR.ui \
          grpRMQR.ui \
@@ -69,6 +71,6 @@ RC_FILE += res/qtZint.rc
 
 INCLUDEPATH += ../backend_qt ../backend
 
-LIBS += -lQtZintDLL -lzint
+LIBS += -lQtZintDLL -L"../win32/Release" -L"../win32/vs2019/Release" -L"../win32/vs2017/Release" -L"../win32/vs2015/Release" -lzint
 QMAKE_LIBDIR += ../backend_qt/release
 QMAKE_LIBDIR += ../win32/Release

@@ -1,7 +1,7 @@
 /*  output.c - Common routines for raster/vector
 
     libzint - the open source barcode library
-    Copyright (C) 2020-2023 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2020-2025 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -51,13 +51,13 @@ static int out_check_colour(struct zint_symbol *symbol, const char *colour, cons
 
     if ((comma1 = strchr(colour, ',')) == NULL) {
         const int len = (int) strlen(colour);
-        if ((len != 6) && (len != 8)) {
-            sprintf(symbol->errtxt, "880: Malformed %s RGB colour (6 or 8 characters only)", name);
-            return ZINT_ERROR_INVALID_OPTION;
+        if (len != 6 && len != 8) {
+            return z_errtxtf(ZINT_ERROR_INVALID_OPTION, symbol, 880,
+                            "Malformed %s RGB colour (6 or 8 characters only)", name);
         }
-        if (!is_sane(OUT_SSET_F, (unsigned char *) colour, len)) {
-            sprintf(symbol->errtxt, "881: Malformed %s RGB colour '%s' (hexadecimal only)", name, colour);
-            return ZINT_ERROR_INVALID_OPTION;
+        if (z_not_sane(OUT_SSET_F, ZCUCP(colour), len)) {
+            return ZEXT z_errtxtf(ZINT_ERROR_INVALID_OPTION, symbol, 881,
+                                    "Malformed %1$s RGB colour '%2$s' (hexadecimal only)", name, colour);
         }
 
         return 0;
@@ -66,36 +66,36 @@ static int out_check_colour(struct zint_symbol *symbol, const char *colour, cons
     /* CMYK comma-separated percentages */
     if ((comma2 = strchr(comma1 + 1, ',')) == NULL || (comma3 = strchr(comma2 + 1, ',')) == NULL
             || strchr(comma3 + 1, ',') != NULL) {
-        sprintf(symbol->errtxt, "882: Malformed %s CMYK colour (4 decimal numbers, comma-separated)", name);
-        return ZINT_ERROR_INVALID_OPTION;
+        return z_errtxtf(ZINT_ERROR_INVALID_OPTION, symbol, 882,
+                        "Malformed %s CMYK colour (4 decimal numbers, comma-separated)", name);
     }
     if (comma1 - colour > 3 || comma2 - (comma1 + 1) > 3 || comma3 - (comma2 + 1) > 3 || strlen(comma3 + 1) > 3) {
-        sprintf(symbol->errtxt, "883: Malformed %s CMYK colour (3 digit maximum per number)", name);
-        return ZINT_ERROR_INVALID_OPTION;
+        return z_errtxtf(ZINT_ERROR_INVALID_OPTION, symbol, 883,
+                        "Malformed %s CMYK colour (3 digit maximum per number)", name);
     }
 
-    if ((val = to_int((const unsigned char *) colour, (int) (comma1 - colour))) == -1 || val > 100) {
-        sprintf(symbol->errtxt, "884: Malformed %s CMYK colour C (decimal 0-100 only)", name);
-        return ZINT_ERROR_INVALID_OPTION;
+    if ((val = z_to_int(ZCUCP(colour), (int) (comma1 - colour))) == -1 || val > 100) {
+        return z_errtxtf(ZINT_ERROR_INVALID_OPTION, symbol, 884, "Malformed %s CMYK colour C (decimal 0 to 100 only)",
+                        name);
     }
-    if ((val = to_int((const unsigned char *) (comma1 + 1), (int) (comma2 - (comma1 + 1)))) == -1 || val > 100) {
-        sprintf(symbol->errtxt, "885: Malformed %s CMYK colour M (decimal 0-100 only)", name);
-        return ZINT_ERROR_INVALID_OPTION;
+    if ((val = z_to_int(ZCUCP(comma1 + 1), (int) (comma2 - (comma1 + 1)))) == -1 || val > 100) {
+        return z_errtxtf(ZINT_ERROR_INVALID_OPTION, symbol, 885, "Malformed %s CMYK colour M (decimal 0 to 100 only)",
+                        name);
     }
-    if ((val = to_int((const unsigned char *) (comma2 + 1), (int) (comma3 - (comma2 + 1)))) == -1 || val > 100) {
-        sprintf(symbol->errtxt, "886: Malformed %s CMYK colour Y (decimal 0-100 only)", name);
-        return ZINT_ERROR_INVALID_OPTION;
+    if ((val = z_to_int(ZCUCP(comma2 + 1), (int) (comma3 - (comma2 + 1)))) == -1 || val > 100) {
+        return z_errtxtf(ZINT_ERROR_INVALID_OPTION, symbol, 886, "Malformed %s CMYK colour Y (decimal 0 to 100 only)",
+                        name);
     }
-    if ((val = to_int((const unsigned char *) (comma3 + 1), (int) strlen(comma3 + 1))) == -1 || val > 100) {
-        sprintf(symbol->errtxt, "887: Malformed %s CMYK colour K (decimal 0-100 only)", name);
-        return ZINT_ERROR_INVALID_OPTION;
+    if ((val = z_to_int(ZCUCP(comma3 + 1), (int) strlen(comma3 + 1))) == -1 || val > 100) {
+        return z_errtxtf(ZINT_ERROR_INVALID_OPTION, symbol, 887, "Malformed %s CMYK colour K (decimal 0 to 100 only)",
+                        name);
     }
 
     return 0;
 }
 
 /* Check colour options are good (`symbol->fgcolour`, `symbol->bgcolour`) */
-INTERNAL int out_check_colour_options(struct zint_symbol *symbol) {
+INTERNAL int zint_out_check_colour_options(struct zint_symbol *symbol) {
 
     if (out_check_colour(symbol, symbol->fgcolour, "foreground") != 0) {
         return ZINT_ERROR_INVALID_OPTION;
@@ -108,17 +108,17 @@ INTERNAL int out_check_colour_options(struct zint_symbol *symbol) {
 }
 
 /* Return RGB(A) from (well-formed) colour string. Returns 0 if RGB or converted CMYK, 1 if RGBA */
-INTERNAL int out_colour_get_rgb(const char *colour, unsigned char *red, unsigned char *green, unsigned char *blue,
-                unsigned char *alpha) {
+INTERNAL int zint_out_colour_get_rgb(const char *colour, unsigned char *red, unsigned char *green,
+                unsigned char *blue, unsigned char *alpha) {
     const char *comma1, *comma2, *comma3;
     int black, val;
 
     if ((comma1 = strchr(colour, ',')) == NULL) {
-        *red = 16 * ctoi(colour[0]) + ctoi(colour[1]);
-        *green = 16 * ctoi(colour[2]) + ctoi(colour[3]);
-        *blue = 16 * ctoi(colour[4]) + ctoi(colour[5]);
+        *red = (unsigned char) (16 * z_ctoi(colour[0]) + z_ctoi(colour[1]));
+        *green = (unsigned char) (16 * z_ctoi(colour[2]) + z_ctoi(colour[3]));
+        *blue = (unsigned char) (16 * z_ctoi(colour[4]) + z_ctoi(colour[5]));
         if (alpha) {
-            *alpha = colour[6] ? 16 * ctoi(colour[6]) + ctoi(colour[7]) : 0xFF;
+            *alpha = (unsigned char) (colour[6] ? 16 * z_ctoi(colour[6]) + z_ctoi(colour[7]) : 0xFF);
             return colour[6] ? 1 : 0;
         }
         return 0;
@@ -126,16 +126,16 @@ INTERNAL int out_colour_get_rgb(const char *colour, unsigned char *red, unsigned
     comma2 = strchr(comma1 + 1, ',');
     comma3 = strchr(comma2 + 1, ',');
 
-    black = 100 - to_int((const unsigned char *) (comma3 + 1), (int) strlen(comma3 + 1));
+    black = 100 - z_to_int(ZCUCP(comma3 + 1), (int) strlen(comma3 + 1));
 
-    val = 100 - to_int((const unsigned char *) colour, (int) (comma1 - colour)); /* Cyan */
-    *red = (int) roundf((0xFF * val * black) / 10000.0f);
+    val = 100 - z_to_int(ZCUCP(colour), (int) (comma1 - colour)); /* Cyan */
+    *red = (unsigned char) round((0xFF * val * black) / 10000.0);
 
-    val = 100 - to_int((const unsigned char *) (comma1 + 1), (int) (comma2 - (comma1 + 1))); /* Magenta */
-    *green = (int) roundf((0xFF * val * black) / 10000.0f);
+    val = 100 - z_to_int(ZCUCP(comma1 + 1), (int) (comma2 - (comma1 + 1))); /* Magenta */
+    *green = (unsigned char) round((0xFF * val * black) / 10000.0);
 
-    val = 100 - to_int((const unsigned char *) (comma2 + 1), (int) (comma3 - (comma2 + 1))); /* Yellow */
-    *blue = (int) roundf((0xFF * val * black) / 10000.0f);
+    val = 100 - z_to_int(ZCUCP(comma2 + 1), (int) (comma3 - (comma2 + 1))); /* Yellow */
+    *blue = (unsigned char) round((0xFF * val * black) / 10000.0);
 
     if (alpha) {
         *alpha = 0xFF;
@@ -145,7 +145,7 @@ INTERNAL int out_colour_get_rgb(const char *colour, unsigned char *red, unsigned
 }
 
 /* Return CMYK from (well-formed) colour string. Returns 0 if CMYK, 1 if converted RBG, 2 if converted RGBA */
-INTERNAL int out_colour_get_cmyk(const char *colour, int *cyan, int *magenta, int *yellow, int *black,
+INTERNAL int zint_out_colour_get_cmyk(const char *colour, int *cyan, int *magenta, int *yellow, int *black,
                 unsigned char *rgb_alpha) {
     const char *comma1;
     unsigned char red, green, blue, alpha;
@@ -154,16 +154,16 @@ INTERNAL int out_colour_get_cmyk(const char *colour, int *cyan, int *magenta, in
     if ((comma1 = strchr(colour, ',')) != NULL) {
         const char *const comma2 = strchr(comma1 + 1, ',');
         const char *const comma3 = strchr(comma2 + 1, ',');
-        *cyan = to_int((const unsigned char *) colour, (int) (comma1 - colour));
-        *magenta = to_int((const unsigned char *) (comma1 + 1), (int) (comma2 - (comma1 + 1)));
-        *yellow = to_int((const unsigned char *) (comma2 + 1), (int) (comma3 - (comma2 + 1)));
-        *black = to_int((const unsigned char *) (comma3 + 1), (int) strlen(comma3 + 1));
+        *cyan = z_to_int(ZCUCP(colour), (int) (comma1 - colour));
+        *magenta = z_to_int(ZCUCP(comma1 + 1), (int) (comma2 - (comma1 + 1)));
+        *yellow = z_to_int(ZCUCP(comma2 + 1), (int) (comma3 - (comma2 + 1)));
+        *black = z_to_int(ZCUCP(comma3 + 1), (int) strlen(comma3 + 1));
         if (rgb_alpha) {
             *rgb_alpha = 0xFF;
         }
         return 0;
     }
-    have_alpha = out_colour_get_rgb(colour, &red, &green, &blue, &alpha);
+    have_alpha = zint_out_colour_get_rgb(colour, &red, &green, &blue, &alpha);
 
     k = red;
     if (green > k) {
@@ -176,10 +176,10 @@ INTERNAL int out_colour_get_cmyk(const char *colour, int *cyan, int *magenta, in
         *cyan = *magenta = *yellow = 0;
         *black = 100;
     } else {
-        *cyan = (int) roundf((k - red) * 100.0f / k);
-        *magenta = (int) roundf((k - green) * 100.0f / k);
-        *yellow = (int) roundf((k - blue) * 100.0f / k);
-        *black = (int) roundf(((0xFF - k) * 100.0f) / 0xFF);
+        *cyan = (int) round((k - red) * 100.0 / k);
+        *magenta = (int) round((k - green) * 100.0 / k);
+        *yellow = (int) round((k - blue) * 100.0 / k);
+        *black = (int) round(((0xFF - k) * 100.0) / 0xFF);
     }
 
     if (rgb_alpha) {
@@ -190,19 +190,20 @@ INTERNAL int out_colour_get_cmyk(const char *colour, int *cyan, int *magenta, in
 }
 
 /* Convert internal colour chars "WCBMRYGK" to RGB */
-INTERNAL int out_colour_char_to_rgb(const char ch, unsigned char *red, unsigned char *green, unsigned char *blue) {
+INTERNAL int zint_out_colour_char_to_rgb(const unsigned char ch, unsigned char *red, unsigned char *green,
+                unsigned char *blue) {
     static const char chars[] = "WCBMRYGK";
     static const unsigned char colours[8][3] = {
-        { 0xff, 0xff, 0xff, }, /* White */
-        {    0, 0xff, 0xff, }, /* Cyan */
-        {    0,    0, 0xff, }, /* Blue */
-        { 0xff,    0, 0xff, }, /* Magenta */
-        { 0xff,    0,    0, }, /* Red */
-        { 0xff, 0xff,    0, }, /* Yellow */
-        {    0, 0xff,    0, }, /* Green */
+        { 0xFF, 0xFF, 0xFF, }, /* White */
+        {    0, 0xFF, 0xFF, }, /* Cyan */
+        {    0,    0, 0xFF, }, /* Blue */
+        { 0xFF,    0, 0xFF, }, /* Magenta */
+        { 0xFF,    0,    0, }, /* Red */
+        { 0xFF, 0xFF,    0, }, /* Yellow */
+        {    0, 0xFF,    0, }, /* Green */
         {    0,    0,    0, }, /* Black */
     };
-    int i = posn(chars, ch);
+    int i = z_posn(chars, (const char) ch);
     int ret = i != -1;
 
     if (i == -1) {
@@ -261,12 +262,18 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
             }
             done = 1;
             break;
+        case BARCODE_EAN8:
+        case BARCODE_EAN_2ADDON:
+        case BARCODE_EAN_5ADDON:
         case BARCODE_EANX:
         case BARCODE_EANX_CHK:
-        case BARCODE_EANX_CC:
+        case BARCODE_EAN13:
         case BARCODE_ISBNX:
+        case BARCODE_EANX_CC:
+        case BARCODE_EAN8_CC:
+        case BARCODE_EAN13_CC:
             /* GS1 General Specifications 21.0.1 Section 5.2.3.4 */
-            switch (ustrlen(symbol->text)) {
+            switch (symbol->text_length) {
                 case 13: /* EAN-13/ISBN */
                     if (!(symbol->output_options & BARCODE_NO_QUIET_ZONES)) {
                         *left = comp_xoffset >= 10 ? 1.0f : 11.0f - comp_xoffset; /* Need at least 1X for CC-A/B */
@@ -311,14 +318,14 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
             /* GS1 General Specifications 21.0.1 Section 5.2.3.4 */
             if (!(symbol->output_options & BARCODE_NO_QUIET_ZONES)) {
                 *left = comp_xoffset >= 8 ? 1.0f : 9.0f - comp_xoffset; /* Need at least 1X for CC-A/B */
-                if (ustrlen(symbol->text) > 12) { /* UPC-A + add-on */
+                if (symbol->text_length > 12) { /* UPC-A + add-on */
                     *right = 5.0f;
                 } else {
                     *right = 9.0f - (comp_xoffset != 0);
                 }
             } else if (!hide_text) {
                 *left = comp_xoffset >= 8 ? 1.0f : 9.0f - comp_xoffset; /* Need for outside left digit */
-                if (ustrlen(symbol->text) <= 12) { /* No add-on */
+                if (symbol->text_length <= 12) { /* No add-on */
                     *right = 9.0f - (comp_xoffset != 0); /* Need for outside right digit */
                 }
             }
@@ -330,14 +337,14 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
             /* GS1 General Specifications 21.0.1 Section 5.2.3.4 */
             if (!(symbol->output_options & BARCODE_NO_QUIET_ZONES)) {
                 *left = comp_xoffset >= 8 ? 1.0f : 9.0f - comp_xoffset;
-                if (ustrlen(symbol->text) > 8) { /* UPC-E + add-on */
+                if (symbol->text_length > 8) { /* UPC-E + add-on */
                     *right = 5.0f;
                 } else {
                     *right = 7.0f - (comp_xoffset != 0);
                 }
             } else if (!hide_text) {
                 *left = comp_xoffset >= 8 ? 1.0f : 9.0f - comp_xoffset; /* Need for outside left digit */
-                if (ustrlen(symbol->text) <= 8) { /* No add-on */
+                if (symbol->text_length <= 8) { /* No add-on */
                     *right = 7.0f - (comp_xoffset != 0); /* Need for outside right digit */
                 }
             }
@@ -358,6 +365,12 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
         case BARCODE_CODE11:
             /* No known standard. Following ITF-14, set to 10X */
             *left = *right = 10.0f;
+            done = 1;
+            break;
+
+        case BARCODE_DXFILMEDGE:
+            /* No known standard. Add a little horizontal space to make the detection easier. Tested with Zxing-CPP */
+            *left = *right = 1.8f;
             done = 1;
             break;
 
@@ -398,11 +411,11 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
                 int comp_roffset = 0; /* Right offset of linear */
                 int min_qz; /* Minimum quiet zone - 1X for CC-A/B, 2X for CC-C */
                 int x;
-                for (x = symbol->width - 1; x >= 0 && !module_is_set(symbol, symbol->rows - 1, x); x--) {
+                for (x = symbol->width - 1; x >= 0 && !z_module_is_set(symbol, symbol->rows - 1, x); x--) {
                     comp_roffset++;
                 }
                 /* Determine if CC-C by counting initial start pattern */
-                for (x = 0; x < 8 && module_is_set(symbol, 0, x); x++);
+                for (x = 0; x < 8 && z_module_is_set(symbol, 0, x); x++);
                 min_qz = x == 8 ? 2 : 1;
                 *left = comp_xoffset >= 10 - min_qz ? min_qz : 10.0f - comp_xoffset;
                 *right = comp_roffset >= 10 - min_qz ? min_qz : 10.0f - comp_roffset;
@@ -504,8 +517,8 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
             /* USPS DMM 300 2006 (2011) 708.9.3 (top/bottom zero)
                right 0.125" (min) / 0.03925" (X max) ~ 3.18, left 1.25" - 0.66725" (max width of barcode)
                - 0.375 (max right) = 0.20775" / 0.03925" (X max) ~ 5.29 */
-            *right = (float) (0.125 / 0.03925);
-            *left = (float) (0.20775 / 0.03925);
+            *right = 3.18471336f; /* 0.125 / 0.03925 */
+            *left = 5.29299355f; /* 0.20775 / 0.03925 */
             done = 1;
             break;
         case BARCODE_PHARMA:
@@ -561,13 +574,13 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
             /* Customer Barcode Technical Specifications (2012) left/right 6mm / 0.6mm = 10,
                top/bottom 2mm / 0.6mm ~ 3.33 (X max) */
             *left = *right = 10.0f;
-            *top = *bottom = (float) (2.0 / 0.6);
+            *top = *bottom = 3.33333325f; /* 2.0 / 0.6 */
             done = 1;
             break;
         case BARCODE_RM4SCC:
             /* Royal Mail Know How User's Manual Appendix C: using CBC, same as MAILMARK_4S, 2mm all round,
                use X max (25.4mm / 39) i.e. 20 bars per 25.4mm */
-            *left = *right = *top = *bottom = (float) ((2.0 * 39.0) / 25.4); /* ~ 3.07 */
+            *left = *right = *top = *bottom = 3.07086611f; /* (2.0 * 39.0) / 25.4 */
             done = 1;
             break;
         case BARCODE_DATAMATRIX:
@@ -578,7 +591,7 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
             break;
         case BARCODE_JAPANPOST:
             /* Japan Post Zip/Barcode Manual p.13 2mm all round, X 0.6mm, 2mm / 0.6mm ~ 3.33 */
-            *left = *right = *top = *bottom = (float) (2.0 / 0.6);
+            *left = *right = *top = *bottom = 3.33333325f; /* 2.0 / 0.6 */
             done = 1;
             break;
 
@@ -591,8 +604,8 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
         case BARCODE_USPS_IMAIL:
             /* USPS-B-3200 (2015) Section 2.3.2 left/right 0.125", top/bottom 0.026", use X max (1 / 39)
                i.e. 20 bars per inch */
-            *left = *right = 0.125f * 39.0f; /* 4.875 */
-            *top = *bottom = 0.026f * 39.0f; /* 1.014 */
+            *left = *right = 4.875f; /* 0.125 * 39.0 */
+            *top = *bottom = 1.01400006f; /* 0.026 * 39.0 */
             done = 1;
             break;
 
@@ -604,7 +617,7 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
 
         case BARCODE_KIX:
             /* Handleiding KIX code brochure - same as RM4SCC/MAILMARK_4S */
-            *left = *right = *top = *bottom = (float) ((2.0 * 39.0) / 25.4); /* ~ 3.07 */
+            *left = *right = *top = *bottom = 3.07086611f; /* (2.0 * 39.0) / 25.4 */
             done = 1;
             break;
         case BARCODE_AZTEC:
@@ -630,7 +643,7 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
         case BARCODE_MAILMARK_4S:
             /* Royal Mail Mailmark Barcode Definition Document Section 3.5.2, 2mm all round, use X max (25.4mm / 39)
                i.e. 20 bars per 25.4mm */
-            *left = *right = *top = *bottom = (float) ((2.0 * 39.0) / 25.4); /* ~ 3.07 */
+            *left = *right = *top = *bottom = 3.07086611f; /* (2.0 * 39.0) / 25.4 */
             done = 1;
             break;
         case BARCODE_UPU_S10:
@@ -680,14 +693,14 @@ static int out_quiet_zones(const struct zint_symbol *symbol, const int hide_text
 }
 
 #ifdef ZINT_TEST /* Wrapper for direct testing */
-INTERNAL int out_quiet_zones_test(const struct zint_symbol *symbol, const int hide_text, const int comp_xoffset,
+INTERNAL int zint_test_out_quiet_zones(const struct zint_symbol *symbol, const int hide_text, const int comp_xoffset,
                             float *left, float *right, float *top, float *bottom) {
     return out_quiet_zones(symbol, hide_text, comp_xoffset, left, right, top, bottom);
 }
 #endif
 
 /* Set left (x), top (y), right and bottom offsets for whitespace, also right quiet zone */
-INTERNAL void out_set_whitespace_offsets(const struct zint_symbol *symbol, const int hide_text,
+INTERNAL void zint_out_set_whitespace_offsets(const struct zint_symbol *symbol, const int hide_text,
                 const int comp_xoffset, float *p_xoffset, float *p_yoffset, float *p_roffset, float *p_boffset,
                 float *p_qz_right, const float scaler, int *p_xoffset_si, int *p_yoffset_si, int *p_roffset_si,
                 int *p_boffset_si, int *p_qz_right_si) {
@@ -736,17 +749,16 @@ INTERNAL void out_set_whitespace_offsets(const struct zint_symbol *symbol, const
 
 /* Set composite offset and main width excluding add-on (for start of add-on calc) and add-on text, returning
    EAN/UPC type */
-INTERNAL int out_process_upcean(const struct zint_symbol *symbol, const int comp_xoffset, int *p_main_width,
+INTERNAL int zint_out_process_upcean(const struct zint_symbol *symbol, const int comp_xoffset, int *p_main_width,
                 unsigned char addon[6], int *p_addon_len, int *p_addon_gap) {
     int main_width; /* Width of main linear symbol, excluding add-on */
     int upceanflag; /* EAN/UPC type flag */
     int i, j, latch;
-    const int text_length = (int) ustrlen(symbol->text);
 
     latch = 0;
     j = 0;
     /* Isolate add-on text */
-    for (i = 6; i < text_length && j < 5; i++) {
+    for (i = 6; i < symbol->text_length && j < 5; i++) {
         if (latch == 1) {
             /* Use dummy space-filled add-on if no hrt */
             addon[j] = symbol->show_hrt ? symbol->text[i] : ' ';
@@ -757,7 +769,7 @@ INTERNAL int out_process_upcean(const struct zint_symbol *symbol, const int comp
     }
     addon[j] = '\0';
     if (latch) {
-        *p_addon_len = (int) ustrlen(addon);
+        *p_addon_len = (int) z_ustrlen(addon);
         if (symbol->symbology == BARCODE_UPCA || symbol->symbology == BARCODE_UPCA_CHK
                 || symbol->symbology == BARCODE_UPCA_CC) {
             *p_addon_gap = symbol->option_2 >= 9 && symbol->option_2 <= 12 ? symbol->option_2 : 9;
@@ -768,9 +780,8 @@ INTERNAL int out_process_upcean(const struct zint_symbol *symbol, const int comp
 
     upceanflag = 0;
     main_width = symbol->width;
-    if ((symbol->symbology == BARCODE_EANX) || (symbol->symbology == BARCODE_EANX_CHK)
-            || (symbol->symbology == BARCODE_EANX_CC) || (symbol->symbology == BARCODE_ISBNX)) {
-        switch (text_length) {
+    if (z_is_ean(symbol->symbology)) {
+        switch (symbol->text_length) {
             case 13: /* EAN-13 */
             case 16: /* EAN-13 + EAN-2 */
             case 19: /* EAN-13 + EAN-5 */
@@ -790,12 +801,12 @@ INTERNAL int out_process_upcean(const struct zint_symbol *symbol, const int comp
                 upceanflag = 8;
                 break;
         }
-    } else if ((symbol->symbology == BARCODE_UPCA) || (symbol->symbology == BARCODE_UPCA_CHK)
-            || (symbol->symbology == BARCODE_UPCA_CC)) {
+    } else if (symbol->symbology == BARCODE_UPCA || symbol->symbology == BARCODE_UPCA_CHK
+                || symbol->symbology == BARCODE_UPCA_CC) {
         main_width = 95 + comp_xoffset; /* UPC-A main symbol 95 modules wide */
         upceanflag = 12;
-    } else if ((symbol->symbology == BARCODE_UPCE) || (symbol->symbology == BARCODE_UPCE_CHK)
-            || (symbol->symbology == BARCODE_UPCE_CC)) {
+    } else if (symbol->symbology == BARCODE_UPCE || symbol->symbology == BARCODE_UPCE_CHK
+                || symbol->symbology == BARCODE_UPCE_CC) {
         main_width = 51 + comp_xoffset; /* UPC-E main symbol 51 modules wide */
         upceanflag = 6;
     }
@@ -808,7 +819,7 @@ INTERNAL int out_process_upcean(const struct zint_symbol *symbol, const int comp
 /* Calculate large bar height i.e. linear bars with zero row height that respond to the symbol height.
    If scaler `si` non-zero (raster), then large_bar_height if non-zero or else row heights will be rounded
    to nearest pixel and symbol height adjusted */
-INTERNAL float out_large_bar_height(struct zint_symbol *symbol, const int si, int *row_heights_si,
+INTERNAL float zint_out_large_bar_height(struct zint_symbol *symbol, const int si, int *row_heights_si,
                 int *symbol_height_si) {
     float fixed_height = 0.0f;
     int zero_count = 0;
@@ -820,7 +831,7 @@ INTERNAL float out_large_bar_height(struct zint_symbol *symbol, const int si, in
         for (i = 0; i < symbol->rows; i++) {
             if (symbol->row_height[i]) {
                 fixed_height += symbol->row_height[i];
-                if (!round_rows && !isfintf(symbol->row_height[i] * si)) {
+                if (!round_rows && !z_isfintf(symbol->row_height[i] * si)) {
                     round_rows = 1;
                 }
             } else {
@@ -829,23 +840,23 @@ INTERNAL float out_large_bar_height(struct zint_symbol *symbol, const int si, in
         }
 
         if (zero_count) {
-            large_bar_height = stripf((symbol->height - fixed_height) / zero_count);
-            assert(large_bar_height >= 0.5f); /* Min row height as set by `set_height()` */
-            if (!isfintf(large_bar_height * si)) {
-                large_bar_height = stripf(roundf(large_bar_height * si) / si);
+            large_bar_height = z_stripf((symbol->height - fixed_height) / zero_count);
+            assert(large_bar_height >= 0.5f); /* Min row height as set by `z_set_height()` */
+            if (!z_isfintf(large_bar_height * si)) {
+                large_bar_height = z_stripf(roundf(large_bar_height * si) / si);
             }
-            symbol->height = stripf(large_bar_height * zero_count + fixed_height);
+            symbol->height = z_stripf(large_bar_height * zero_count + fixed_height);
             /* Note should never happen that have both zero_count and round_rows */
         } else {
             if (round_rows) {
                 float total_height = 0.0f;
                 for (i = 0; i < symbol->rows; i++) {
-                    if (!isfintf(symbol->row_height[i] * si)) {
+                    if (!z_isfintf(symbol->row_height[i] * si)) {
                         symbol->row_height[i] = roundf(symbol->row_height[i] * si) / si;
                     }
                     total_height += symbol->row_height[i];
                 }
-                symbol->height = stripf(total_height);
+                symbol->height = z_stripf(total_height);
             }
         }
 
@@ -870,9 +881,9 @@ INTERNAL float out_large_bar_height(struct zint_symbol *symbol, const int si, in
             }
         }
         if (zero_count) {
-            large_bar_height = stripf((symbol->height - fixed_height) / zero_count);
-            assert(large_bar_height >= 0.5f); /* Min row height as set by `set_height()` */
-            symbol->height = stripf(large_bar_height * zero_count + fixed_height);
+            large_bar_height = z_stripf((symbol->height - fixed_height) / zero_count);
+            assert(large_bar_height >= 0.5f); /* Min row height as set by `z_set_height()` */
+            symbol->height = z_stripf(large_bar_height * zero_count + fixed_height);
         }
     }
 
@@ -883,24 +894,24 @@ INTERNAL float out_large_bar_height(struct zint_symbol *symbol, const int si, in
 /* Convert UTF-8 to Windows wide chars. Ticket #288, props Marcel */
 #define utf8_to_wide(u, w, r) \
     { \
-        int lenW; /* Includes NUL terminator */ \
+        int lenW; /* Includes terminating NUL */ \
         if ((lenW = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, u, -1, NULL, 0)) == 0) return r; \
         w = (wchar_t *) z_alloca(sizeof(wchar_t) * lenW); \
         if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, u, -1, w, lenW) == 0) return r; \
     }
 
 /* Do `fopen()` on Windows, assuming `filename` is UTF-8 encoded. Ticket #288, props Marcel */
-INTERNAL FILE *out_win_fopen(const char *filename, const char *mode) {
+INTERNAL FILE *zint_out_win_fopen(const char *filename, const char *mode) {
     wchar_t *filenameW, *modeW;
 
-    utf8_to_wide(filename, filenameW, NULL);
+    utf8_to_wide(filename, filenameW, NULL /*fail return*/);
     utf8_to_wide(mode, modeW, NULL);
 
     return _wfopen(filenameW, modeW);
 }
 #endif
 
-/* Make a directory; already existing dir okay */
+/* Make a directory; already existing dir okay. Returns 0 on success */
 /* Adapted from https://gist.github.com/JonathonReinhart/8c0d90191c38af2dcadb102c4e202950 and
    https://nachtimwald.com/2019/07/10/recursive-create-directory-in-c-revisited/ */
 static int out_maybe_mkdir(const char *path) {
@@ -909,7 +920,7 @@ static int out_maybe_mkdir(const char *path) {
     wchar_t *pathW;
 
     /* Assumes `path` is UTF-8 encoded */
-    utf8_to_wide(path, pathW, 0);
+    utf8_to_wide(path, pathW, -1 /*fail return*/);
 
     /* Try to make the directory */
     if (CreateDirectoryW(pathW, NULL) != 0) { /* Non-zero on success */
@@ -944,11 +955,11 @@ static int out_maybe_mkdir(const char *path) {
 }
 
 /* Create output file, creating sub-directories if necessary. Returns `fopen()` FILE pointer */
-INTERNAL FILE *out_fopen(const char filename[256], const char *mode) {
+INTERNAL FILE *zint_out_fopen(const char filename[256], const char *mode) {
     FILE *outfile;
 
 #ifdef _WIN32
-    if (!(outfile = out_win_fopen(filename, mode))) {
+    if (!(outfile = zint_out_win_fopen(filename, mode))) {
 #else
     if (!(outfile = fopen(filename, mode))) {
 #endif
@@ -971,7 +982,7 @@ INTERNAL FILE *out_fopen(const char filename[256], const char *mode) {
         memcpy(dirname, filename, dirend - filename);
         dirname[dirend - filename] = '/';
         dirname[dirend - filename + 1] = '\0';
-#if _WIN32
+#ifdef _WIN32
         for (d = dirname; *d; d++) { /* Convert to Unix separators */
             if (*d == '\\') {
                 *d = '/';
@@ -988,43 +999,13 @@ INTERNAL FILE *out_fopen(const char filename[256], const char *mode) {
             }
         }
 #ifdef _WIN32
-        outfile = out_win_fopen(filename, mode);
+        outfile = zint_out_win_fopen(filename, mode);
 #else
         outfile = fopen(filename, mode);
 #endif
     }
 
     return outfile;
-}
-
-/* Output float without trailing zeroes to `fp` with decimal pts `dp` (precision) */
-INTERNAL void out_putsf(const char *const prefix, const int dp, const float arg, FILE *fp) {
-    int i, end;
-    char buf[256]; /* Assuming `dp` reasonable */
-    const int len = sprintf(buf, "%.*f", dp, arg);
-
-    if (*prefix) {
-        fputs(prefix, fp);
-    }
-
-    /* Adapted from https://stackoverflow.com/a/36202854/664741 */
-    for (i = len - 1, end = len; i >= 0; i--) {
-        if (buf[i] == '0') {
-            if (end == i + 1) {
-                end = i;
-            }
-        } else if (!z_isdigit(buf[i]) && buf[i] != '-') { /* If not digit or minus then decimal point */
-            if (end == i + 1) {
-                end = i;
-            } else {
-                buf[i] = '.'; /* Overwrite any locale-specific setting for decimal point */
-            }
-            buf[end] = '\0';
-            break;
-        }
-    }
-
-    fputs(buf, fp);
 }
 
 /* vim: set ts=4 sw=4 et : */

@@ -1,6 +1,10 @@
-/* This is a simple Reed-Solomon encoder */
 /*
-  (C) Cliff Hones 2004
+    This is a simple Reed-Solomon encoder
+    (C) Cliff Hones 2004
+*/
+/*
+    libzint - the open source barcode library
+    Copyright (C) 2009-2025 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -30,24 +34,24 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 
 /* It is not written with high efficiency in mind, so is probably
-// not suitable for real-time encoding.  The aim was to keep it
-// simple, general and clear.
-//
-// <Some notes on the theory and implementation need to be added here>
+   not suitable for real-time encoding.  The aim was to keep it
+   simple, general and clear.
 
-// Usage:
-// First call rs_init_gf(&rs, prime_poly) to set up the Galois Field parameters.
-// Then  call rs_init_code(&rs, nsym, index) to set the encoding size
-// Then  call rs_encode(&rs, datalen, data, out) to encode the data.
-//
-// These can be called repeatedly as required - but note that
-// rs_init_code must be called following any rs_init_gf call.
-//
-// If the parameters are fixed, some of the statics below can be
-// replaced with constants in the obvious way, and additionally
-// malloc/free can be avoided by using static arrays of a suitable
-// size.
-// Note: use of statics has been done for (up to) 8-bit tables.
+   <Some notes on the theory and implementation need to be added here>
+
+   Usage:
+   First call rs_init_gf(&rs, prime_poly) to set up the Galois Field parameters.
+   Then  call rs_init_code(&rs, nsym, index) to set the encoding size
+   Then  call rs_encode(&rs, datalen, data, out) to encode the data.
+
+   These can be called repeatedly as required - but note that
+   rs_init_code must be called following any rs_init_gf call.
+
+   If the parameters are fixed, some of the statics below can be
+   replaced with constants in the obvious way, and additionally
+   malloc/free can be avoided by using static arrays of a suitable
+   size.
+   Note: use of statics has been done for (up to) 8-bit tables.
 */
 
 #include "common.h"
@@ -55,16 +59,16 @@
 #include "reedsol_logs.h"
 
 /* rs_init_gf(&rs, prime_poly) initialises the parameters for the Galois Field.
-// The symbol size is determined from the highest bit set in poly
-// This implementation will support sizes up to 8 bits (see rs_uint_init_gf()
-// for sizes > 8 bits and <= 30 bits) - bit sizes of 8 or 4 are typical
-//
-// The poly is the bit pattern representing the GF characteristic
-// polynomial.  e.g. for ECC200 (8-bit symbols) the polynomial is
-// a**8 + a**5 + a**3 + a**2 + 1, which translates to 0x12d.
+   The symbol size is determined from the highest bit set in poly
+   This implementation will support sizes up to 8 bits (see rs_uint_init_gf()
+   for sizes > 8 bits and <= 30 bits) - bit sizes of 8 or 4 are typical
+
+   The poly is the bit pattern representing the GF characteristic
+   polynomial.  e.g. for ECC200 (8-bit symbols) the polynomial is
+   a**8 + a**5 + a**3 + a**2 + 1, which translates to 0x12d.
 */
 
-INTERNAL void rs_init_gf(rs_t *rs, const unsigned int prime_poly) {
+INTERNAL void zint_rs_init_gf(rs_t *rs, const unsigned int prime_poly) {
     struct item {
         const unsigned char *logt;
         const unsigned char *alog;
@@ -96,14 +100,14 @@ INTERNAL void rs_init_gf(rs_t *rs, const unsigned int prime_poly) {
 }
 
 /* rs_init_code(&rs, nsym, index) initialises the Reed-Solomon encoder
-// nsym is the number of symbols to be generated (to be appended
-// to the input data).  index is usually 1 - it is the index of
-// the constant in the first term (i) of the RS generator polynomial:
-// (x + 2**i)*(x + 2**(i+1))*...   [nsym terms]
-// For ECC200, index is 1.
+   nsym is the number of symbols to be generated (to be appended
+   to the input data).  index is usually 1 - it is the index of
+   the constant in the first term (i) of the RS generator polynomial:
+   (x + 2**i)*(x + 2**(i+1))*...   [nsym terms]
+   For ECC200, index is 1.
 */
 
-INTERNAL void rs_init_code(rs_t *rs, const int nsym, int index) {
+INTERNAL void zint_rs_init_code(rs_t *rs, const int nsym, int index) {
     int i, k;
     const unsigned char *const logt = rs->logt;
     const unsigned char *const alog = rs->alog;
@@ -132,15 +136,15 @@ INTERNAL void rs_init_code(rs_t *rs, const int nsym, int index) {
     }
 }
 
-/* rs_encode(&rs, datalen, data, res) generates nsym Reed-Solomon codes (nsym as given in rs_init_code())
- * and places them in reverse order in res */
-INTERNAL void rs_encode(const rs_t *rs, const int datalen, const unsigned char *data, unsigned char *res) {
+/* rs_encode(&rs, datalen, data, res) generates nsym Reed-Solomon codes (nsym as given in rs_init_code()) */
+INTERNAL void zint_rs_encode(const rs_t *rs, const int datalen, const unsigned char *data, unsigned char *res) {
     int i, k;
     const unsigned char *const logt = rs->logt;
     const unsigned char *const alog = rs->alog;
     const unsigned char *const rspoly = rs->rspoly;
     const unsigned char *const log_rspoly = rs->log_rspoly;
     const int nsym = rs->nsym;
+    const int nsym_halved = nsym >> 1;
 
     memset(res, 0, nsym);
     if (rs->zero) { /* Poly has a zero coeff so need to check in inner loop */
@@ -175,17 +179,24 @@ INTERNAL void rs_encode(const rs_t *rs, const int datalen, const unsigned char *
             }
         }
     }
+    /* Reverse the result */
+    for (i = 0; i < nsym_halved; i++) {
+        const unsigned char tmp = res[i];
+        res[i] = res[nsym - 1 - i];
+        res[nsym - 1 - i] = tmp;
+    }
 }
 
 /* The same as above but for unsigned int data and result - Aztec code compatible */
 
-INTERNAL void rs_encode_uint(const rs_t *rs, const int datalen, const unsigned int *data, unsigned int *res) {
+INTERNAL void zint_rs_encode_uint(const rs_t *rs, const int datalen, const unsigned int *data, unsigned int *res) {
     int i, k;
     const unsigned char *const logt = rs->logt;
     const unsigned char *const alog = rs->alog;
     const unsigned char *const rspoly = rs->rspoly;
     const unsigned char *const log_rspoly = rs->log_rspoly;
     const int nsym = rs->nsym;
+    const int nsym_halved = nsym >> 1;
 
     memset(res, 0, sizeof(unsigned int) * nsym);
     if (rs->zero) { /* Poly has a zero coeff so need to check in inner loop */
@@ -220,19 +231,25 @@ INTERNAL void rs_encode_uint(const rs_t *rs, const int datalen, const unsigned i
             }
         }
     }
+    /* Reverse the result */
+    for (i = 0; i < nsym_halved; i++) {
+        const unsigned int tmp = res[i];
+        res[i] = res[nsym - 1 - i];
+        res[nsym - 1 - i] = tmp;
+    }
 }
 
 /* Versions of the above for bitlengths > 8 and <= 30 and unsigned int data and results - Aztec code compatible */
 
 /* Usage:
-// First call rs_uint_init_gf(&rs_uint, prime_poly, logmod) to set up the Galois Field parameters.
-// Then  call rs_uint_init_code(&rs_uint, nsym, index) to set the encoding size
-// Then  call rs_uint_encode(&rs_uint, datalen, data, out) to encode the data.
-// Then  call rs_uint_free(&rs_uint) to free the log tables.
+   First call rs_uint_init_gf(&rs_uint, prime_poly, logmod) to set up the Galois Field parameters.
+   Then  call rs_uint_init_code(&rs_uint, nsym, index) to set the encoding size
+   Then  call rs_uint_encode(&rs_uint, datalen, data, out) to encode the data.
+   Then  call rs_uint_free(&rs_uint) to free the log tables.
 */
 
 /* `logmod` (field characteristic) will be 2**bitlength - 1, eg 1023 for bitlength 10, 4095 for bitlength 12 */
-INTERNAL int rs_uint_init_gf(rs_uint_t *rs_uint, const unsigned int prime_poly, const int logmod) {
+INTERNAL int zint_rs_uint_init_gf(rs_uint_t *rs_uint, const unsigned int prime_poly, const int logmod) {
     int b, p, v;
     unsigned int *logt, *alog;
 
@@ -263,7 +280,7 @@ INTERNAL int rs_uint_init_gf(rs_uint_t *rs_uint, const unsigned int prime_poly, 
     return 1;
 }
 
-INTERNAL void rs_uint_init_code(rs_uint_t *rs_uint, const int nsym, int index) {
+INTERNAL void zint_rs_uint_init_code(rs_uint_t *rs_uint, const int nsym, int index) {
     int i, k;
     const unsigned int *const logt = rs_uint->logt;
     const unsigned int *const alog = rs_uint->alog;
@@ -295,7 +312,7 @@ INTERNAL void rs_uint_init_code(rs_uint_t *rs_uint, const int nsym, int index) {
     }
 }
 
-INTERNAL void rs_uint_encode(const rs_uint_t *rs_uint, const int datalen, const unsigned int *data,
+INTERNAL void zint_rs_uint_encode(const rs_uint_t *rs_uint, const int datalen, const unsigned int *data,
                 unsigned int *res) {
     int i, k;
     const unsigned int *const logt = rs_uint->logt;
@@ -303,6 +320,7 @@ INTERNAL void rs_uint_encode(const rs_uint_t *rs_uint, const int datalen, const 
     const unsigned short *const rspoly = rs_uint->rspoly;
     const unsigned int *const log_rspoly = rs_uint->log_rspoly;
     const int nsym = rs_uint->nsym;
+    const int nsym_halved = nsym >> 1;
 
     memset(res, 0, sizeof(unsigned int) * nsym);
     if (logt == NULL || alog == NULL) {
@@ -340,9 +358,15 @@ INTERNAL void rs_uint_encode(const rs_uint_t *rs_uint, const int datalen, const 
             }
         }
     }
+    /* Reverse the result */
+    for (i = 0; i < nsym_halved; i++) {
+        const unsigned int tmp = res[i];
+        res[i] = res[nsym - 1 - i];
+        res[nsym - 1 - i] = tmp;
+    }
 }
 
-INTERNAL void rs_uint_free(rs_uint_t *rs_uint) {
+INTERNAL void zint_rs_uint_free(rs_uint_t *rs_uint) {
     if (rs_uint->logt) {
         free(rs_uint->logt);
         rs_uint->logt = NULL;

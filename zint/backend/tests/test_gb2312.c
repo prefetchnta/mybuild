@@ -1,6 +1,6 @@
 /*
     libzint - the open source barcode library
-    Copyright (C) 2019-2023 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2019-2025 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@
 #include "../just_say_gno/gb2312_gnu.c"
 #endif
 
-INTERNAL int u_gb2312_int_test(const unsigned int u, unsigned int *d);
+INTERNAL int zint_test_u_gb2312_int(const unsigned int u, unsigned int *d);
 
 /* As control convert to GB 2312 using simple table generated from unicode.org GB2312.TXT plus simple processing */
 /* GB2312.TXT no longer on unicode.org site but available from https://haible.de/bruno/charsets/conversion-tables/GB2312.html */
@@ -92,7 +92,7 @@ static void test_u_gb2312_int(const testCtx *const p_ctx) {
     (void)debug;
 #endif
 
-    testStart("test_u_gb2312_int");
+    testStart(p_ctx->func_name);
 
 #ifdef TEST_JUST_SAY_GNO
     if ((debug & ZINT_DEBUG_TEST_PERFORMANCE)) { /* -d 256 */
@@ -106,9 +106,10 @@ static void test_u_gb2312_int(const testCtx *const p_ctx) {
         }
         if (testContinue(p_ctx, i)) continue;
         val = val2 = 0;
-        ret = u_gb2312_int_test(i, &val);
+        ret = zint_test_u_gb2312_int(i, &val);
         ret2 = u_gb2312_int2(i, &val2);
-        assert_equal(ret, ret2, "i:%d 0x%04X ret %d != ret2 %d, val 0x%04X, val2 0x%04X\n", (int) i, i, ret, ret2, val, val2);
+        assert_equal(ret, ret2, "i:%d 0x%04X ret %d != ret2 %d, val 0x%04X, val2 0x%04X\n",
+                    (int) i, i, ret, ret2, val, val2);
         if (ret2) {
             assert_equal(val, val2, "i:%d 0x%04X val 0x%04X != val2 0x%04X\n", (int) i, i, val, val2);
         }
@@ -123,7 +124,7 @@ static void test_u_gb2312_int(const testCtx *const p_ctx) {
                     val = val2 = 0;
 
                     start = clock();
-                    ret = u_gb2312_int_test(i, &val);
+                    ret = zint_test_u_gb2312_int(i, &val);
                     total += clock() - start;
 
                     start = clock();
@@ -132,7 +133,8 @@ static void test_u_gb2312_int(const testCtx *const p_ctx) {
                 }
             }
 
-            assert_equal(ret, ret2, "i:%d 0x%04X ret %d != ret2 %d, val 0x%04X, val2 0x%04X\n", (int) i, i, ret, ret2, val, val2);
+            assert_equal(ret, ret2, "i:%d 0x%04X ret %d != ret2 %d, val 0x%04X, val2 0x%04X\n",
+                        (int) i, i, ret, ret2, val, val2);
             if (ret2) {
                 assert_equal(val, val2, "i:%d 0x%04X val 0x%04X != val2 0x%04X\n", (int) i, i, val, val2);
             }
@@ -153,12 +155,12 @@ static void test_u_gb2312_int(const testCtx *const p_ctx) {
 static void test_gb2312_utf8(const testCtx *const p_ctx) {
 
     struct item {
-        char *data;
+        const char *data;
         int length;
         int ret;
         int ret_length;
         unsigned int expected_gbdata[20];
-        char *comment;
+        const char *comment;
     };
     /*
        é U+00E9 in ISO 8859-1 plus other ISO 8859 (but not in ISO 8859-7 or ISO 8859-11), Win 1250 plus other Win, in GB 2312 0xA8A6, UTF-8 C3A9
@@ -188,9 +190,9 @@ static void test_gb2312_utf8(const testCtx *const p_ctx) {
     int i, length, ret;
 
     struct zint_symbol symbol = {0};
-    unsigned int gbdata[20];
+    unsigned int gbdata[20] = {0}; /* Suppress clang -fsanitize=memory false positive */
 
-    testStart("test_gb2312_utf8");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
         int ret_length;
@@ -200,13 +202,15 @@ static void test_gb2312_utf8(const testCtx *const p_ctx) {
         length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
         ret_length = length;
 
-        ret = gb2312_utf8(&symbol, (unsigned char *) data[i].data, &ret_length, gbdata);
+        ret = zint_gb2312_utf8(&symbol, (unsigned char *) data[i].data, &ret_length, gbdata);
         assert_equal(ret, data[i].ret, "i:%d ret %d != %d (%s)\n", i, ret, data[i].ret, symbol.errtxt);
         if (ret == 0) {
             int j;
-            assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n", i, ret_length, data[i].ret_length);
+            assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n",
+                        i, ret_length, data[i].ret_length);
             for (j = 0; j < (int) ret_length; j++) {
-                assert_equal(gbdata[j], data[i].expected_gbdata[j], "i:%d gbdata[%d] %04X != %04X\n", i, j, gbdata[j], data[i].expected_gbdata[j]);
+                assert_equal(gbdata[j], data[i].expected_gbdata[j], "i:%d gbdata[%d] %04X != %04X\n",
+                            i, j, gbdata[j], data[i].expected_gbdata[j]);
             }
         }
     }
@@ -219,12 +223,12 @@ static void test_gb2312_utf8_to_eci(const testCtx *const p_ctx) {
     struct item {
         int eci;
         int full_multibyte;
-        char *data;
+        const char *data;
         int length;
         int ret;
         int ret_length;
         unsigned int expected_gbdata[20];
-        char *comment;
+        const char *comment;
     };
     /*
        é U+00E9 in ISO 8859-1 0xE9, Win 1250 plus other Win, in GRIDMATRIX Chinese mode first byte range 0xA1..A9, 0xB0..F7
@@ -290,9 +294,9 @@ static void test_gb2312_utf8_to_eci(const testCtx *const p_ctx) {
     int data_size = ARRAY_SIZE(data);
     int i, length, ret;
 
-    unsigned int gbdata[20];
+    unsigned int gbdata[20] = {0}; /* Suppress clang -fsanitize=memory false positive */
 
-    testStart("test_gb2312_utf8_to_eci");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
         int ret_length;
@@ -302,13 +306,16 @@ static void test_gb2312_utf8_to_eci(const testCtx *const p_ctx) {
         length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
         ret_length = length;
 
-        ret = gb2312_utf8_to_eci(data[i].eci, (unsigned char *) data[i].data, &ret_length, gbdata, data[i].full_multibyte);
+        ret = zint_gb2312_utf8_to_eci(data[i].eci, (unsigned char *) data[i].data, &ret_length, gbdata,
+                                        data[i].full_multibyte);
         assert_equal(ret, data[i].ret, "i:%d ret %d != %d\n", i, ret, data[i].ret);
         if (ret == 0) {
             int j;
-            assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n", i, ret_length, data[i].ret_length);
+            assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n",
+                        i, ret_length, data[i].ret_length);
             for (j = 0; j < (int) ret_length; j++) {
-                assert_equal(gbdata[j], data[i].expected_gbdata[j], "i:%d gbdata[%d] 0x%04X != 0x%04X\n", i, j, gbdata[j], data[i].expected_gbdata[j]);
+                assert_equal(gbdata[j], data[i].expected_gbdata[j], "i:%d gbdata[%d] 0x%04X != 0x%04X\n",
+                            i, j, gbdata[j], data[i].expected_gbdata[j]);
             }
         }
     }
@@ -316,19 +323,19 @@ static void test_gb2312_utf8_to_eci(const testCtx *const p_ctx) {
     testFinish();
 }
 
-INTERNAL void gb2312_cpy_test(const unsigned char source[], int *p_length, unsigned int *ddata,
+INTERNAL void zint_test_gb2312_cpy(const unsigned char source[], int *p_length, unsigned int *ddata,
                 const int full_multibyte);
 
 static void test_gb2312_cpy(const testCtx *const p_ctx) {
 
     struct item {
         int full_multibyte;
-        char *data;
+        const char *data;
         int length;
         int ret;
         int ret_length;
         unsigned int expected_gbdata[20];
-        char *comment;
+        const char *comment;
     };
     /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
     struct item data[] = {
@@ -346,9 +353,9 @@ static void test_gb2312_cpy(const testCtx *const p_ctx) {
     int data_size = ARRAY_SIZE(data);
     int i, length;
 
-    unsigned int gbdata[20];
+    unsigned int gbdata[20] = {0}; /* Suppress clang -fsanitize=memory false positive */
 
-    testStart("test_gb2312_cpy");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
         int ret_length;
@@ -359,10 +366,11 @@ static void test_gb2312_cpy(const testCtx *const p_ctx) {
         length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
         ret_length = length;
 
-        gb2312_cpy_test((unsigned char *) data[i].data, &ret_length, gbdata, data[i].full_multibyte);
+        zint_test_gb2312_cpy((unsigned char *) data[i].data, &ret_length, gbdata, data[i].full_multibyte);
         assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n", i, ret_length, data[i].ret_length);
         for (j = 0; j < (int) ret_length; j++) {
-            assert_equal(gbdata[j], data[i].expected_gbdata[j], "i:%d gbdata[%d] %04X != %04X\n", i, j, gbdata[j], data[i].expected_gbdata[j]);
+            assert_equal(gbdata[j], data[i].expected_gbdata[j], "i:%d gbdata[%d] %04X != %04X\n",
+                        i, j, gbdata[j], data[i].expected_gbdata[j]);
         }
     }
 
@@ -377,10 +385,10 @@ static void test_perf(const testCtx *const p_ctx) {
     int debug = p_ctx->debug;
 
     struct item {
-        char *data;
+        const char *data;
         int ret;
 
-        char *comment;
+        const char *comment;
     };
     struct item data[] = {
         /*  0*/ { "1234567890", 0, "10 numerics" },
@@ -413,7 +421,9 @@ static void test_perf(const testCtx *const p_ctx) {
         return;
     }
 
-    for (i = 0; i < data_size; i++) if ((int) strlen(data[i].comment) > comment_max) comment_max = (int) strlen(data[i].comment);
+    for (i = 0; i < data_size; i++) {
+        if ((int) strlen(data[i].comment) > comment_max) comment_max = (int) strlen(data[i].comment);
+    }
 
     printf("Iterations %d\n", TEST_PERF_ITERATIONS);
 
@@ -430,7 +440,7 @@ static void test_perf(const testCtx *const p_ctx) {
             ret_length = length;
 
             start = clock();
-            ret = gb2312_utf8(&symbol, (unsigned char *) data[i].data, &ret_length, ddata);
+            ret = zint_gb2312_utf8(&symbol, (unsigned char *) data[i].data, &ret_length, ddata);
             diff += clock() - start;
 
 #ifdef TEST_JUST_SAY_GNO
@@ -443,19 +453,20 @@ static void test_perf(const testCtx *const p_ctx) {
             ret_length = length;
 
             start = clock();
-            (void)utf8_to_eci(29, (unsigned char *) data[i].data, dest, &ret_length);
+            (void)zint_utf8_to_eci(29, (unsigned char *) data[i].data, dest, &ret_length);
             diff_eci += clock() - start;
 
 #ifdef TEST_JUST_SAY_GNO
             ret_length2 = length;
             start = clock();
-            (void)utf8_to_eci_wctomb(29, (unsigned char *) data[i].data, dest2, &ret_length2);
+            (void)zint_utf8_to_eci_wctomb(29, (unsigned char *) data[i].data, dest2, &ret_length2);
             diff_eci_gno += clock() - start;
 #endif
         }
         assert_equal(ret, ret2, "i:%d ret %d != ret2 %d\n", (int) i, ret, ret2);
 
-        printf("%*s: new % 8gms, gno % 8gms ratio % 9g | eci % 8gms, gno % 8gms ratio %g\n", comment_max, data[i].comment,
+        printf("%*s: new % 8gms, gno % 8gms ratio % 9g | eci % 8gms, gno % 8gms ratio %g\n",
+                comment_max, data[i].comment,
                 TEST_PERF_TIME(diff), TEST_PERF_TIME(diff_gno), TEST_PERF_RATIO(diff, diff_gno),
                 TEST_PERF_TIME(diff_eci), TEST_PERF_TIME(diff_eci_gno), TEST_PERF_RATIO(diff_eci, diff_eci_gno));
 

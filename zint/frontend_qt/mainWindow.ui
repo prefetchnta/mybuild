@@ -563,7 +563,7 @@ for this symbology to defaults</string>
                   </property>
                   <property name="minimumSize">
                    <size>
-                    <width>60</width>
+                    <width>140</width>
                     <height>0</height>
                    </size>
                   </property>
@@ -1561,6 +1561,8 @@ or import from file</string>
 &lt;tr&gt;&lt;td&gt;\e&amp;nbsp;&lt;/td&gt;&lt;td&gt;Escape (0x1B)&lt;/td&gt;&lt;/tr&gt;
 &lt;tr&gt;&lt;td&gt;\G&amp;nbsp;&lt;/td&gt;&lt;td&gt;Group Separator (0x1D)&lt;/td&gt;&lt;/tr&gt;
 &lt;tr&gt;&lt;td&gt;\R&amp;nbsp;&lt;/td&gt;&lt;td&gt;Record Separator (0x1E)&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;\(&amp;nbsp;&lt;/td&gt;&lt;td&gt;Opening parenthesis (0x28) ("GS1 ()" only) &lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;\)&amp;nbsp;&lt;/td&gt;&lt;td&gt;Closing parenthesis (0x29) ("GS1 ()" only) &lt;/td&gt;&lt;/tr&gt;
 &lt;tr&gt;&lt;td&gt;\\&amp;nbsp;&lt;/td&gt;&lt;td&gt;Backslash (0x5C)&lt;/td&gt;&lt;/tr&gt;
 &lt;tr&gt;&lt;td&gt;\dNNN&amp;nbsp;&lt;/td&gt;&lt;td&gt;8-bit character (N decimal)&lt;/td&gt;&lt;/tr&gt;
 &lt;tr&gt;&lt;td&gt;\oNNN&amp;nbsp;&lt;/td&gt;&lt;td&gt;8-bit character (N octal)&lt;/td&gt;&lt;/tr&gt;
@@ -1609,7 +1611,8 @@ as delimiters for GS1 Application Identifiers
              <item>
               <widget class="QCheckBox" name="chkGS1NoCheck">
                <property name="toolTip">
-                <string>Do not check GS1 data for validity
+                <string>Do not check GS1 data for validity (note that certain
+checks necessary for encodation are still performed)
 (ignored if disabled)</string>
                </property>
                <property name="text">
@@ -1617,6 +1620,25 @@ as delimiters for GS1 Application Identifiers
                </property>
                <property name="checked">
                 <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="chkGS1Strict">
+               <property name="toolTip">
+                <string>Use GS1 Syntax Engine to
+strictly verify GS1 data,
+including GS1 Digital Link URIs
+(ignored if disabled)</string>
+               </property>
+               <property name="text">
+                <string>GS1 St&amp;rict</string>
+               </property>
+               <property name="checked">
+                <bool>false</bool>
+               </property>
+               <property name="hidden">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
@@ -2008,7 +2030,7 @@ the barcode in X-dimensions</string>
                 <double>0.100000000000000</double>
                </property>
                <property name="maximum">
-                <double>100.000000000000000</double>
+                <double>200.000000000000000</double>
                </property>
                <property name="singleStep">
                 <double>0.500000000000000</double>

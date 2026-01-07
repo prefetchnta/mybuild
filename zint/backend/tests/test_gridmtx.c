@@ -1,6 +1,6 @@
 /*
     libzint - the open source barcode library
-    Copyright (C) 2019-2023 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2019-2025 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -37,43 +37,65 @@ static void test_large(const testCtx *const p_ctx) {
     struct item {
         int option_2;
         int option_3;
-        char *pattern;
+        const char *pattern;
         int length;
         int ret;
         int expected_rows;
         int expected_width;
+        const char *expected_errtxt;
     };
     /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
-    struct item data[] = {
-        /*  0*/ { -1, -1, "1", 2751, 0, 162, 162 },
-        /*  1*/ { -1, -1, "1", 2752, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*  2*/ { -1, -1, "1", 2755, ZINT_ERROR_TOO_LONG, -1, -1 }, /* Triggers buffer > 9191 */
-        /*  3*/ { -1, -1, "A", 1836, 0, 162, 162 },
-        /*  4*/ { -1, -1, "A", 1837, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*  5*/ { -1, -1, "A1", 1529, 0, 162, 162 },
-        /*  6*/ { -1, -1, "A1", 1530, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*  7*/ { -1, -1, "\200", 1143, 0, 162, 162 },
-        /*  8*/ { -1, -1, "\200", 1144, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*  9*/ { -1, ZINT_FULL_MULTIBYTE, "\241", 1410, 0, 162, 162 },
-        /* 10*/ { -1, ZINT_FULL_MULTIBYTE, "\241", 1412, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 11*/ { 1, -1, "1", 18, 0, 18, 18 },
-        /* 12*/ { 1, -1, "1", 19, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 13*/ { 1, -1, "A", 13, 0, 18, 18 },
-        /* 14*/ { 1, -1, "A", 14, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 15*/ { 1, -1, "\200", 7, 0, 18, 18 },
-        /* 16*/ { 1, -1, "\200", 8, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 17*/ { 1, ZINT_FULL_MULTIBYTE, "\241", 8, 0, 18, 18 },
-        /* 18*/ { 1, ZINT_FULL_MULTIBYTE, "\241", 10, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 19*/ { 11, -1, "1", 1995, 0, 138, 138 },
-        /* 20*/ { 11, -1, "1", 1996, ZINT_ERROR_TOO_LONG, -1, -1 },
+    static const struct item data[] = {
+        /*  0*/ { -1, -1, "1", 2751, 0, 162, 162, "" },
+        /*  1*/ { -1, -1, "1", 2752, ZINT_ERROR_TOO_LONG, -1, -1, "Error 531: Input too long, requires too many codewords (maximum 1313)" },
+        /*  2*/ { -1, -1, "1", 2755, ZINT_ERROR_TOO_LONG, -1, -1, "Error 531: Input too long, requires too many codewords (maximum 1313)" }, /* Triggers buffer > 9191 */
+        /*  3*/ { -1, -1, "A", 1836, 0, 162, 162, "" },
+        /*  4*/ { -1, -1, "A", 1837, ZINT_ERROR_TOO_LONG, -1, -1, "Error 531: Input too long, requires too many codewords (maximum 1313)" },
+        /*  5*/ { -1, -1, "A1", 1529, 0, 162, 162, "" },
+        /*  6*/ { -1, -1, "A1", 1530, ZINT_ERROR_TOO_LONG, -1, -1, "Error 531: Input too long, requires too many codewords (maximum 1313)" },
+        /*  7*/ { -1, -1, "\200", 1143, 0, 162, 162, "" },
+        /*  8*/ { -1, -1, "\200", 1144, ZINT_ERROR_TOO_LONG, -1, -1, "Error 531: Input too long, requires too many codewords (maximum 1313)" },
+        /*  9*/ { -1, ZINT_FULL_MULTIBYTE, "\241", 1410, 0, 162, 162, "" },
+        /* 10*/ { -1, ZINT_FULL_MULTIBYTE, "\241", 1412, ZINT_ERROR_TOO_LONG, -1, -1, "Error 531: Input too long, requires too many codewords (maximum 1313)" },
+        /* 11*/ { 1, -1, "1", 18, 0, 18, 18, "" },
+        /* 12*/ { 1, -1, "1", 19, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 1, requires 13 codewords (maximum 11)" },
+        /* 13*/ { 1, -1, "A", 13, 0, 18, 18, "" },
+        /* 14*/ { 1, -1, "A", 14, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 1, requires 12 codewords (maximum 11)" },
+        /* 15*/ { 1, -1, "\200", 7, 0, 18, 18, "" },
+        /* 16*/ { 1, -1, "\200", 8, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 1, requires 12 codewords (maximum 11)" },
+        /* 17*/ { 1, ZINT_FULL_MULTIBYTE, "\241", 8, 0, 18, 18, "" },
+        /* 18*/ { 1, ZINT_FULL_MULTIBYTE, "\241", 10, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 1, requires 12 codewords (maximum 11)" },
+        /* 19*/ { 2, ZINT_FULL_MULTIBYTE, "\241", 40, 0, 30, 30, "" },
+        /* 20*/ { 2, ZINT_FULL_MULTIBYTE, "\241", 41, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 2, requires 42 codewords (maximum 40)" },
+        /* 21*/ { 3, -1, "A", 108, 0, 42, 42, "" },
+        /* 22*/ { 3, -1, "A", 109, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 3, requires 80 codewords (maximum 79)" },
+        /* 23*/ { 4, -1, "A", 202, 0, 54, 54, "" },
+        /* 24*/ { 4, -1, "A", 203, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 4, requires 147 codewords (maximum 146)" },
+        /* 25*/ { 5, -1, "1", 453, 0, 66, 66, "" },
+        /* 26*/ { 5, -1, "1", 454, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 5, requires 220 codewords (maximum 218)" },
+        /* 27*/ { 6, -1, "1", 633, 0, 78, 78, "" },
+        /* 28*/ { 6, -1, "1", 634, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 6, requires 306 codewords (maximum 305)" },
+        /* 29*/ { 7, -1, "\200", 352, 0, 90, 90, "" },
+        /* 30*/ { 7, -1, "\200", 353, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 7, requires 406 codewords (maximum 405)" },
+        /* 31*/ { 8, -1, "A", 727, 0, 102, 102, "" },
+        /* 32*/ { 8, -1, "A", 728, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 8, requires 522 codewords (maximum 521)" },
+        /* 33*/ { 9, -1, "A", 908, 0, 114, 114, "" },
+        /* 34*/ { 9, -1, "A", 909, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 9, requires 651 codewords (maximum 650)" },
+        /* 35*/ { 10, -1, "1", 1662, 0, 126, 126, "" },
+        /* 36*/ { 10, -1, "1", 1663, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 10, requires 796 codewords (maximum 794)" },
+        /* 37*/ { 11, -1, "1", 1995, 0, 138, 138, "" },
+        /* 38*/ { 11, -1, "1", 1996, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 11, requires 954 codewords (maximum 953)" },
+        /* 39*/ { 11, -1, "1", 2748, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 11, requires 1311 codewords (maximum 953)" },
+        /* 40*/ { 12, -1, "1", 2355, 0, 150, 150, "" },
+        /* 41*/ { 12, -1, "1", 2356, ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 12, requires 1126 codewords (maximum 1125)" },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
 
-    char data_buf[2755 + 1];
+    char data_buf[2800 + 1];
 
-    testStartSymbol("test_large", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -87,8 +109,10 @@ static void test_large(const testCtx *const p_ctx) {
 
         length = testUtilSetSymbol(symbol, BARCODE_GRIDMATRIX, -1 /*input_mode*/, -1 /*eci*/, -1 /*option_1*/, data[i].option_2, data[i].option_3, -1 /*output_options*/, data_buf, data[i].length, debug);
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data_buf, length);
+        ret = ZBarcode_Encode(symbol, TCU(data_buf), length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+        assert_equal(symbol->errtxt[0] == '\0', ret == 0, "i:%d symbol->errtxt not %s (%s)\n", i, ret ? "set" : "empty", symbol->errtxt);
+        assert_zero(strcmp(symbol->errtxt, data[i].expected_errtxt), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected_errtxt);
 
         if (ret < ZINT_ERROR) {
             assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d\n", i, symbol->rows, data[i].expected_rows);
@@ -107,44 +131,49 @@ static void test_options(const testCtx *const p_ctx) {
     struct item {
         int option_1;
         int option_2;
+        int option_3;
         struct zint_structapp structapp;
-        char *data;
+        const char *data;
         int ret_encode;
         int ret_vector;
         int expected_size;
         const char *expected_errtxt;
+        int expected_option_1;
+        int expected_option_2;
     };
     /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
-    struct item data[] = {
-        /*  0*/ { 0, 0, { 0, 0, "" }, "12345", 0, 0, 18, "" },
-        /*  1*/ { 0, 1, { 0, 0, "" }, "12345", 0, 0, 18, "" },
-        /*  2*/ { 0, 2, { 0, 0, "" }, "12345", 0, 0, 30, "" },
-        /*  3*/ { 0, 14, { 0, 0, "" }, "12345", 0, 0, 18, "" }, /* Version > max version 13 so ignored */
-        /*  4*/ { 0, 13, { 0, 0, "" }, "12345", 0, 0, 162, "" },
-        /*  5*/ { 0, 1, { 0, 0, "" }, "1234567890123456789", ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input data too long for selected symbol size" },
-        /*  6*/ { 0, 2, { 0, 0, "" }, "1234567890123456789", 0, 0, 30, "" },
-        /*  7*/ { 0, 0, { 0, 0, "" }, "123456789012345678", 0, 0, 30, "" }, /* Version auto-set to 2 */
-        /*  8*/ { 0, 1, { 0, 0, "" }, "123456789012345678", 0, 0, 18, "" },
-        /*  9*/ { 5, 1, { 0, 0, "" }, "123456789012345678", 0, 0, 18, "" }, /* Version specified so overrides ECC level which gets reduced to 4 */
-        /* 10*/ { 5, 0, { 0, 0, "" }, "123456789012345678", 0, 0, 30, "" }, /* Version not specified so increased to allow for ECC level */
-        /* 11*/ { 6, 0, { 0, 0, "" }, "123456789012345678", 0, 0, 30, "" }, /* ECC > max ECC 5 so ignored and auto-settings version 2, ECC 4 used */
-        /* 12*/ { 1, 0, { 0, 0, "" }, "123456789012345678", 0, 0, 30, "" }, /* ECC < min ECC 2, ECC 2 used */
-        /* 13*/ { 4, 1, { 0, 0, "" }, "123456789012345678", 0, 0, 18, "" },
-        /* 14*/ { 0, 0, { 1, 2, "" }, "12345", 0, 0, 18, "" },
-        /* 15*/ { 0, 0, { 1, 1, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 536: Structured Append count out of range (2-16)" },
-        /* 16*/ { 0, 0, { 1, 17, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 536: Structured Append count out of range (2-16)" },
-        /* 17*/ { 0, 0, { 0, 2, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 537: Structured Append index out of range (1-2)" },
-        /* 18*/ { 0, 0, { 3, 2, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 537: Structured Append index out of range (1-2)" },
-        /* 19*/ { 0, 0, { 1, 2, "255" }, "12345", 0, 0, 18, "" },
-        /* 20*/ { 0, 0, { 1, 2, "1234" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 538: Structured Append ID too long (3 digit maximum)" },
-        /* 21*/ { 0, 0, { 1, 2, "A" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 539: Invalid Structured Append ID (digits only)" },
-        /* 22*/ { 0, 0, { 1, 2, "256" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 530: Structured Append ID '256' out of range (0-255)" },
+    static const struct item data[] = {
+        /*  0*/ { -1, -1, -1, { 0, 0, "" }, "12345", 0, 0, 18, "", 5, 1 },
+        /*  1*/ { -1, 1, -1, { 0, 0, "" }, "12345", 0, 0, 18, "", 5, 1 },
+        /*  2*/ { -1, 2, -1, { 0, 0, "" }, "12345", 0, 0, 30, "", 4, 2 },
+        /*  3*/ { -1, 14, -1, { 0, 0, "" }, "12345", 0, 0, 18, "", 5, 1 }, /* Version > max version 13 so ignored */
+        /*  4*/ { -1, 13, -1, { 0, 0, "" }, "12345", 0, 0, 162, "", 3, 13 },
+        /*  5*/ { -1, 1, -1, { 0, 0, "" }, "1234567890123456789", ZINT_ERROR_TOO_LONG, -1, -1, "Error 534: Input too long for Version 1, requires 13 codewords (maximum 11)", -1, 1 },
+        /*  6*/ { -1, 2, -1, { 0, 0, "" }, "1234567890123456789", 0, 0, 30, "", 4, 2 },
+        /*  7*/ { -1, -1, -1, { 0, 0, "" }, "123456789012345678", 0, 0, 30, "", 4, 2 }, /* Version auto-set to 2 */
+        /*  8*/ { -1, 1, -1, { 0, 0, "" }, "123456789012345678", 0, 0, 18, "", 4, 1 },
+        /*  9*/ { 5, 1, -1, { 0, 0, "" }, "123456789012345678", 0, 0, 18, "", 4, 1 }, /* Version specified so overrides ECC level which gets reduced to 4 */
+        /* 10*/ { 5, -1, -1, { 0, 0, "" }, "123456789012345678", 0, 0, 30, "", 5, 2 }, /* Version not specified so increased to allow for ECC level */
+        /* 11*/ { 6, -1, -1, { 0, 0, "" }, "123456789012345678", 0, 0, 30, "", 4, 2 }, /* ECC > max ECC 5 so ignored and auto-settings version 2, ECC 4 used */
+        /* 12*/ { 1, -1, -1, { 0, 0, "" }, "123456789012345678", 0, 0, 30, "", 2, 2 }, /* ECC < min ECC 2, ECC 2 used */
+        /* 13*/ { 4, 1, -1, { 0, 0, "" }, "123456789012345678", 0, 0, 18, "", 4, 1 },
+        /* 14*/ { -1, -1, -1, { 1, 2, "" }, "12345", 0, 0, 18, "", 5, 1 },
+        /* 15*/ { -1, -1, -1, { 1, 1, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 536: Structured Append count '1' out of range (2 to 16)", -1, 0 },
+        /* 16*/ { -1, -1, -1, { 1, 17, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 536: Structured Append count '17' out of range (2 to 16)", -1, 0 },
+        /* 17*/ { -1, -1, -1, { 0, 2, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 537: Structured Append index '0' out of range (1 to count 2)", -1, 0 },
+        /* 18*/ { -1, -1, -1, { 3, 2, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 537: Structured Append index '3' out of range (1 to count 2)", -1, 0 },
+        /* 19*/ { -1, -1, -1, { 1, 2, "255" }, "12345", 0, 0, 18, "", 5, 1 },
+        /* 20*/ { -1, -1, -1, { 1, 2, "1234" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 538: Structured Append ID length 4 too long (3 digit maximum)", -1, 0 },
+        /* 21*/ { -1, -1, -1, { 1, 2, "A" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 539: Invalid Structured Append ID (digits only)", -1, 0 },
+        /* 22*/ { -1, -1, -1, { 1, 2, "256" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 530: Structured Append ID value '256' out of range (0 to 255)", -1, 0 },
+        /* 23*/ { -1, -1, -1, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 0, 42, "", 4, 3 },
+        /* 24*/ { -1, -1, ZINT_FULL_MULTIBYTE, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 0, 42, "", 4, 3 },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
 
-    testStartSymbol("test_options", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -153,18 +182,30 @@ static void test_options(const testCtx *const p_ctx) {
         symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
-        length = testUtilSetSymbol(symbol, BARCODE_GRIDMATRIX, -1 /*input_mode*/, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, BARCODE_GRIDMATRIX, -1 /*input_mode*/, -1 /*eci*/,
+                                    data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/,
+                                    data[i].data, -1, debug);
         if (data[i].structapp.count) {
             symbol->structapp = data[i].structapp;
         }
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
         assert_equal(ret, data[i].ret_encode, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret_encode, symbol->errtxt);
         if (ret < ZINT_ERROR) {
             assert_equal(symbol->width, data[i].expected_size, "i:%d symbol->width %d != %d\n", i, symbol->width, data[i].expected_size);
             assert_equal(symbol->rows, data[i].expected_size, "i:%d symbol->rows %d != %d\n", i, symbol->rows, data[i].expected_size);
         }
         assert_zero(strcmp(symbol->errtxt, data[i].expected_errtxt), "i:%d symbol->errtxt %s != %s\n", i, symbol->errtxt, data[i].expected_errtxt);
+        assert_equal(symbol->option_1, data[i].expected_option_1, "i:%d symbol->option_1 %d != %d (option_2 %d)\n",
+                    i, symbol->option_1, data[i].expected_option_1, symbol->option_2);
+        assert_equal(symbol->option_2, data[i].expected_option_2, "i:%d symbol->option_2 %d != %d\n",
+                    i, symbol->option_2, data[i].expected_option_2);
+        if (data[i].option_3 != -1) {
+            assert_equal(symbol->option_3, data[i].option_3, "i:%d symbol->option_3 0x%04X != 0x%04X\n",
+                        i, symbol->option_3, data[i].option_3);
+        } else {
+            assert_zero(symbol->option_3, "i:%d symbol->option_3 0x%04X != 0\n", i, symbol->option_3);
+        }
 
         if (data[i].ret_vector != -1) {
             ret = ZBarcode_Buffer_Vector(symbol, 0);
@@ -186,11 +227,11 @@ static void test_input(const testCtx *const p_ctx) {
         int output_options;
         int option_3;
         struct zint_structapp structapp;
-        char *data;
+        const char *data;
         int ret;
         int expected_eci;
-        char *expected;
-        char *comment;
+        const char *expected;
+        const char *comment;
     };
     /*
        é U+00E9 in ISO 8859-1 plus other ISO 8859 (but not in ISO 8859-7 or ISO 8859-11), Win 1250 plus other Win, in GB 2312 0xA8A6, UTF-8 C3A9
@@ -199,7 +240,7 @@ static void test_input(const testCtx *const p_ctx) {
        ㈩ U+3229 in GB 2312 0x226E
        一 U+4E00 in GB 2312 0x523B
     */
-    struct item data[] = {
+    static const struct item data[] = {
         /*  0*/ { UNICODE_MODE, 0, -1, -1, { 0, 0, "" }, "é", 0, 0, "08 54 6F 78 00", "H1 (GB 2312) Note: Grid Matrix default is GB 2312, not ISO 8859-1" },
         /*  1*/ { UNICODE_MODE, 3, -1, -1, { 0, 0, "" }, "é", 0, 3, "60 01 58 00 74 40", "ECI-3 B1 (ISO 8859-1)" },
         /*  2*/ { UNICODE_MODE, 29, -1, -1, { 0, 0, "" }, "é", 0, 29, "60 0E 44 2A 37 7C 00", "ECI-29 H1 (GB 2312)" },
@@ -308,8 +349,8 @@ static void test_input(const testCtx *const p_ctx) {
         /*105*/ { UNICODE_MODE, 900, -1, -1, { 0, 0, "" }, "é", 0, 900, "63 42 18 01 61 6A 20", "ECI-900 B2 (no conversion)" },
         /*106*/ { UNICODE_MODE, 1024, -1, -1, { 0, 0, "" }, "é", 0, 1024, "64 08 00 30 03 43 54 40", "ECI-1024 B2 (no conversion)" },
         /*107*/ { UNICODE_MODE, 32768, -1, -1, { 0, 0, "" }, "é", 0, 32768, "66 08 00 01 40 0E 0E 52 00", "ECI-32768 B2 (no conversion)" },
-        /*108*/ { UNICODE_MODE, 811800, -1, -1, { 0, 0, "" }, "é", ZINT_ERROR_INVALID_OPTION, 811800, "Error 533: Invalid ECI", "" },
-        /*109*/ { UNICODE_MODE, 3, -1, -1, { 0, 0, "" }, "β", ZINT_ERROR_INVALID_DATA, 3, "Error 535: Invalid character in input data for ECI 3", "" },
+        /*108*/ { UNICODE_MODE, 811800, -1, -1, { 0, 0, "" }, "é", ZINT_ERROR_INVALID_OPTION, 811800, "Error 533: ECI code '811800' out of range (0 to 811799)", "" },
+        /*109*/ { UNICODE_MODE, 3, -1, -1, { 0, 0, "" }, "β", ZINT_ERROR_INVALID_DATA, 3, "Error 535: Invalid character in input for ECI '3'", "" },
         /*110*/ { UNICODE_MODE, 0, READER_INIT, -1, { 0, 0, "" }, "12", 0, 0, "51 11 71 7E 40", "" },
         /*111*/ { UNICODE_MODE, 0, -1, -1, { 1, 16, "" }, "12", 0, 0, "48 03 60 24 3C 3F 50", "FNC2 ID0 Cnt15 Ind0 N2" },
         /*112*/ { UNICODE_MODE, 0, READER_INIT, -1, { 1, 16, "" }, "12", 0, 0, "54 40 1E 02 23 63 7D 00", "FNC3 FNC2 ID0 Cnt15 Ind0 N2" },
@@ -317,13 +358,13 @@ static void test_input(const testCtx *const p_ctx) {
         /*114*/ { UNICODE_MODE, 0, READER_INIT, -1, { 2, 16, "" }, "12", 0, 0, "48 03 62 24 3C 3F 50", "FNC2 ID0 Cnt15 Ind1 N2 (FNC3 omitted)" },
         /*115*/ { UNICODE_MODE, 0, -1, -1, { 3, 3, "255" }, "12", 0, 0, "4F 7C 44 24 3C 3F 50", "FNC2 ID256 Cnt2 Ind2 N2" },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
 
     char escaped[1024];
 
-    testStartSymbol("test_input", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -339,7 +380,7 @@ static void test_input(const testCtx *const p_ctx) {
             symbol->structapp = data[i].structapp;
         }
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d\n", i, ret, data[i].ret);
 
         if (p_ctx->generate) {
@@ -366,7 +407,7 @@ static void test_encode(const testCtx *const p_ctx) {
     int debug = p_ctx->debug;
 
     struct item {
-        char *data;
+        const char *data;
         int input_mode;
         int option_1;
         int option_2;
@@ -374,10 +415,10 @@ static void test_encode(const testCtx *const p_ctx) {
 
         int expected_rows;
         int expected_width;
-        char *comment;
-        char *expected;
+        const char *comment;
+        const char *expected;
     };
-    struct item data[] = {
+    static const struct item data[] = {
         /*  0*/ { "1234", UNICODE_MODE, -1, -1, 0, 18, 18, "",
                     "111111000000111111"
                     "101111001100101001"
@@ -475,11 +516,11 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111000000111111000000111111000000111111"
                },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
 
-    testStartSymbol("test_encode", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -490,7 +531,7 @@ static void test_encode(const testCtx *const p_ctx) {
 
         length = testUtilSetSymbol(symbol, BARCODE_GRIDMATRIX, data[i].input_mode, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
 
         if (p_ctx->generate) {
@@ -529,14 +570,14 @@ static void test_encode_segs(const testCtx *const p_ctx) {
 
         int expected_rows;
         int expected_width;
-        char *comment;
-        char *expected;
+        const char *comment;
+        const char *expected;
     };
     /*
        ¶ not in GB 2312 (in ISO/IEC 8869-1)
        Ж in GB 2312 (and ISO/IEC 8859-5)
     */
-    struct item data[] = {
+    static const struct item data[] = {
         /*  0*/ { UNICODE_MODE, -1, -1, { 0, 0, "" }, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, { TU(""), 0, 0 } }, ZINT_WARN_USES_ECI, 30, 30, "Standard example (adds ECI 3 for ¶)",
                     "111111000000111111000000111111"
                     "111111011110111111011110111111"
@@ -810,13 +851,13 @@ static void test_encode_segs(const testCtx *const p_ctx) {
                     "111111000000111111000000111111"
                },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, j, seg_count, ret;
     struct zint_symbol *symbol = NULL;
 
     char escaped[8192];
 
-    testStartSymbol("test_encode_segs", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -836,9 +877,9 @@ static void test_encode_segs(const testCtx *const p_ctx) {
         if (p_ctx->generate) {
             char escaped1[8192];
             char escaped2[8192];
-            int length = data[i].segs[0].length == -1 ? (int) ustrlen(data[i].segs[0].source) : data[i].segs[0].length;
-            int length1 = data[i].segs[1].length == -1 ? (int) ustrlen(data[i].segs[1].source) : data[i].segs[1].length;
-            int length2 = data[i].segs[2].length == -1 ? (int) ustrlen(data[i].segs[2].source) : data[i].segs[2].length;
+            int length = data[i].segs[0].length == -1 ? (int) z_ustrlen(data[i].segs[0].source) : data[i].segs[0].length;
+            int length1 = data[i].segs[1].length == -1 ? (int) z_ustrlen(data[i].segs[1].source) : data[i].segs[1].length;
+            int length2 = data[i].segs[2].length == -1 ? (int) z_ustrlen(data[i].segs[2].source) : data[i].segs[2].length;
             printf("        /*%3d*/ { %s, %d, %d, { %d, %d, \"%s\" }, { { TU(\"%s\"), %d, %d }, { TU(\"%s\"), %d, %d }, { TU(\"%s\"), %d, %d } }, %s, %d, %d, \"%s\",\n",
                     i, testUtilInputModeName(data[i].input_mode), data[i].option_1, data[i].option_2,
                     data[i].structapp.index, data[i].structapp.count, data[i].structapp.id,
@@ -866,90 +907,188 @@ static void test_encode_segs(const testCtx *const p_ctx) {
     testFinish();
 }
 
-#include <time.h>
-
-#define TEST_PERF_ITERATIONS    1000
-
-/* Not a real test, just performance indicator */
-static void test_perf(const testCtx *const p_ctx) {
+static void test_rt(const testCtx *const p_ctx) {
     int debug = p_ctx->debug;
 
     struct item {
-        int symbology;
         int input_mode;
-        int option_1;
-        int option_2;
-        char *data;
+        int eci;
+        int option_3;
+        int output_options;
+        const char *data;
+        int length;
+        int ret;
+        int expected_eci;
+        const char *expected;
+        int expected_length;
+        int expected_content_eci;
+    };
+    /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
+    static const struct item data[] = {
+        /*  0*/ { UNICODE_MODE, -1, -1, -1, "é", -1, 0, 0, "", -1, 0 },
+        /*  1*/ { UNICODE_MODE, -1, -1, BARCODE_CONTENT_SEGS, "é", -1, 0, 0, "é", -1, 29 }, /* Now UTF-8, not converted */
+        /*  2*/ { UNICODE_MODE, -1, -1, -1, "ก", -1, ZINT_WARN_USES_ECI, 13, "", -1, 0 },
+        /*  3*/ { UNICODE_MODE, -1, -1, BARCODE_CONTENT_SEGS, "ก", -1, ZINT_WARN_USES_ECI, 13, "ก", -1, 13 },
+        /*  4*/ { UNICODE_MODE, -1, -1, -1, "电", -1, 0, 0, "", -1, 0 },
+        /*  5*/ { UNICODE_MODE, -1, -1, BARCODE_CONTENT_SEGS, "电", -1, 0, 0, "电", -1, 29 },
+        /*  6*/ { DATA_MODE, -1, -1, -1, "\351", -1, 0, 0, "", -1, 0 },
+        /*  7*/ { DATA_MODE, -1, -1, BARCODE_CONTENT_SEGS, "\351", -1, 0, 0, "\351", -1, 29 },
+        /*  8*/ { DATA_MODE, -1, ZINT_FULL_MULTIBYTE, -1, "\351", -1, 0, 0, "", -1, 0 },
+        /*  9*/ { DATA_MODE, -1, ZINT_FULL_MULTIBYTE, BARCODE_CONTENT_SEGS, "\351", -1, 0, 0, "\351", -1, 29 },
+        /* 10*/ { DATA_MODE, -1, ZINT_FULL_MULTIBYTE, -1, "\265\347", -1, 0, 0, "", -1, 0 },
+        /* 11*/ { DATA_MODE, -1, ZINT_FULL_MULTIBYTE, BARCODE_CONTENT_SEGS, "\265\347", -1, 0, 0, "\265\347", -1, 29 },
+        /* 12*/ { UNICODE_MODE, 26, -1, -1, "é", -1, 0, 26, "", -1, 0 },
+        /* 13*/ { UNICODE_MODE, 26, -1, BARCODE_CONTENT_SEGS, "é", -1, 0, 26, "é", -1, 26 },
+        /* 14*/ { UNICODE_MODE, 899, -1, -1, "é", -1, 0, 899, "", -1, 0 },
+        /* 15*/ { UNICODE_MODE, 899, -1, BARCODE_CONTENT_SEGS, "é", -1, 0, 899, "é", -1, 899 },
+    };
+    const int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
+    struct zint_symbol *symbol = NULL;
+
+    int expected_length;
+
+    char escaped[4096];
+    char escaped2[4096];
+
+    testStartSymbol(p_ctx->func_name, &symbol);
+
+    for (i = 0; i < data_size; i++) {
+
+        if (testContinue(p_ctx, i)) continue;
+
+        symbol = ZBarcode_Create();
+        assert_nonnull(symbol, "Symbol not created\n");
+
+        length = testUtilSetSymbol(symbol, BARCODE_GRIDMATRIX, data[i].input_mode, data[i].eci,
+                                    -1 /*option_1*/, -1 /*option_2*/, data[i].option_3, data[i].output_options,
+                                    data[i].data, data[i].length, debug);
+        expected_length = data[i].expected_length == -1 ? (int) strlen(data[i].expected) : data[i].expected_length;
+
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+
+        if (ret < ZINT_ERROR) {
+            assert_equal(symbol->eci, data[i].expected_eci, "i:%d eci %d != %d\n",
+                        i, symbol->eci, data[i].expected_eci);
+            if (symbol->output_options & BARCODE_CONTENT_SEGS) {
+                assert_nonnull(symbol->content_segs, "i:%d content_segs NULL\n", i);
+                assert_nonnull(symbol->content_segs[0].source, "i:%d content_segs[0].source NULL\n", i);
+                assert_equal(symbol->content_segs[0].length, expected_length,
+                            "i:%d content_segs[0].length %d != expected_length %d\n",
+                            i, symbol->content_segs[0].length, expected_length);
+                assert_zero(memcmp(symbol->content_segs[0].source, data[i].expected, expected_length),
+                            "i:%d content_segs[0].source memcmp(%s, %s, %d) != 0\n", i,
+                            testUtilEscape((const char *) symbol->content_segs[0].source, symbol->content_segs[0].length,
+                                            escaped, sizeof(escaped)),
+                            testUtilEscape(data[i].expected, expected_length, escaped2, sizeof(escaped2)),
+                            expected_length);
+                assert_equal(symbol->content_segs[0].eci, data[i].expected_content_eci,
+                            "i:%d content_segs[0].eci %d != expected_content_eci %d\n",
+                            i, symbol->content_segs[0].eci, data[i].expected_content_eci);
+            } else {
+                assert_null(symbol->content_segs, "i:%d content_segs not NULL\n", i);
+            }
+        }
+
+        ZBarcode_Delete(symbol);
+    }
+
+    testFinish();
+}
+
+static void test_rt_segs(const testCtx *const p_ctx) {
+    int debug = p_ctx->debug;
+
+    struct item {
+        int input_mode;
+        int output_options;
+        struct zint_seg segs[3];
         int ret;
 
         int expected_rows;
         int expected_width;
-        char *comment;
+        struct zint_seg expected_content_segs[3];
+        int expected_content_seg_count;
     };
-    struct item data[] = {
-        /*  0*/ { BARCODE_GRIDMATRIX, UNICODE_MODE, -1, -1,
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738",
-                    0, 66, 66, "97 chars, mixed modes" },
-        /*  1*/ { BARCODE_GRIDMATRIX, UNICODE_MODE, -1, -1,
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738"
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738"
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738"
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738"
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738"
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738"
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738"
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738"
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738"
-                    "AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738 AAT2556 电池充电器+降压转换器 200mA至2A tel:86 019 82512738",
-                    0, 162, 162, "970 chars, mixed modes" },
+    /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
+    static const struct item data[] = {
+        /*  0*/ { UNICODE_MODE, -1, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, {0} }, ZINT_WARN_USES_ECI, 30, 30, {{0}}, 0 },
+        /*  1*/ { UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, { TU(""), 0, 0 } }, ZINT_WARN_USES_ECI, 30, 30, { { TU("¶"), 2, 3 }, { TU("Ж"), 2, 7 }, {0} }, 2 }, /* Now UTF-8, not converted */
+        /*  2*/ { UNICODE_MODE, -1, { { TU("ก"), -1, 0 }, { TU("Ж"), -1, 7 }, {0} }, ZINT_WARN_USES_ECI, 30, 30, {{0}}, 0 },
+        /*  3*/ { UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("ก"), -1, 0 }, { TU("Ж"), -1, 7 }, { TU(""), 0, 0 } }, ZINT_WARN_USES_ECI, 30, 30, { { TU("ก"), 3, 13 }, { TU("Ж"), 2, 7 }, {0} }, 2 },
+        /*  4*/ { UNICODE_MODE, -1, { { TU("电"), -1, 0 }, { TU("Ж"), -1, 7 }, {0} }, 0, 30, 30, {{0}}, 0 },
+        /*  5*/ { UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("电"), -1, 0 }, { TU("Ж"), -1, 7 }, { TU(""), 0, 0 } }, 0, 30, 30, { { TU("电"), 3, 29 }, { TU("Ж"), 2, 7 }, {0} }, 2 },
+        /*  6*/ { UNICODE_MODE, -1, { { TU("电电"), -1, 0 }, { TU("กขฯ"), -1, 13 }, { TU("βββ"), -1, 9 } }, 0, 30, 30, {{0}}, 0 },
+        /*  7*/ { UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("电电"), -1, 0 }, { TU("กขฯ"), -1, 13 }, { TU("βββ"), -1, 9 } }, 0, 30, 30, { { TU("电电"), 6, 29 }, { TU("กขฯ"), 9, 13 }, { TU("βββ"), 6, 9 } }, 3 },
+        /*  8*/ { UNICODE_MODE, -1, { { TU("¶"), -1, 26 }, { TU("Ж"), -1, 0 }, { TU("点"), -1, 20 } }, 0, 30, 30, {{0}}, 0 },
+        /*  9*/ { UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("¶"), -1, 26 }, { TU("Ж"), -1, 0 }, { TU("点"), -1, 20 } }, 0, 30, 30, { { TU("¶"), 2, 26 }, { TU("Ж"), 2, 29 }, { TU("点"), 3, 20 } }, 3 },
+        /* 10*/ { DATA_MODE, -1, { { TU("¶"), -1, 26 }, { TU("Ж"), -1, 0 }, { TU("\223\137"), -1, 20 } }, 0, 30, 30, {{0}}, 0 },
+        /* 11*/ { DATA_MODE, BARCODE_CONTENT_SEGS, { { TU("¶"), -1, 26 }, { TU("Ж"), -1, 0 }, { TU("\223\137"), -1, 20 } }, 0, 30, 30, { { TU("¶"), 2, 26 }, { TU("\320\226"), 2, 29 }, { TU("\223\137"), 2, 20 } }, 3 },
     };
-    int data_size = ARRAY_SIZE(data);
-    int i, length, ret;
-    struct zint_symbol *symbol;
+    const int data_size = ARRAY_SIZE(data);
+    int i, j, seg_count, ret;
+    struct zint_symbol *symbol = NULL;
 
-    clock_t start, total_encode = 0, total_buffer = 0, diff_encode, diff_buffer;
+    int expected_length;
 
-    if (!(debug & ZINT_DEBUG_TEST_PERFORMANCE)) { /* -d 256 */
-        return;
-    }
+    char escaped[4096];
+    char escaped2[4096];
+
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
-        int j;
 
         if (testContinue(p_ctx, i)) continue;
 
-        diff_encode = diff_buffer = 0;
+        symbol = ZBarcode_Create();
+        assert_nonnull(symbol, "Symbol not created\n");
 
-        for (j = 0; j < TEST_PERF_ITERATIONS; j++) {
-            symbol = ZBarcode_Create();
-            assert_nonnull(symbol, "Symbol not created\n");
+        testUtilSetSymbol(symbol, BARCODE_GRIDMATRIX, data[i].input_mode, -1 /*eci*/,
+                            -1 /*option_1*/, -1 /*option_2*/, -1 /*option_3*/, data[i].output_options,
+                            NULL, 0, debug);
+        for (j = 0, seg_count = 0; j < 3 && data[i].segs[j].length; j++, seg_count++);
 
-            length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
+        ret = ZBarcode_Encode_Segs(symbol, data[i].segs, seg_count);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode_Segs ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
 
-            start = clock();
-            ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
-            diff_encode += clock() - start;
-            assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+        assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (width %d)\n",
+                    i, symbol->rows, data[i].expected_rows, symbol->width);
+        assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d\n",
+                    i, symbol->width, data[i].expected_width);
 
-            assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, data[i].data);
-            assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, data[i].data);
+        assert_equal(symbol->content_seg_count, data[i].expected_content_seg_count, "i:%d symbol->content_seg_count %d != %d\n",
+                    i, symbol->content_seg_count, data[i].expected_content_seg_count);
+        if (symbol->output_options & BARCODE_CONTENT_SEGS) {
+            assert_nonnull(symbol->content_segs, "i:%d content_segs NULL\n", i);
+            for (j = 0; j < symbol->content_seg_count; j++) {
+                assert_nonnull(symbol->content_segs[j].source, "i:%d content_segs[%d].source NULL\n", i, j);
 
-            start = clock();
-            ret = ZBarcode_Buffer(symbol, 0 /*rotate_angle*/);
-            diff_buffer += clock() - start;
-            assert_zero(ret, "i:%d ZBarcode_Buffer ret %d != 0 (%s)\n", i, ret, symbol->errtxt);
+                expected_length = data[i].expected_content_segs[j].length;
 
-            ZBarcode_Delete(symbol);
+                assert_equal(symbol->content_segs[j].length, expected_length,
+                            "i:%d content_segs[%d].length %d != expected_length %d\n",
+                            i, j, symbol->content_segs[j].length, expected_length);
+                assert_zero(memcmp(symbol->content_segs[j].source, data[i].expected_content_segs[j].source, expected_length),
+                            "i:%d content_segs[%d].source memcmp(%s, %s, %d) != 0\n", i, j,
+                            testUtilEscape((const char *) symbol->content_segs[j].source, expected_length, escaped,
+                                            sizeof(escaped)),
+                            testUtilEscape((const char *) data[i].expected_content_segs[j].source, expected_length,
+                                            escaped2, sizeof(escaped2)),
+                            expected_length);
+                assert_equal(symbol->content_segs[j].eci, data[i].expected_content_segs[j].eci,
+                            "i:%d content_segs[%d].eci %d != expected_content_segs.eci %d\n",
+                            i, j, symbol->content_segs[j].eci, data[i].expected_content_segs[j].eci);
+            }
+        } else {
+            assert_null(symbol->content_segs, "i:%d content_segs not NULL\n", i);
         }
 
-        printf("%s: diff_encode %gms, diff_buffer %gms\n", data[i].comment, diff_encode * 1000.0 / CLOCKS_PER_SEC, diff_buffer * 1000.0 / CLOCKS_PER_SEC);
+        ZBarcode_Delete(symbol);
+    }
 
-        total_encode += diff_encode;
-        total_buffer += diff_buffer;
-    }
-    if (p_ctx->index != -1) {
-        printf("totals: encode %gms, buffer %gms\n", total_encode * 1000.0 / CLOCKS_PER_SEC, total_buffer * 1000.0 / CLOCKS_PER_SEC);
-    }
+    testFinish();
 }
 
 int main(int argc, char *argv[]) {
@@ -960,7 +1099,8 @@ int main(int argc, char *argv[]) {
         { "test_input", test_input },
         { "test_encode", test_encode },
         { "test_encode_segs", test_encode_segs },
-        { "test_perf", test_perf },
+        { "test_rt", test_rt },
+        { "test_rt_segs", test_rt_segs },
     };
 
     testRun(argc, argv, funcs, ARRAY_SIZE(funcs));

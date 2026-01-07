@@ -1,6 +1,6 @@
 /*
     libzint - the open source barcode library
-    Copyright (C) 2020-2023 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2020-2025 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -29,10 +29,12 @@
  */
 /* SPDX-License-Identifier: BSD-3-Clause */
 
+#include <limits.h>
+
 #include "testcommon.h"
 #include "../large.h"
 
-#if defined(__MINGW32__)
+#if defined(__MINGW32__) && !defined(__MINGW64__)
 #  if __WORDSIZE == 32
 #    define LX_FMT "I32"
 #  else
@@ -40,10 +42,13 @@
 #  endif
 #  if defined(__clang__)
 #    pragma GCC diagnostic ignored "-Wformat-non-iso"
-#  elif defined(__GNUC__)
-#    pragma GCC diagnostic ignored "-Wformat" /* Unfortunately doesn't seem to be way to only avoid non-ISO warnings */
+#  elif defined(__GNUC__) && (__GNUC__ >= 5 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 4))
+#    pragma GCC diagnostic ignored "-Wno-pedantic-ms-format"
+#  elif defined(__GNUC__) && __GNUC__ >= 2
+#    pragma GCC diagnostic ignored "-Wformat"
 #  endif
-#elif defined(_MSC_VER) || defined(__APPLE__) || defined(__OpenBSD__) || __WORDSIZE == 32
+#elif (defined(__WORDSIZE) && __WORDSIZE == 32) || (defined(ULONG_MAX) && ULONG_MAX <= 0xFFFFFFFF) \
+        || defined(__APPLE__) || defined(__OpenBSD__)
 #  define LX_FMT "ll"
 #else
 #  define LX_FMT "l"
@@ -51,7 +56,7 @@
 
 #define LI(l, h) { l, h }
 
-INTERNAL int clz_u64_test(uint64_t x);
+INTERNAL int zint_test_clz_u64(uint64_t x);
 
 static void test_clz_u64(const testCtx *const p_ctx) {
 
@@ -191,13 +196,13 @@ static void test_clz_u64(const testCtx *const p_ctx) {
     int data_size = ARRAY_SIZE(data);
     int i, ret;
 
-    testStart("test_clz_u64");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
         if (testContinue(p_ctx, i)) continue;
 
-        ret = clz_u64_test(data[i].s);
+        ret = zint_test_clz_u64(data[i].s);
         assert_equal(ret, data[i].ret, "i:%d 0x%" LX_FMT "X ret %d != %d\n", i, data[i].s, ret, data[i].ret);
     }
 
@@ -224,18 +229,22 @@ static void test_load(const testCtx *const p_ctx) {
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_load");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
         if (testContinue(p_ctx, i)) continue;
 
-        large_load(&data[i].t, &data[i].s);
+        zint_large_load(&data[i].t, &data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.lo, data[i].expected.lo,
+                        "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.lo, zint_large_dump(&data[i].t, t_dump), data[i].expected.lo,
+                        zint_large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.hi, data[i].expected.hi,
+                        "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.hi, zint_large_dump(&data[i].t, t_dump), data[i].expected.hi,
+                        zint_large_dump(&data[i].expected, expected_dump));
     }
 
     testFinish();
@@ -265,18 +274,23 @@ static void test_load_str_u64(const testCtx *const p_ctx) {
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_load_str_u64");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
         if (testContinue(p_ctx, i)) continue;
 
-        large_load_str_u64(&data[i].t, (unsigned char *) data[i].s, data[i].length == -1 ? (int) strlen(data[i].s) : data[i].length);
+        zint_large_load_str_u64(&data[i].t, ZCUCP(data[i].s),
+                                data[i].length == -1 ? (int) strlen(data[i].s) : data[i].length);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.lo, data[i].expected.lo,
+                        "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.lo, zint_large_dump(&data[i].t, t_dump), data[i].expected.lo,
+                        zint_large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.hi, data[i].expected.hi,
+                        "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.hi, zint_large_dump(&data[i].t, t_dump), data[i].expected.hi,
+                                        zint_large_dump(&data[i].expected, expected_dump));
     }
 
     testFinish();
@@ -309,18 +323,22 @@ static void test_add_u64(const testCtx *const p_ctx) {
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_add_u64");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
         if (testContinue(p_ctx, i)) continue;
 
-        large_add_u64(&data[i].t, data[i].s);
+        zint_large_add_u64(&data[i].t, data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.lo, data[i].expected.lo,
+                        "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.lo, zint_large_dump(&data[i].t, t_dump), data[i].expected.lo,
+                        zint_large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.hi, data[i].expected.hi,
+                        "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.hi, zint_large_dump(&data[i].t, t_dump), data[i].expected.hi,
+                        zint_large_dump(&data[i].expected, expected_dump));
     }
 
     testFinish();
@@ -353,18 +371,22 @@ static void test_sub_u64(const testCtx *const p_ctx) {
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_sub_u64");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
         if (testContinue(p_ctx, i)) continue;
 
-        large_sub_u64(&data[i].t, data[i].s);
+        zint_large_sub_u64(&data[i].t, data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.lo, data[i].expected.lo,
+                        "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.lo, zint_large_dump(&data[i].t, t_dump), data[i].expected.lo,
+                        zint_large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.hi, data[i].expected.hi,
+                        "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.hi, zint_large_dump(&data[i].t, t_dump), data[i].expected.hi,
+                        zint_large_dump(&data[i].expected, expected_dump));
     }
 
     testFinish();
@@ -410,18 +432,22 @@ static void test_mul_u64(const testCtx *const p_ctx) {
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_mul_u64");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
         if (testContinue(p_ctx, i)) continue;
 
-        large_mul_u64(&data[i].t, data[i].s);
+        zint_large_mul_u64(&data[i].t, data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.lo, data[i].expected.lo,
+                        "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.lo, zint_large_dump(&data[i].t, t_dump), data[i].expected.lo,
+                        zint_large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.hi, data[i].expected.hi,
+                        "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.hi, zint_large_dump(&data[i].t, t_dump), data[i].expected.hi,
+                        zint_large_dump(&data[i].expected, expected_dump));
     }
 
     testFinish();
@@ -535,20 +561,25 @@ static void test_div_u64(const testCtx *const p_ctx) {
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_div_u64");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
         if (testContinue(p_ctx, i)) continue;
 
-        r = large_div_u64(&data[i].t, data[i].s);
+        r = zint_large_div_u64(&data[i].t, data[i].s);
 
-        assert_equalu64(r, data[i].expected_r, "i:%d r %" LX_FMT "u (0x%" LX_FMT "X) != expected_r %" LX_FMT "u (0x%" LX_FMT "X)\n",
+        assert_equalu64(r, data[i].expected_r,
+                        "i:%d r %" LX_FMT "u (0x%" LX_FMT "X) != expected_r %" LX_FMT "u (0x%" LX_FMT "X)\n",
                         i, r, r, data[i].expected_r, data[i].expected_r);
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.lo, data[i].expected.lo,
+                        "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.lo, zint_large_dump(&data[i].t, t_dump), data[i].expected.lo,
+                        zint_large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.hi, data[i].expected.hi,
+                        "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.hi, zint_large_dump(&data[i].t, t_dump), data[i].expected.hi,
+                        zint_large_dump(&data[i].expected, expected_dump));
     }
 
     testFinish();
@@ -701,18 +732,22 @@ static void test_unset_bit(const testCtx *const p_ctx) {
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_unset_bit");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
         if (testContinue(p_ctx, i)) continue;
 
-        large_unset_bit(&data[i].t, data[i].s);
+        zint_large_unset_bit(&data[i].t, data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
-                        i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.lo, data[i].expected.lo,
+                        "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.lo, zint_large_dump(&data[i].t, t_dump), data[i].expected.lo,
+                        zint_large_dump(&data[i].expected, expected_dump));
+        assert_equalu64(data[i].t.hi, data[i].expected.hi,
+                        "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+                        i, data[i].t.hi, zint_large_dump(&data[i].t, t_dump), data[i].expected.hi,
+                        zint_large_dump(&data[i].expected, expected_dump));
     }
 
     testFinish();
@@ -775,7 +810,7 @@ static void test_uint_array(const testCtx *const p_ctx) {
     unsigned char uchar_array[130];
     unsigned char uchar_expected_array[130];
 
-    testStart("test_uint_array");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
@@ -783,11 +818,13 @@ static void test_uint_array(const testCtx *const p_ctx) {
 
         memset(uint_array, 0, sizeof(uint_array));
 
-        large_uint_array(&data[i].t, uint_array, data[i].size, data[i].bits);
+        zint_large_uint_array(&data[i].t, uint_array, data[i].size, data[i].bits);
 
-        assert_zero(memcmp(uint_array, data[i].expected, data[i].size * sizeof(unsigned int)), "i:%d %s uint memcmp != 0\n  actual: %s\nexpected: %s\n",
-                        i, large_dump(&data[i].t, t_dump), testUtilUIntArrayDump(uint_array, data[i].size, uint_dump, sizeof(uint_dump)),
-                        testUtilUIntArrayDump(data[i].expected, data[i].size, uint_expected_dump, sizeof(uint_expected_dump)));
+        assert_zero(memcmp(uint_array, data[i].expected, data[i].size * sizeof(unsigned int)),
+                    "i:%d %s uint memcmp != 0\n  actual: %s\nexpected: %s\n",
+                    i, zint_large_dump(&data[i].t, t_dump),
+                    testUtilUIntArrayDump(uint_array, data[i].size, uint_dump, sizeof(uint_dump)),
+                    testUtilUIntArrayDump(data[i].expected, data[i].size, uint_expected_dump, sizeof(uint_expected_dump)));
 
         if (data[i].bits <= 8) {
             int j;
@@ -796,11 +833,13 @@ static void test_uint_array(const testCtx *const p_ctx) {
                 uchar_expected_array[j] = data[i].expected[j];
             }
 
-            large_uchar_array(&data[i].t, uchar_array, data[i].size, data[i].bits);
+            zint_large_uchar_array(&data[i].t, uchar_array, data[i].size, data[i].bits);
 
-            assert_zero(memcmp(uchar_array, uchar_expected_array, data[i].size), "i:%d %s uchar memcmp != 0\n  actual: %s\nexpected: %s\n",
-                            i, large_dump(&data[i].t, t_dump), testUtilUCharArrayDump(uchar_array, data[i].size, uchar_dump, sizeof(uchar_dump)),
-                            testUtilUCharArrayDump(uchar_expected_array, data[i].size, uchar_expected_dump, sizeof(uchar_expected_dump)));
+            assert_zero(memcmp(uchar_array, uchar_expected_array, data[i].size),
+                        "i:%d %s uchar memcmp != 0\n  actual: %s\nexpected: %s\n",
+                        i, zint_large_dump(&data[i].t, t_dump),
+                        testUtilUCharArrayDump(uchar_array, data[i].size, uchar_dump, sizeof(uchar_dump)),
+                        testUtilUCharArrayDump(uchar_expected_array, data[i].size, uchar_expected_dump, sizeof(uchar_expected_dump)));
         }
     }
 
@@ -811,7 +850,7 @@ static void test_dump(const testCtx *const p_ctx) {
 
     struct item {
         large_uint t;
-        char *expected;
+        const char *expected;
     };
     /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
     struct item data[] = {
@@ -866,7 +905,7 @@ static void test_dump(const testCtx *const p_ctx) {
 
     char dump[35];
 
-    testStart("test_dump");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
 
@@ -874,7 +913,7 @@ static void test_dump(const testCtx *const p_ctx) {
 
         memset(dump, 0, sizeof(dump));
 
-        large_dump(&data[i].t, dump);
+        zint_large_dump(&data[i].t, dump);
 
         assert_zero(strcmp(dump, data[i].expected), "i:%d { %" LX_FMT "X, %" LX_FMT "X } strcmp(%s, %s) != 0\n",
                         i, data[i].t.lo, data[i].t.hi, dump, data[i].expected);

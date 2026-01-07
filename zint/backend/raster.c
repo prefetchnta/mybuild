@@ -1,7 +1,7 @@
 /* raster.c - Handles output to raster files */
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2023 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2025 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -54,14 +54,25 @@
 #define ZFONT_UPCEAN_TEXT   4   /* Helper flag to indicate dealing with EAN/UPC */
 
 #ifndef ZINT_NO_PNG
-INTERNAL int png_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
+INTERNAL int zint_png_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
 #endif /* ZINT_NO_PNG */
-INTERNAL int bmp_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
-INTERNAL int pcx_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
-INTERNAL int gif_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
-INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
+INTERNAL int zint_bmp_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
+INTERNAL int zint_pcx_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
+INTERNAL int zint_gif_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
+INTERNAL int zint_tif_pixel_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf);
 
 static const char ultra_colour[] = "0CBMRYGKW";
+
+/* Wrapper to pre-check `size` on `malloc()` isn't too big (`prev_size` given if doing 2nd `malloc()` in a row) */
+static void *raster_malloc(size_t size, size_t prev_size) {
+    /* Check for large image `malloc`s, which produce very large files most systems can't handle anyway */
+    /* Also `malloc()` on Linux will (usually) succeed regardless of request, and then get untrappably killed on
+       access by OOM killer if too much, so this is a crude mitigation */
+    if (size + prev_size < size /*Overflow check*/ || size + prev_size > 0x40000000 /*1GB*/) {
+        return NULL;
+    }
+    return malloc(size);
+}
 
 static int buffer_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf) {
     /* Place pixelbuffer into symbol */
@@ -72,21 +83,22 @@ static int buffer_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf
         {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, /* 0x20-2F */
         {0} /*bg*/, {0} /*fg*/, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, /* 0-9 */
         {0}, {0}, {0}, {0}, {0}, {0}, {0}, /* :;<=>?@ */
-        {0}, { 0, 0, 0xff } /*Blue*/, { 0, 0xff, 0xff } /*Cyan*/, {0}, {0}, {0}, { 0, 0xff, 0 } /*Green*/, /* A-G */
-        {0}, {0}, {0}, { 0, 0, 0 } /*blacK*/, {0}, { 0xff, 0, 0xff } /*Magenta*/, {0}, /* H-N */
-        {0}, {0}, {0}, { 0xff, 0, 0 } /*Red*/, {0}, {0}, {0}, {0}, /* O-V */
-        { 0xff, 0xff, 0xff } /*White*/, {0}, { 0xff, 0xff, 0 } /*Yellow*/, {0} /* W-Z */
+        {0}, { 0, 0, 0xFF } /*Blue*/, { 0, 0xFF, 0xFF } /*Cyan*/, {0}, {0}, {0}, { 0, 0xFF, 0 } /*Green*/, /* A-G */
+        {0}, {0}, {0}, { 0, 0, 0 } /*blacK*/, {0}, { 0xFF, 0, 0xFF } /*Magenta*/, {0}, /* H-N */
+        {0}, {0}, {0}, { 0xFF, 0, 0 } /*Red*/, {0}, {0}, {0}, {0}, /* O-V */
+        { 0xFF, 0xFF, 0xFF } /*White*/, {0}, { 0xFF, 0xFF, 0 } /*Yellow*/, {0} /* W-Z */
     };
     int row;
     int plot_alpha = 0;
     const size_t bm_bitmap_width = (size_t) symbol->bitmap_width * 3;
+    const size_t bm_bitmap_size = bm_bitmap_width * symbol->bitmap_height;
 
-    if (out_colour_get_rgb(symbol->fgcolour, &map[DEFAULT_INK][0], &map[DEFAULT_INK][1], &map[DEFAULT_INK][2],
+    if (zint_out_colour_get_rgb(symbol->fgcolour, &map[DEFAULT_INK][0], &map[DEFAULT_INK][1], &map[DEFAULT_INK][2],
             &alpha[0])) {
         plot_alpha = 1;
     }
-    if (out_colour_get_rgb(symbol->bgcolour, &map[DEFAULT_PAPER][0], &map[DEFAULT_PAPER][1], &map[DEFAULT_PAPER][2],
-            &alpha[1])) {
+    if (zint_out_colour_get_rgb(symbol->bgcolour, &map[DEFAULT_PAPER][0], &map[DEFAULT_PAPER][1],
+            &map[DEFAULT_PAPER][2], &alpha[1])) {
         plot_alpha = 1;
     }
 
@@ -100,27 +112,27 @@ static int buffer_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf
         symbol->alphamap = NULL;
     }
 
-    symbol->bitmap = (unsigned char *) malloc(bm_bitmap_width * symbol->bitmap_height);
-    if (symbol->bitmap == NULL) {
-        strcpy(symbol->errtxt, "661: Insufficient memory for bitmap buffer");
-        return ZINT_ERROR_MEMORY;
+    if (!(symbol->bitmap = (unsigned char *) raster_malloc(bm_bitmap_size, 0 /*prev_size*/))) {
+        return z_errtxt(ZINT_ERROR_MEMORY, symbol, 661, "Insufficient memory for bitmap buffer");
     }
+#ifdef ZINT_SANITIZEM /* Suppress clang -fsanitize=memory false positive */
+    memset(symbol->bitmap, 0, bm_bitmap_size);
+#endif
 
     if (plot_alpha) {
-        symbol->alphamap = (unsigned char *) malloc((size_t) symbol->bitmap_width * symbol->bitmap_height);
-        if (symbol->alphamap == NULL) {
-            strcpy(symbol->errtxt, "662: Insufficient memory for alphamap buffer");
-            return ZINT_ERROR_MEMORY;
+        const size_t alpha_size = (size_t) symbol->bitmap_width * symbol->bitmap_height;
+        if (!(symbol->alphamap = (unsigned char *) raster_malloc(alpha_size, bm_bitmap_size))) {
+            return z_errtxt(ZINT_ERROR_MEMORY, symbol, 662, "Insufficient memory for alphamap buffer");
         }
         for (row = 0; row < symbol->bitmap_height; row++) {
-            int p = row * symbol->bitmap_width;
+            size_t p = (size_t) symbol->bitmap_width * row;
             const unsigned char *pb = pixelbuf + p;
             unsigned char *bitmap = symbol->bitmap + p * 3;
             if (row && memcmp(pb, pb - symbol->bitmap_width, symbol->bitmap_width) == 0) {
                 memcpy(bitmap, bitmap - bm_bitmap_width, bm_bitmap_width);
                 memcpy(symbol->alphamap + p, symbol->alphamap + p - symbol->bitmap_width, symbol->bitmap_width);
             } else {
-                const int pe = p + symbol->bitmap_width;
+                const size_t pe = p + symbol->bitmap_width;
                 for (; p < pe; p++, bitmap += 3) {
                     memcpy(bitmap, map[pixelbuf[p]], 3);
                     symbol->alphamap[p] = alpha[pixelbuf[p] == DEFAULT_PAPER];
@@ -129,7 +141,7 @@ static int buffer_plot(struct zint_symbol *symbol, const unsigned char *pixelbuf
         }
     } else {
         for (row = 0; row < symbol->bitmap_height; row++) {
-            const int r = row * symbol->bitmap_width;
+            const size_t r = (size_t) symbol->bitmap_width * row;
             const unsigned char *pb = pixelbuf + r;
             unsigned char *bitmap = symbol->bitmap + r * 3;
             if (row && memcmp(pb, pb - symbol->bitmap_width, symbol->bitmap_width) == 0) {
@@ -169,10 +181,13 @@ static int save_raster_image_to_file(struct zint_symbol *symbol, const int image
     }
 
     if (rotate_angle) {
-        if (!(rotated_pixbuf = (unsigned char *) malloc((size_t) image_width * image_height))) {
-            strcpy(symbol->errtxt, "650: Insufficient memory for pixel buffer");
-            return ZINT_ERROR_MEMORY;
+        size_t image_size = (size_t) image_width * image_height;
+        if (!(rotated_pixbuf = (unsigned char *) raster_malloc((size_t) image_size, 0 /*prev_size*/))) {
+            return z_errtxt(ZINT_ERROR_MEMORY, symbol, 650, "Insufficient memory for pixel buffer");
         }
+#ifdef ZINT_SANITIZEM /* Suppress clang -fsanitize=memory false positive */
+        memset(rotated_pixbuf, DEFAULT_PAPER, image_size);
+#endif
     }
 
     /* Rotate image before plotting */
@@ -182,25 +197,28 @@ static int save_raster_image_to_file(struct zint_symbol *symbol, const int image
             break;
         case 90: /* Plot 90 degrees clockwise */
             for (row = 0; row < image_width; row++) {
+                const size_t h_offset = (size_t) image_height * row;
                 for (column = 0; column < image_height; column++) {
-                    rotated_pixbuf[(row * image_height) + column] =
-                            *(pixelbuf + (image_width * (image_height - column - 1)) + row);
+                    const size_t w_offset = (size_t) image_width * (image_height - column - 1);
+                    rotated_pixbuf[h_offset + column] = *(pixelbuf + w_offset + row);
                 }
             }
             break;
         case 180: /* Plot upside down */
             for (row = 0; row < image_height; row++) {
+                const size_t w_offset = (size_t) image_width * row;
+                const size_t wh_offset = (size_t) image_width * (image_height - row - 1);
                 for (column = 0; column < image_width; column++) {
-                    rotated_pixbuf[(row * image_width) + column] =
-                            *(pixelbuf + (image_width * (image_height - row - 1)) + (image_width - column - 1));
+                    rotated_pixbuf[w_offset + column] = *(pixelbuf + wh_offset + (image_width - column - 1));
                 }
             }
             break;
         case 270: /* Plot 90 degrees anti-clockwise */
             for (row = 0; row < image_width; row++) {
+                const size_t h_offset = (size_t) image_height * row;
                 for (column = 0; column < image_height; column++) {
-                    rotated_pixbuf[(row * image_height) + column] =
-                            *(pixelbuf + (image_width * column) + (image_width - row - 1));
+                    const size_t w_offset = (size_t) image_width * column;
+                    rotated_pixbuf[h_offset + column] = *(pixelbuf + w_offset + (image_width - row - 1));
                 }
             }
             break;
@@ -226,26 +244,31 @@ static int save_raster_image_to_file(struct zint_symbol *symbol, const int image
             break;
         case OUT_PNG_FILE:
 #ifndef ZINT_NO_PNG
-            error_number = png_pixel_plot(symbol, rotated_pixbuf);
+            error_number = zint_png_pixel_plot(symbol, rotated_pixbuf);
 #else
-            if (rotate_angle) {
-                free(rotated_pixbuf);
-            }
-            return ZINT_ERROR_INVALID_OPTION;
+            error_number = ZINT_ERROR_INVALID_OPTION;
 #endif
             break;
+#if defined(__GNUC__) && !defined(__clang__) && defined(NDEBUG) && defined(ZINT_NO_PNG)
+/* Suppress gcc warning ‘<unknown>’ may be used uninitialized - only when Release and ZINT_NO_PNG */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
         case OUT_PCX_FILE:
-            error_number = pcx_pixel_plot(symbol, rotated_pixbuf);
+            error_number = zint_pcx_pixel_plot(symbol, rotated_pixbuf);
             break;
         case OUT_GIF_FILE:
-            error_number = gif_pixel_plot(symbol, rotated_pixbuf);
+            error_number = zint_gif_pixel_plot(symbol, rotated_pixbuf);
             break;
         case OUT_TIF_FILE:
-            error_number = tif_pixel_plot(symbol, rotated_pixbuf);
+            error_number = zint_tif_pixel_plot(symbol, rotated_pixbuf);
             break;
         default:
-            error_number = bmp_pixel_plot(symbol, rotated_pixbuf);
+            error_number = zint_bmp_pixel_plot(symbol, rotated_pixbuf);
             break;
+#if defined(__GNUC__) && !defined(__clang__) && defined(NDEBUG) && defined(ZINT_NO_PNG)
+#pragma GCC diagnostic pop
+#endif
     }
 
     if (rotate_angle) {
@@ -317,7 +340,7 @@ static void draw_letter(unsigned char *pixelbuf, const unsigned char letter, int
         return;
     }
 
-    if ((letter >= 127) && (letter < 161)) {
+    if (letter >= 127 && letter < 161) {
         return;
     }
 
@@ -437,7 +460,7 @@ static void draw_string(unsigned char *pixelbuf, const unsigned char input_strin
     letter_width += letter_gap;
 
     if (length == -1) {
-        length = (int) ustrlen(input_string);
+        length = (int) z_ustrlen(input_string);
     }
 
     if (textflags & ZFONT_HALIGN_LEFT) {
@@ -470,7 +493,7 @@ static void draw_circle(unsigned char *pixelbuf, const int image_width, const in
     for (y = -radius_i; y <= radius_i; y++) {
         const int y_squared = y * y;
         for (x = -radius_i; x <= radius_i; x++) {
-            if ((x * x) + y_squared <= radius_squared) {
+            if (x * x + y_squared <= radius_squared) {
                 draw_pt(pixelbuf, image_width, image_height, x0 + x, y0 + y, fill);
             }
         }
@@ -665,7 +688,7 @@ static void draw_bind_box(const struct zint_symbol *symbol, unsigned char *pixel
     if (symbol->border_width > 0 && (symbol->output_options & (BARCODE_BOX | BARCODE_BIND | BARCODE_BIND_TOP))) {
         const int no_extend = symbol->symbology == BARCODE_CODABLOCKF || symbol->symbology == BARCODE_HIBC_BLOCKF
                                 || symbol->symbology == BARCODE_DPD;
-        const int horz_outside = is_fixed_ratio(symbol->symbology);
+        const int horz_outside = z_is_fixed_ratio(symbol->symbology);
         const int bwidth_si = symbol->border_width * si;
         int ybind_top = yoffset_si - bwidth_si;
         int ybind_bot = yoffset_si + symbol_height_si + dot_overspill_si;
@@ -713,12 +736,14 @@ static void draw_bind_box(const struct zint_symbol *symbol, unsigned char *pixel
 static int plot_raster_maxicode(struct zint_symbol *symbol, const int rotate_angle, const int file_type) {
     int row, column;
     int image_height, image_width;
+    size_t image_size;
     unsigned char *pixelbuf;
     int error_number;
     float xoffset, yoffset, roffset, boffset;
     float scaler = symbol->scale;
     unsigned char *scaled_hexagon;
     int hex_width, hex_height;
+    size_t hex_size;
     int hx_start, hy_start, hx_end, hy_end;
     int hex_image_width, hex_image_height;
     int yposn_offset;
@@ -732,8 +757,9 @@ static int plot_raster_maxicode(struct zint_symbol *symbol, const int rotate_ang
     }
     scaler *= 10.0f;
 
-    out_set_whitespace_offsets(symbol, 0 /*hide_text*/, 0 /*comp_xoffset*/, &xoffset, &yoffset, &roffset, &boffset,
-        NULL /*qz_right*/, scaler, &xoffset_si, &yoffset_si, &roffset_si, &boffset_si, NULL /*qz_right_si*/);
+    zint_out_set_whitespace_offsets(symbol, 0 /*hide_text*/, 0 /*comp_xoffset*/, &xoffset, &yoffset, &roffset,
+        &boffset, NULL /*qz_right*/, scaler, &xoffset_si, &yoffset_si, &roffset_si, &boffset_si,
+        NULL /*qz_right_si*/);
 
     hex_width = (int) roundf(scaler); /* Short diameter, X in ISO/IEC 16023:2000 Figure 8 (same as W) */
     hex_height = (int) roundf(scaler * two_div_sqrt3); /* Long diameter, V in Figure 8 */
@@ -758,19 +784,19 @@ static int plot_raster_maxicode(struct zint_symbol *symbol, const int rotate_ang
     image_width = (int) ceilf(hex_image_width + xoffset_si + roffset_si);
     image_height = (int) ceilf(hex_image_height + yoffset_si + boffset_si);
     assert(image_width && image_height);
+    image_size = (size_t) image_width * image_height;
 
-    if (!(pixelbuf = (unsigned char *) malloc((size_t) image_width * image_height))) {
-        strcpy(symbol->errtxt, "655: Insufficient memory for pixel buffer");
-        return ZINT_ERROR_MEMORY;
+    if (!(pixelbuf = (unsigned char *) raster_malloc(image_size, 0 /*prev_size*/))) {
+        return z_errtxt(ZINT_ERROR_MEMORY, symbol, 655, "Insufficient memory for pixel buffer");
     }
-    memset(pixelbuf, DEFAULT_PAPER, (size_t) image_width * image_height);
+    memset(pixelbuf, DEFAULT_PAPER, image_size);
 
-    if (!(scaled_hexagon = (unsigned char *) malloc((size_t) hex_width * hex_height))) {
-        strcpy(symbol->errtxt, "656: Insufficient memory for pixel buffer");
+    hex_size = (size_t) hex_width * hex_height;
+    if (!(scaled_hexagon = (unsigned char *) raster_malloc(hex_size, image_size))) {
         free(pixelbuf);
-        return ZINT_ERROR_MEMORY;
+        return z_errtxt(ZINT_ERROR_MEMORY, symbol, 656, "Insufficient memory for pixel buffer");
     }
-    memset(scaled_hexagon, DEFAULT_PAPER, (size_t) hex_width * hex_height);
+    memset(scaled_hexagon, DEFAULT_PAPER, hex_size);
 
     plot_hexagon(scaled_hexagon, hex_width, hex_height, hx_start, hy_start, hx_end, hy_end);
 
@@ -780,7 +806,7 @@ static int plot_raster_maxicode(struct zint_symbol *symbol, const int rotate_ang
         const int xposn_offset = (odd_row ? hex_width / 2 : 0) + xoffset_si - hx_start;
         for (column = 0; column < symbol->width - odd_row; column++) {
             const int xposn = column * hex_width + xposn_offset;
-            if (module_is_set(symbol, row, column)) {
+            if (z_module_is_set(symbol, row, column)) {
                 draw_hexagon(pixelbuf, image_width, image_height, scaled_hexagon, hex_width, hex_height, xposn,
                             yposn);
             }
@@ -800,10 +826,11 @@ static int plot_raster_maxicode(struct zint_symbol *symbol, const int rotate_ang
     }
     if (error_number == 0) {
         /* Check whether size is compliant */
+        const float min_ratio = 0.92993629f; /* 24.82 / 26.69 */
+        const float max_ratio = 1.177984f; /* 27.93 / 23.71 */
         const float size_ratio = (float) hex_image_width / hex_image_height;
-        if (size_ratio < 24.82f / 26.69f || size_ratio > 27.93f / 23.71f) {
-            strcpy(symbol->errtxt, "663: Size not within the minimum/maximum ranges");
-            error_number = ZINT_WARN_NONCOMPLIANT;
+        if (size_ratio < min_ratio || size_ratio > max_ratio) {
+            return z_errtxt(ZINT_WARN_NONCOMPLIANT, symbol, 663, "Size not within the minimum/maximum ranges");
         }
     }
     return error_number;
@@ -814,6 +841,7 @@ static int plot_raster_dotty(struct zint_symbol *symbol, const int rotate_angle,
     unsigned char *scaled_pixelbuf;
     int r, i;
     int scale_width, scale_height;
+    size_t scale_size;
     int error_number = 0;
     float xoffset, yoffset, roffset, boffset;
     float dot_offset_s;
@@ -830,8 +858,9 @@ static int plot_raster_dotty(struct zint_symbol *symbol, const int rotate_angle,
     dot_radius_s = (symbol->dot_size * scaler) / 2.0f;
     dot_radius_si = (int) dot_radius_s;
 
-    out_set_whitespace_offsets(symbol, 0 /*hide_text*/, 0 /*comp_xoffset*/, &xoffset, &yoffset, &roffset, &boffset,
-        NULL /*qz_right*/, scaler, &xoffset_si, &yoffset_si, &roffset_si, &boffset_si, NULL /*qz_right_si*/);
+    zint_out_set_whitespace_offsets(symbol, 0 /*hide_text*/, 0 /*comp_xoffset*/, &xoffset, &yoffset, &roffset,
+        &boffset, NULL /*qz_right*/, scaler, &xoffset_si, &yoffset_si, &roffset_si, &boffset_si,
+        NULL /*qz_right_si*/);
 
     /* TODO: Revisit this overspill stuff, it's hacky */
     if (symbol->dot_size < 1.0f) {
@@ -848,19 +877,19 @@ static int plot_raster_dotty(struct zint_symbol *symbol, const int rotate_angle,
 
     scale_width = (int) (symbol->width * scaler + xoffset_si + roffset_si + dot_overspill_si);
     scale_height = (int) (symbol_height_si + yoffset_si + boffset_si + dot_overspill_si);
+    scale_size = (size_t) scale_width * scale_height;
 
-    /* Apply scale options by creating another pixel buffer */
-    if (!(scaled_pixelbuf = (unsigned char *) malloc((size_t) scale_width * scale_height))) {
-        strcpy(symbol->errtxt, "657: Insufficient memory for pixel buffer");
-        return ZINT_ERROR_MEMORY;
+    /* Apply scale options by creating pixel buffer */
+    if (!(scaled_pixelbuf = (unsigned char *) raster_malloc(scale_size, 0 /*prev_size*/))) {
+        return z_errtxt(ZINT_ERROR_MEMORY, symbol, 657, "Insufficient memory for pixel buffer");
     }
-    memset(scaled_pixelbuf, DEFAULT_PAPER, (size_t) scale_width * scale_height);
+    memset(scaled_pixelbuf, DEFAULT_PAPER, scale_size);
 
     /* Plot the body of the symbol to the pixel buffer */
     for (r = 0; r < symbol->rows; r++) {
         int row_si = (int) (r * scaler + yoffset_si + dot_offset_s);
         for (i = 0; i < symbol->width; i++) {
-            if (module_is_set(symbol, r, i)) {
+            if (z_module_is_set(symbol, r, i)) {
                 draw_circle(scaled_pixelbuf, scale_width, scale_height,
                             (int) (i * scaler + xoffset_si + dot_offset_s),
                             row_si, dot_radius_si, DEFAULT_INK);
@@ -884,7 +913,7 @@ static int plot_raster_dotty(struct zint_symbol *symbol, const int rotate_angle,
 static void to_iso8859_1(const unsigned char source[], unsigned char preprocessed[]) {
     int j, i, input_length;
 
-    input_length = (int) ustrlen(source);
+    input_length = (int) z_ustrlen(source);
 
     j = 0;
     i = 0;
@@ -908,7 +937,7 @@ static void to_iso8859_1(const unsigned char source[], unsigned char preprocesse
                 break;
             default:
                 /* Process ASCII (< 80h), all other unicode points are ignored */
-                if (source[i] < 128) {
+                if (z_isascii(source[i])) {
                     preprocessed[j] = source[i];
                     j++;
                 }
@@ -920,7 +949,7 @@ static void to_iso8859_1(const unsigned char source[], unsigned char preprocesse
 }
 
 static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angle, const int file_type) {
-    int error_number;
+    int error_number, warn_number = 0;
     int main_width;
     int comp_xoffset = 0;
     unsigned char addon[6];
@@ -946,6 +975,7 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
     int row_heights_si[200];
     int symbol_height_si;
     int image_width, image_height;
+    size_t image_size;
     unsigned char *pixelbuf;
     float scaler = symbol->scale;
     int si;
@@ -957,29 +987,31 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
         scaler = 0.5f;
     }
     /* If half-integer scaling, then set integer scaler `si` to avoid scaling at end */
-    half_int_scaling = isfintf(scaler * 2.0f);
+    half_int_scaling = z_isfintf(scaler * 2.0f);
     if (half_int_scaling) {
         si = (int) (scaler * 2.0f);
     } else {
         si = 2;
     }
 
-    (void) out_large_bar_height(symbol, si /*(scale and round)*/, row_heights_si, &symbol_height_si);
+    (void) zint_out_large_bar_height(symbol, si /*(scale and round)*/, row_heights_si, &symbol_height_si);
 
     main_width = symbol->width;
 
-    if (is_composite(symbol->symbology)) {
-        while (!module_is_set(symbol, symbol->rows - 1, comp_xoffset)) {
+    assert(symbol->rows >= 1); /* Suppress clang-tidy-21 clang-analyzer-security.ArrayBound */
+
+    if (z_is_composite(symbol->symbology)) {
+        while (!z_module_is_set(symbol, symbol->rows - 1, comp_xoffset)) {
             comp_xoffset++;
         }
     }
-    if (is_upcean(symbol->symbology)) {
-        upceanflag = out_process_upcean(symbol, comp_xoffset, &main_width, addon, &addon_len, &addon_gap);
+    if (z_is_upcean(symbol->symbology)) {
+        upceanflag = zint_out_process_upcean(symbol, comp_xoffset, &main_width, addon, &addon_len, &addon_gap);
     }
 
-    hide_text = ((!symbol->show_hrt) || (ustrlen(symbol->text) == 0) || scaler < 1.0f);
+    hide_text = !symbol->show_hrt || symbol->text_length == 0 || scaler < 1.0f;
 
-    out_set_whitespace_offsets(symbol, hide_text, comp_xoffset, &xoffset, &yoffset, &roffset, &boffset,
+    zint_out_set_whitespace_offsets(symbol, hide_text, comp_xoffset, &xoffset, &yoffset, &roffset, &boffset,
         NULL /*qz_right*/, si, &xoffset_si, &yoffset_si, &roffset_si, &boffset_si, &qz_right_si);
 
     xoffset_comp_si = xoffset_si + comp_xoffset * si;
@@ -1013,12 +1045,12 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
 
     image_height = symbol_height_si + (int) ceilf(textoffset * si) + yoffset_si + boffset_si;
     assert(image_width && image_height);
+    image_size = (size_t) image_width * image_height;
 
-    if (!(pixelbuf = (unsigned char *) malloc((size_t) image_width * image_height))) {
-        strcpy(symbol->errtxt, "658: Insufficient memory for pixel buffer");
-        return ZINT_ERROR_MEMORY;
+    if (!(pixelbuf = (unsigned char *) raster_malloc(image_size, 0 /*prev_size*/))) {
+        return z_errtxt(ZINT_ERROR_MEMORY, symbol, 658, "Insufficient memory for pixel buffer");
     }
-    memset(pixelbuf, DEFAULT_PAPER, (size_t) image_width * image_height);
+    memset(pixelbuf, DEFAULT_PAPER, image_size);
 
     yposn_si = yoffset_si;
 
@@ -1028,9 +1060,9 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
             const int row_height_si = row_heights_si[r];
 
             for (i = 0; i < symbol->width; i += block_width) {
-                const int fill = module_colour_is_set(symbol, r, i);
+                const int fill = z_module_colour_is_set(symbol, r, i);
                 for (block_width = 1; (i + block_width < symbol->width)
-                                        && module_colour_is_set(symbol, r, i + block_width) == fill; block_width++);
+                                        && z_module_colour_is_set(symbol, r, i + block_width) == fill; block_width++);
                 if (fill) {
                     /* a colour block */
                     draw_bar_line(pixelbuf, i * si + xoffset_si, block_width * si, yposn_si, image_width,
@@ -1047,10 +1079,10 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
             int row_height_si = row_heights_si[r];
 
             for (i = 0; i < symbol->width; i += block_width) {
-                const int fill = module_is_set(symbol, r, i);
+                const int fill = z_module_is_set(symbol, r, i);
                 for (block_width = 1; (i + block_width < symbol->width)
-                                        && module_is_set(symbol, r, i + block_width) == fill; block_width++);
-                if ((r == (symbol->rows - 1)) && (i > main_width) && (addon_latch == 0)) {
+                                        && z_module_is_set(symbol, r, i + block_width) == fill; block_width++);
+                if (r == symbol->rows - 1 && i > main_width && addon_latch == 0) {
                     int addon_row_height_si;
                     const int addon_row_adj_si = (int) ceilf((font_height + symbol->text_gap) * si);
                     copy_bar_line(pixelbuf, xoffset_si, main_width * si, yposn_si, row_height_si, image_width,
@@ -1058,9 +1090,9 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
                     addon_text_yposn = yposn_si;
                     yposn_si += addon_row_adj_si;
                     addon_row_height_si = row_height_si - addon_row_adj_si;
-                    if (upceanflag != 12 && upceanflag != 6) { /* UPC-A/E add-ons don't descend */
-                        addon_row_height_si += guard_descent * si;
-                    }
+                    /* Following ISO/IEC 15420:2009 Figure 5 — UPC-A bar code symbol with 2-digit add-on (contrary to
+                       GS1 General Specs v24.0 Figure 5.2.6.6-5) descends for all including UPC-A/E */
+                    addon_row_height_si += guard_descent * si;
                     if (addon_row_height_si == 0) {
                         addon_row_height_si = 1;
                     }
@@ -1095,9 +1127,9 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
             }
 
             for (i = 0; i < symbol->width; i += block_width) {
-                const int fill = module_is_set(symbol, r, i);
+                const int fill = z_module_is_set(symbol, r, i);
                 for (block_width = 1; (i + block_width < symbol->width)
-                                        && module_is_set(symbol, r, i + block_width) == fill; block_width++);
+                                        && z_module_is_set(symbol, r, i + block_width) == fill; block_width++);
                 if (fill) {
                     /* a bar */
                     draw_bar_line(pixelbuf, i * si + xoffset_si, block_width * si, yposn_si, image_width,
@@ -1132,9 +1164,9 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
 
         } else if (upceanflag == 12) { /* UPC-A */
             for (i = 0 + comp_xoffset; i < 11 + comp_xoffset; i += block_width) {
-                const int fill = module_is_set(symbol, symbol->rows - 1, i);
+                const int fill = z_module_is_set(symbol, symbol->rows - 1, i);
                 for (block_width = 1; (i + block_width < symbol->width)
-                                            && module_is_set(symbol, symbol->rows - 1, i + block_width) == fill;
+                                            && z_module_is_set(symbol, symbol->rows - 1, i + block_width) == fill;
                                         block_width++);
                 if (fill) {
                     draw_bar_line(pixelbuf, i * si + xoffset_si, block_width * si, guard_yoffset_si, image_width,
@@ -1144,9 +1176,9 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
             draw_bar_line(pixelbuf, 46 * si + xoffset_comp_si, 1 * si, guard_yoffset_si, image_width, DEFAULT_INK);
             draw_bar_line(pixelbuf, 48 * si + xoffset_comp_si, 1 * si, guard_yoffset_si, image_width, DEFAULT_INK);
             for (i = 85 + comp_xoffset; i < 96 + comp_xoffset; i += block_width) {
-                const int fill = module_is_set(symbol, symbol->rows - 1, i);
+                const int fill = z_module_is_set(symbol, symbol->rows - 1, i);
                 for (block_width = 1; (i + block_width < symbol->width)
-                                            && module_is_set(symbol, symbol->rows - 1, i + block_width) == fill;
+                                            && z_module_is_set(symbol, symbol->rows - 1, i + block_width) == fill;
                                         block_width++);
                 if (fill) {
                     draw_bar_line(pixelbuf, i * si + xoffset_si, block_width * si, guard_yoffset_si, image_width,
@@ -1188,7 +1220,9 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
                 text_xposn = 24 * si + xoffset_comp_si;
                 draw_string(pixelbuf, symbol->text + 1, 6, text_xposn, text_yposn, textflags, image_width,
                             image_height, si);
-                text_xposn = (51 + 3) * si + xoffset_comp_si;
+                /* TODO: GS1 General Specs v24.0 5.2.5 Human readable interpretation says 3X but this could cause
+                   digit's righthand to touch any add-on, now that they descend, so use 2X, until clarified */
+                text_xposn = (51 + 2) * si + xoffset_comp_si;
                 draw_string(pixelbuf, symbol->text + 7, 1, text_xposn, text_yposn + upcea_height_adj,
                             textflags | SMALL_TEXT | ZFONT_HALIGN_LEFT, image_width, image_height, si);
                 if (addon_len) {
@@ -1240,7 +1274,9 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
                 text_xposn = 67 * si + xoffset_comp_si;
                 draw_string(pixelbuf, symbol->text + 6, 5, text_xposn, text_yposn, textflags, image_width,
                             image_height, si);
-                text_xposn = (95 + 5) * si + xoffset_comp_si;
+                /* TODO: GS1 General Specs v24.0 5.2.5 Human readable interpretation says 5X but this could cause
+                   digit's righthand to touch any add-on, now that they descend, so use 4X, until clarified */
+                text_xposn = (95 + 4) * si + xoffset_comp_si;
                 draw_string(pixelbuf, symbol->text + 11, 1, text_xposn, text_yposn + upcea_height_adj,
                             textflags | SMALL_TEXT | ZFONT_HALIGN_LEFT, image_width, image_height, si);
                 if (addon_len) {
@@ -1309,7 +1345,7 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
     }
 
     /* Separator binding for stacked barcodes */
-    if ((symbol->output_options & BARCODE_BIND) && (symbol->rows > 1) && is_stackable(symbol->symbology)) {
+    if ((symbol->output_options & BARCODE_BIND) && symbol->rows > 1 && z_is_bindable(symbol->symbology)) {
         int sep_xoffset_si = xoffset_si;
         int sep_width_si = symbol->width * si;
         int sep_height_si, sep_yoffset_si;
@@ -1337,27 +1373,26 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
     if (!half_int_scaling) {
         size_t prev_image_row;
         unsigned char *scaled_pixelbuf;
-        const int scale_width = (int) stripf(image_width * scaler);
-        const int scale_height = (int) stripf(image_height * scaler);
+        const int scale_width = (int) z_stripf(image_width * scaler);
+        const int scale_height = (int) z_stripf(image_height * scaler);
 
         /* Apply scale options by creating another pixel buffer */
-        if (!(scaled_pixelbuf = (unsigned char *) malloc((size_t) scale_width * scale_height))) {
+        if (!(scaled_pixelbuf = (unsigned char *) raster_malloc((size_t) scale_width * scale_height, image_size))) {
             free(pixelbuf);
-            strcpy(symbol->errtxt, "659: Insufficient memory for scaled pixel buffer");
-            return ZINT_ERROR_MEMORY;
+            return z_errtxt(ZINT_ERROR_MEMORY, symbol, 659, "Insufficient memory for scaled pixel buffer");
         }
         memset(scaled_pixelbuf, DEFAULT_PAPER, (size_t) scale_width * scale_height);
 
         /* Interpolate */
         for (r = 0; r < scale_height; r++) {
-            size_t scaled_row = r * scale_width;
-            size_t image_row = (size_t) stripf(r / scaler) * image_width;
+            size_t scaled_row = (size_t) scale_width * r;
+            size_t image_row = (size_t) z_stripf(r / scaler) * image_width;
             if (r && (image_row == prev_image_row
                     || memcmp(pixelbuf + image_row, pixelbuf + prev_image_row, image_width) == 0)) {
                 memcpy(scaled_pixelbuf + scaled_row, scaled_pixelbuf + scaled_row - scale_width, scale_width);
             } else {
                 for (i = 0; i < scale_width; i++) {
-                    *(scaled_pixelbuf + scaled_row + i) = *(pixelbuf + image_row + (int) stripf(i / scaler));
+                    *(scaled_pixelbuf + scaled_row + i) = *(pixelbuf + image_row + (int) z_stripf(i / scaler));
                 }
             }
             prev_image_row = image_row;
@@ -1376,22 +1411,24 @@ static int plot_raster_default(struct zint_symbol *symbol, const int rotate_angl
             free(pixelbuf);
         }
     }
-    return error_number;
+    return error_number ? error_number : warn_number;
 }
 
-INTERNAL int plot_raster(struct zint_symbol *symbol, int rotate_angle, int file_type) {
+INTERNAL int zint_plot_raster(struct zint_symbol *symbol, int rotate_angle, int file_type) {
     int error;
 
 #ifdef ZINT_NO_PNG
     if (file_type == OUT_PNG_FILE) {
-        strcpy(symbol->errtxt, "660: PNG format disabled at compile time");
-        return ZINT_ERROR_INVALID_OPTION;
+        return z_errtxt(ZINT_ERROR_INVALID_OPTION, symbol, 660, "PNG format disabled at compile time");
     }
 #endif /* ZINT_NO_PNG */
 
-    error = out_check_colour_options(symbol);
+    error = zint_out_check_colour_options(symbol);
     if (error != 0) {
         return error;
+    }
+    if (symbol->rows <= 0) {
+        return z_errtxt(ZINT_ERROR_INVALID_OPTION, symbol, 664, "No rows");
     }
 
     if (symbol->symbology == BARCODE_MAXICODE) {

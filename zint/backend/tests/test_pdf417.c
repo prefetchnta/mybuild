@@ -1,6 +1,6 @@
 /*
     libzint - the open source barcode library
-    Copyright (C) 2019-2023 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2019-2025 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -39,33 +39,35 @@ static void test_large(const testCtx *const p_ctx) {
         int option_1;
         int option_2;
         int option_3;
-        char *pattern;
+        const char *pattern;
         int length;
         int ret;
         int expected_rows;
         int expected_width;
-        char *expected_errtxt;
+        const char *expected_errtxt;
     };
     /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
-    struct item data[] = {
+    static const struct item data[] = {
         /*  0*/ { BARCODE_PDF417, 0, -1, -1, "A", 1850, 0, 32, 562, "" },
-        /*  1*/ { BARCODE_PDF417, 0, -1, -1, "A", 1851, ZINT_ERROR_TOO_LONG, -1, -1, "Error 464: Input string too long" },
+        /*  1*/ { BARCODE_PDF417, 0, -1, -1, "A", 1851, ZINT_ERROR_TOO_LONG, -1, -1, "Error 464: Input too long, requires too many codewords (maximum 928)" },
         /*  2*/ { BARCODE_PDF417, 0, -1, -1, "\200", 1108, 0, 32, 562, "" },
-        /*  3*/ { BARCODE_PDF417, 0, -1, -1, "\200", 1109, ZINT_ERROR_TOO_LONG, -1, -1, "Error 464: Input string too long" },
+        /*  3*/ { BARCODE_PDF417, 0, -1, -1, "\200", 1109, ZINT_ERROR_TOO_LONG, -1, -1, "Error 464: Input too long, requires too many codewords (maximum 928)" },
         /*  4*/ { BARCODE_PDF417, 0, -1, -1, "1", 2710, 0, 32, 562, "" },
-        /*  5*/ { BARCODE_PDF417, 0, -1, -1, "1", 2711, ZINT_ERROR_TOO_LONG, -1, -1, "Error 463: Input string too long" },
-        /*  6*/ { BARCODE_PDF417, 0, -1, 59, "A", 1850, ZINT_ERROR_TOO_LONG, -1, -1, "Error 465: Data too long for specified number of rows" },
-        /*  7*/ { BARCODE_PDF417, 0, 1, 3, "A", 1850, ZINT_ERROR_TOO_LONG, 32, 562, "Error 745: Data too long for specified number of columns" },
-        /*  8*/ { BARCODE_PDF417, 0, -1, 3, "A", 1850, ZINT_WARN_INVALID_OPTION, 32, 562, "Warning 746: Rows increased from 3 to 32" },
-        /*  9*/ { BARCODE_PDF417, 0, 30, -1, "A", 1850, ZINT_ERROR_TOO_LONG, 32, 562, "Error 747: Data too long for specified number of columns" },
+        /*  5*/ { BARCODE_PDF417, 0, -1, -1, "1", 2711, ZINT_ERROR_TOO_LONG, -1, -1, "Error 463: Input length 2711 too long (maximum 2710)" },
+        /*  6*/ { BARCODE_PDF417, 0, -1, 59, "A", 1850, ZINT_ERROR_TOO_LONG, -1, -1, "Error 465: Input too long, requires too many codewords (maximum 928)" },
+        /*  7*/ { BARCODE_PDF417, 0, 1, 3, "A", 1850, ZINT_ERROR_TOO_LONG, -1, -1, "Error 745: Input too long for number of columns '1'" },
+        /*  8*/ { BARCODE_PDF417, 0, -1, 3, "A", 1850, ZINT_WARN_INVALID_OPTION, 32, 562, "Warning 746: Number of rows increased from 3 to 32" },
+        /*  9*/ { BARCODE_PDF417, 0, 30, -1, "A", 1850, ZINT_ERROR_TOO_LONG, -1, -1, "Error 747: Input too long, requires too many codewords (maximum 928)" },
+        /* 10*/ { BARCODE_MICROPDF417, 0, -1, -1, "A", 250, 0, 44, 99, "" },
+        /* 11*/ { BARCODE_MICROPDF417, 0, -1, -1, "A", 251, ZINT_ERROR_TOO_LONG, -1, -1, "Error 467: Input too long, requires 127 codewords (maximum 126)" },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
 
     char data_buf[4096];
 
-    testStartSymbol("test_large", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -76,34 +78,48 @@ static void test_large(const testCtx *const p_ctx) {
 
         if (data[i].length != -1) {
             testUtilStrCpyRepeat(data_buf, data[i].pattern, data[i].length);
-            assert_equal(data[i].length, (int) strlen(data_buf), "i:%d length %d != strlen(data_buf) %d\n", i, data[i].length, (int) strlen(data_buf));
+            assert_equal(data[i].length, (int) strlen(data_buf), "i:%d length %d != strlen(data_buf) %d\n",
+                        i, data[i].length, (int) strlen(data_buf));
         } else {
             strcpy(data_buf, data[i].pattern);
         }
 
-        length = testUtilSetSymbol(symbol, data[i].symbology, -1 /*input_mode*/, -1 /*eci*/, data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/, data_buf, data[i].length, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, -1 /*input_mode*/, -1 /*eci*/,
+                                    data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/,
+                                    data_buf, data[i].length, debug);
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data_buf, length);
-        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+        ret = ZBarcode_Encode(symbol, TCU(data_buf), length);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
 
         if (ret < ZINT_ERROR) {
-            assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, symbol->errtxt);
-            assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d\n", i, symbol->width, data[i].expected_width);
+            assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n",
+                        i, symbol->rows, data[i].expected_rows, symbol->errtxt);
+            assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d\n",
+                        i, symbol->width, data[i].expected_width);
         }
-        assert_zero(strcmp(symbol->errtxt, data[i].expected_errtxt), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected_errtxt);
+        assert_zero(strcmp(symbol->errtxt, data[i].expected_errtxt), "i:%d strcmp(%s, %s) != 0\n",
+                    i, symbol->errtxt, data[i].expected_errtxt);
 
         /* FAST_MODE */
 
-        length = testUtilSetSymbol(symbol, data[i].symbology, FAST_MODE, -1 /*eci*/, data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/, data_buf, data[i].length, debug);
+        ZBarcode_Clear(symbol);
+        length = testUtilSetSymbol(symbol, data[i].symbology, FAST_MODE /*input_mode*/, -1 /*eci*/,
+                                    data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/,
+                                    data_buf, data[i].length, debug);
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data_buf, length);
-        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+        ret = ZBarcode_Encode(symbol, TCU(data_buf), length);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
 
         if (ret < ZINT_ERROR) {
-            assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, symbol->errtxt);
-            assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d\n", i, symbol->width, data[i].expected_width);
+            assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n",
+                        i, symbol->rows, data[i].expected_rows, symbol->errtxt);
+            assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d\n",
+                        i, symbol->width, data[i].expected_width);
         }
-        assert_zero(strcmp(symbol->errtxt, data[i].expected_errtxt), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected_errtxt);
+        assert_zero(strcmp(symbol->errtxt, data[i].expected_errtxt), "i:%d strcmp(%s, %s) != 0\n",
+                    i, symbol->errtxt, data[i].expected_errtxt);
 
         ZBarcode_Delete(symbol);
     }
@@ -121,76 +137,79 @@ static void test_options(const testCtx *const p_ctx) {
         int option_3;
         int warn_level;
         struct zint_structapp structapp;
-        char *data;
+        const char *data;
         int ret_encode;
         int ret_vector;
 
         int expected_rows;
         int expected_width;
         const char *expected_errtxt;
+        int expected_option_1;
+        int expected_option_2;
+        int expected_option_3;
         int compare_previous;
     };
     /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
-    struct item data[] = {
-        /*  0*/ { BARCODE_PDF417, -1, -1, -1, 0, { 0, 0, "" }, "12345", 0, 0, 6, 103, "", -1 }, /* ECC auto-set to 2, cols auto-set to 2 */
-        /*  1*/ { BARCODE_PDF417, -1, -1, 928, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 466: Number of rows out of range (3 to 90)", -1 }, /* Option 3 no longer ignored */
-        /*  2*/ { BARCODE_PDF417, -1, -1, 1, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 466: Number of rows out of range (3 to 90)", -1 }, /* Option 3 no longer ignored */
-        /*  3*/ { BARCODE_PDF417, 3, -1, -1, 0, { 0, 0, "" }, "12345", 0, 0, 7, 120, "", -1 }, /* ECC 3, cols auto-set to 3 */
-        /*  4*/ { BARCODE_PDF417, 3, 2, -1, 0, { 0, 0, "" }, "12345", 0, 0, 10, 103, "", -1 }, /* ECC 3, cols 2 */
-        /*  5*/ { BARCODE_PDF417, 8, 2, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 86, 171, "Warning 748: Columns increased from 2 to 6", -1 }, /* ECC 8, cols 2, used to fail, now auto-upped to 3 with warning */
-        /*  6*/ { BARCODE_PDF417, 8, 2, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, 0, 86, 171, "Error 748: Columns increased from 2 to 6", -1 },
-        /*  7*/ { BARCODE_PDF417, 7, 2, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 87, 120, "Warning 748: Columns increased from 2 to 3", -1 }, /* ECC 7, cols 2 auto-upped to 3 but now with warning */
-        /*  8*/ { BARCODE_PDF417, 7, 2, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, 0, 87, 120, "Error 748: Columns increased from 2 to 3", -1 },
-        /*  9*/ { BARCODE_PDF417, -1, 10, -1, 0, { 0, 0, "" }, "12345", 0, 0, 3, 239, "", -1 }, /* ECC auto-set to 2, cols 10 */
-        /* 10*/ { BARCODE_PDF417, 9, -1, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 6, 103, "Warning 460: Security value out of range", -1 }, /* Invalid ECC, auto-set */
-        /* 11*/ { BARCODE_PDF417, -1, 31, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 6, 103, "Warning 461: Number of columns out of range (1 to 30)", 0 }, /* Invalid cols, auto-set */
-        /* 12*/ { BARCODE_PDF417, -1, -1, 2, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, 0, 0, 0, "Error 466: Number of rows out of range (3 to 90)", -1 }, /* Invalid rows, error */
-        /* 13*/ { BARCODE_PDF417, -1, -1, 91, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, 0, 0, 0, "Error 466: Number of rows out of range (3 to 90)", -1 }, /* Invalid rows, error */
-        /* 14*/ { BARCODE_PDF417, 9, -1, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 460: Security value out of range", -1 }, /* Invalid ECC */
-        /* 15*/ { BARCODE_PDF417, -1, 31, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 461: Number of columns out of range (1 to 30)", -1 }, /* Invalid cols */
-        /* 16*/ { BARCODE_PDF417, -1, 30, 31, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 475: Columns x rows out of range (1 to 928)", -1 }, /* Rows * cols (930) > 928 */
-        /* 17*/ { BARCODE_PDF417, -1, 1, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", ZINT_WARN_INVALID_OPTION, 0, 65, 120, "Warning 748: Columns increased from 1 to 3", -1 }, /* Cols 1 too small, used to fail, now auto-upped to 3 with warning */
-        /* 18*/ { BARCODE_PDF417, -1, -1, 4, 0, { 0, 0, "" }, "12345", 0, 0, 4, 120, "", -1 }, /* Specify rows 4 (cols 3) */
-        /* 19*/ { BARCODE_PDF417, -1, 3, 4, 0, { 0, 0, "" }, "12345", 0, 0, 4, 120, "", 0 }, /* Specify cols 3 & rows 4 */
-        /* 20*/ { BARCODE_PDF417, -1, -1, 90, 0, { 0, 0, "" }, "12345", 0, 0, 90, 86, "", -1 }, /* Specify rows 90 (cols 1) */
-        /* 21*/ { BARCODE_PDF417, 0, -1, 3, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", 0, 0, 3, 579, "", -1 }, /* Specify rows 3, max cols 30 */
-        /* 22*/ { BARCODE_PDF417, 0, 30, 3, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", 0, 0, 3, 579, "", 0 }, /* Specify rows 3, cols 30 */
-        /* 23*/ { BARCODE_PDF417, 0, 29, 3, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_WARN_INVALID_OPTION, 0, 4, 562, "Warning 746: Rows increased from 3 to 4", -1 }, /* Specify rows 3, cols 29, rows auto-upped to 4 */
-        /* 24*/ { BARCODE_MICROPDF417, -1, 5, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 11, 38, "Warning 468: Specified width out of range", -1 }, /* Invalid cols, auto-set to 1 */
-        /* 25*/ { BARCODE_MICROPDF417, -1, 5, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 468: Specified width out of range", -1 }, /* Invalid cols */
-        /* 26*/ { BARCODE_MICROPDF417, -1, 5, 3, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 476: Cannot specify rows for MicroPDF417", -1 }, /* Rows option not available */
-        /* 27*/ { BARCODE_MICROPDF417, -1, 1, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLM", ZINT_WARN_INVALID_OPTION, 0, 17, 55, "Warning 469: Specified symbol size too small for data", -1 }, /* Cols 1 too small, auto-upped to 2 with warning */
-        /* 28*/ { BARCODE_MICROPDF417, -1, 1, -1, WARN_FAIL_ALL, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLM", ZINT_ERROR_INVALID_OPTION, 0, 0, 0, "Error 469: Specified symbol size too small for data", -1 }, /* Cols 1 too small */
-        /* 29*/ { BARCODE_MICROPDF417, -1, 2, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWX", ZINT_WARN_INVALID_OPTION, 0, 15, 99, "Warning 470: Specified symbol size too small for data", -1 }, /* Cols 2 too small, auto-upped to 4 with warning */
-        /* 30*/ { BARCODE_MICROPDF417, -1, 2, -1, WARN_FAIL_ALL, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWX", ZINT_ERROR_INVALID_OPTION, 0, 0, 0, "Error 470: Specified symbol size too small for data", -1 }, /* Cols 2 too small */
-        /* 31*/ { BARCODE_MICROPDF417, -1, 3, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKL", ZINT_WARN_INVALID_OPTION, 0, 32, 99, "Warning 471: Specified symbol size too small for data", -1 }, /* Cols 3 too small, auto-upped to 4 with warning */
-        /* 32*/ { BARCODE_MICROPDF417, -1, 3, -1, WARN_FAIL_ALL, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKL", ZINT_ERROR_INVALID_OPTION, 0, 0, 0, "Error 471: Specified symbol size too small for data", -1 }, /* Cols 3 too small */
-        /* 33*/ { BARCODE_PDF417, -1, 1, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Columns increased from 1 to 2", -1 }, /* Cols 1 auto-upped to 2 just fits, now with warning */
-        /* 34*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH", ZINT_WARN_INVALID_OPTION, 0, 67, 120, "Warning 748: Columns increased from 1 to 3", -1 }, /* Cols 1 too small with Structured Append, used to fail, now auto-upped to 3 with warning */
-        /* 35*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Columns increased from 1 to 2", -1 }, /* Cols 1 with Structured Append auto-upped to 2 just fits, now with warning */
-        /* 36*/ { BARCODE_PDF417, -1, 1, -1, 0, { 2, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTU", ZINT_WARN_INVALID_OPTION, 0, 65, 120, "Warning 748: Columns increased from 1 to 3", -1 }, /* Cols 1 too small with Structured Append as last symbol (uses extra terminating codeword), used to fail, now auto-upped to 3 with warning */
-        /* 37*/ { BARCODE_PDF417, -1, 1, -1, 0, { 2, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Columns increased from 1 to 2", -1 }, /* Cols 1 with Structured Append as last symbol just fits with 1 less character pair when auto-upped to 2, now with warning */
-        /* 38*/ { BARCODE_PDF417, -1, 1, -1, 0, { 3, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 741: Structured Append index out of range (1-2)", -1 },
-        /* 39*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 1, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 740: Structured Append count out of range (2-99999)", -1 },
-        /* 40*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 100000, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 740: Structured Append count out of range (2-99999)", -1 },
-        /* 41*/ { BARCODE_PDF417, -1, 1, -1, 0, { 0, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 741: Structured Append index out of range (1-2)", -1 },
-        /* 42*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "1" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Columns increased from 1 to 2", -1 }, /* Now with warning */
-        /* 43*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "123123" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Columns increased from 1 to 2", -1 }, /* Now with warning */
-        /* 44*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "123123123123123123123123123123" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Columns increased from 1 to 2", -1 }, /* Now with warning */
-        /* 45*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "1231231231231231231231231231231" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 742: Structured Append ID too long (30 digit maximum)", -1 },
-        /* 46*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "23123123123123123123123123123" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Columns increased from 1 to 2", -1 }, /* Now with warning */
-        /* 47*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "A" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 743: Invalid Structured Append ID (digits only)", -1 },
-        /* 48*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "900" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 744: Structured Append ID triplet 1 '900' out of range (000-899)", -1 },
-        /* 49*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "123123123123123123123123901123" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 744: Structured Append ID triplet 9 '901' out of range (000-899)", -1 },
-        /* 50*/ { BARCODE_MICROPDF417, -1, -1, -1, 0, { 1, 2, "1231231231231231231231231231231" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 742: Structured Append ID too long (30 digit maximum)", -1 }, /* Micro PDF417 same error checking code */
+    static const struct item data[] = {
+        /*  0*/ { BARCODE_PDF417, -1, -1, -1, 0, { 0, 0, "" }, "12345", 0, 0, 6, 103, "", 2, 2, 6, -1 }, /* ECC auto-set to 2, cols auto-set to 2 */
+        /*  1*/ { BARCODE_PDF417, -1, -1, 928, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 466: Number of rows '928' out of range (3 to 90)", -1, 0, 928, -1 }, /* Option 3 no longer ignored */
+        /*  2*/ { BARCODE_PDF417, -1, -1, 1, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 466: Number of rows '1' out of range (3 to 90)", -1, 0, 1, -1 }, /* Option 3 no longer ignored */
+        /*  3*/ { BARCODE_PDF417, 3, -1, -1, 0, { 0, 0, "" }, "12345", 0, 0, 7, 120, "", 3, 3, 7, -1 }, /* ECC 3, cols auto-set to 3 */
+        /*  4*/ { BARCODE_PDF417, 3, 2, -1, 0, { 0, 0, "" }, "12345", 0, 0, 10, 103, "", 3, 2, 10, -1 }, /* ECC 3, cols 2 */
+        /*  5*/ { BARCODE_PDF417, 8, 2, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 86, 171, "Warning 748: Number of columns increased from 2 to 6", 8, 6, 86, -1 }, /* ECC 8, cols 2, used to fail, now auto-upped to 6 with warning */
+        /*  6*/ { BARCODE_PDF417, 8, 2, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, 0, 86, 171, "Error 748: Number of columns increased from 2 to 6", 8, 6, 86, -1 },
+        /*  7*/ { BARCODE_PDF417, 7, 2, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 87, 120, "Warning 748: Number of columns increased from 2 to 3", 7, 3, 87, -1 }, /* ECC 7, cols 2 auto-upped to 3 but now with warning */
+        /*  8*/ { BARCODE_PDF417, 7, 2, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, 0, 87, 120, "Error 748: Number of columns increased from 2 to 3", 7, 3, 87, -1 },
+        /*  9*/ { BARCODE_PDF417, -1, 10, -1, 0, { 0, 0, "" }, "12345", 0, 0, 3, 239, "", 2, 10, 3, -1 }, /* ECC auto-set to 2, cols 10 */
+        /* 10*/ { BARCODE_PDF417, 9, -1, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 6, 103, "Warning 460: Error correction level '9' out of range (0 to 8), ignoring", 2, 2, 6, -1 }, /* Invalid ECC, auto-set */
+        /* 11*/ { BARCODE_PDF417, -1, 31, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 6, 103, "Warning 461: Number of columns '31' out of range (1 to 30), ignoring", 2, 2, 6, 0 }, /* Invalid cols, auto-set */
+        /* 12*/ { BARCODE_PDF417, -1, -1, 2, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, ZINT_ERROR_INVALID_OPTION, 0, 0, "Error 466: Number of rows '2' out of range (3 to 90)", -1, 0, 2, -1 }, /* Invalid rows, error */
+        /* 13*/ { BARCODE_PDF417, -1, -1, 91, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, ZINT_ERROR_INVALID_OPTION, 0, 0, "Error 466: Number of rows '91' out of range (3 to 90)", -1, 0, 91, -1 }, /* Invalid rows, error */
+        /* 14*/ { BARCODE_PDF417, 9, -1, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 460: Error correction level '9' out of range (0 to 8)", 9, 0, 0, -1 }, /* Invalid ECC */
+        /* 15*/ { BARCODE_PDF417, -1, 31, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 461: Number of columns '31' out of range (1 to 30)", -1, 31, 0, -1 }, /* Invalid cols */
+        /* 16*/ { BARCODE_PDF417, -1, 30, 31, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 475: Columns x rows value '930' out of range (1 to 928)", -1, 30, 31, -1 }, /* Rows * cols (930) > 928 */
+        /* 17*/ { BARCODE_PDF417, -1, 1, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", ZINT_WARN_INVALID_OPTION, 0, 65, 120, "Warning 748: Number of columns increased from 1 to 3", 4, 3, 65, -1 }, /* Cols 1 too small, used to fail, now auto-upped to 3 with warning */
+        /* 18*/ { BARCODE_PDF417, -1, -1, 4, 0, { 0, 0, "" }, "12345", 0, 0, 4, 120, "", 2, 3, 4, -1 }, /* Specify rows 4 (cols 3) */
+        /* 19*/ { BARCODE_PDF417, -1, 3, 4, 0, { 0, 0, "" }, "12345", 0, 0, 4, 120, "", 2, 3, 4, 0 }, /* Specify cols 3 & rows 4 */
+        /* 20*/ { BARCODE_PDF417, -1, -1, 90, 0, { 0, 0, "" }, "12345", 0, 0, 90, 86, "", 2, 1, 90, -1 }, /* Specify rows 90 (cols 1) */
+        /* 21*/ { BARCODE_PDF417, 0, -1, 3, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", 0, 0, 3, 579, "", 0, 30, 3, -1 }, /* Specify rows 3, max cols 30 */
+        /* 22*/ { BARCODE_PDF417, 0, 30, 3, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", 0, 0, 3, 579, "", 0, 30, 3, 0 }, /* Specify rows 3, cols 30 */
+        /* 23*/ { BARCODE_PDF417, 0, 29, 3, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_WARN_INVALID_OPTION, 0, 4, 562, "Warning 746: Number of rows increased from 3 to 4", 0, 29, 4, -1 }, /* Specify rows 3, cols 29, rows auto-upped to 4 */
+        /* 24*/ { BARCODE_MICROPDF417, -1, 5, -1, 0, { 0, 0, "" }, "12345", ZINT_WARN_INVALID_OPTION, 0, 11, 38, "Warning 468: Number of columns '5' out of range (1 to 4), ignoring", 64 << 8, 1, 0, -1 }, /* Invalid cols, auto-set to 1 */
+        /* 25*/ { BARCODE_MICROPDF417, -1, 5, -1, WARN_FAIL_ALL, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 471: Number of columns '5' out of range (1 to 4)", -1, 5, 0, -1 }, /* Invalid cols */
+        /* 26*/ { BARCODE_MICROPDF417, -1, 5, 3, 0, { 0, 0, "" }, "12345", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 476: Cannot specify rows for MicroPDF417", -1, 5, 3, -1 }, /* Rows option not available */
+        /* 27*/ { BARCODE_MICROPDF417, -1, 1, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLM", ZINT_WARN_INVALID_OPTION, 0, 17, 55, "Warning 470: Input too long for number of columns '1', ignoring", (29 << 8), 2, 0, -1 }, /* Cols 1 too small, auto-upped to 2 with warning */
+        /* 28*/ { BARCODE_MICROPDF417, -1, 1, -1, WARN_FAIL_ALL, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLM", ZINT_ERROR_INVALID_OPTION, ZINT_ERROR_INVALID_OPTION, 0, 0, "Error 469: Input too long for number of columns '1', requires 21 codewords (maximum 20)", -1, 1, 0, -1 }, /* Cols 1 too small */
+        /* 29*/ { BARCODE_MICROPDF417, -1, 2, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWX", ZINT_WARN_INVALID_OPTION, 0, 15, 99, "Warning 470: Input too long for number of columns '2', ignoring", (35 << 8), 4, 0, -1 }, /* Cols 2 too small, auto-upped to 4 with warning */
+        /* 30*/ { BARCODE_MICROPDF417, -1, 2, -1, WARN_FAIL_ALL, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWX", ZINT_ERROR_INVALID_OPTION, ZINT_ERROR_INVALID_OPTION, 0, 0, "Error 469: Input too long for number of columns '2', requires 38 codewords (maximum 37)", -1, 2, 0, -1 }, /* Cols 2 too small */
+        /* 31*/ { BARCODE_MICROPDF417, -1, 3, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKL", ZINT_WARN_INVALID_OPTION, 0, 32, 99, "Warning 470: Input too long for number of columns '3', ignoring", (30 << 8), 4, 0, -1 }, /* Cols 3 too small, auto-upped to 4 with warning */
+        /* 32*/ { BARCODE_MICROPDF417, -1, 3, -1, WARN_FAIL_ALL, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKL", ZINT_ERROR_INVALID_OPTION, ZINT_ERROR_INVALID_OPTION, 0, 0, "Error 469: Input too long for number of columns '3', requires 83 codewords (maximum 82)", -1, 3, 0, -1 }, /* Cols 3 too small */
+        /* 33*/ { BARCODE_PDF417, -1, 1, -1, 0, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Number of columns increased from 1 to 2", 3, 2, 89, -1 }, /* Cols 1 auto-upped to 2 just fits, now with warning */
+        /* 34*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH", ZINT_WARN_INVALID_OPTION, 0, 67, 120, "Warning 748: Number of columns increased from 1 to 3", 4, 3, 67, -1 }, /* Cols 1 too small with Structured Append, used to fail, now auto-upped to 3 with warning */
+        /* 35*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Number of columns increased from 1 to 2", 3, 2, 89, -1 }, /* Cols 1 with Structured Append auto-upped to 2 just fits, now with warning */
+        /* 36*/ { BARCODE_PDF417, -1, 1, -1, 0, { 2, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTU", ZINT_WARN_INVALID_OPTION, 0, 65, 120, "Warning 748: Number of columns increased from 1 to 3", 4, 3, 65, -1 }, /* Cols 1 too small with Structured Append as last symbol (uses extra terminating codeword), used to fail, now auto-upped to 3 with warning */
+        /* 37*/ { BARCODE_PDF417, -1, 1, -1, 0, { 2, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Number of columns increased from 1 to 2", 3, 2, 89, -1 }, /* Cols 1 with Structured Append as last symbol just fits with 1 less character pair when auto-upped to 2, now with warning */
+        /* 38*/ { BARCODE_PDF417, -1, 1, -1, 0, { 3, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 741: Structured Append index '3' out of range (1 to count 2)", -1, 1, 0, -1 },
+        /* 39*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 1, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 740: Structured Append count '1' out of range (2 to 99999)", -1, 1, 0, -1 },
+        /* 40*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 100000, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 740: Structured Append count '100000' out of range (2 to 99999)", -1, 1, 0, -1 },
+        /* 41*/ { BARCODE_PDF417, -1, 1, -1, 0, { 0, 2, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 741: Structured Append index '0' out of range (1 to count 2)", -1, 1, 0, -1 },
+        /* 42*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "1" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Number of columns increased from 1 to 2", 3, 2, 89, -1 }, /* Now with warning */
+        /* 43*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "123123" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Number of columns increased from 1 to 2", 3, 2, 89, -1 }, /* Now with warning */
+        /* 44*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "123123123123123123123123123123" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Number of columns increased from 1 to 2", 3, 2, 89, -1 }, /* Now with warning */
+        /* 45*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "1231231231231231231231231231231" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 742: Structured Append ID length 31 too long (30 digit maximum)", -1, 1, 0, -1 },
+        /* 46*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "23123123123123123123123123123" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", ZINT_WARN_INVALID_OPTION, 0, 89, 103, "Warning 748: Number of columns increased from 1 to 2", 3, 2, 89, -1 }, /* Now with warning */
+        /* 47*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "A" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 743: Invalid Structured Append ID (digits only)", -1, 1, 0, -1 },
+        /* 48*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "900" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 744: Structured Append ID triplet 1 value '900' out of range (000 to 899)", -1, 1, 0, -1 },
+        /* 49*/ { BARCODE_PDF417, -1, 1, -1, 0, { 1, 2, "123123123123123123123123901123" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 744: Structured Append ID triplet 9 value '901' out of range (000 to 899)", -1, 1, 0, -1 },
+        /* 50*/ { BARCODE_MICROPDF417, -1, -1, -1, 0, { 1, 2, "1231231231231231231231231231231" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH", ZINT_ERROR_INVALID_OPTION, -1, 0, 0, "Error 742: Structured Append ID length 31 too long (30 digit maximum)", -1, 0, 0, -1 }, /* Micro PDF417 same error checking code */
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
 
-    struct zint_symbol previous_symbol;
+    struct zint_symbol *previous_symbol = NULL;
 
-    testStartSymbol("test_options", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -199,7 +218,9 @@ static void test_options(const testCtx *const p_ctx) {
         symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
-        length = testUtilSetSymbol(symbol, data[i].symbology, -1 /*input_mode*/, -1, data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, -1 /*input_mode*/, -1 /*eci*/,
+                                    data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/,
+                                    data[i].data, -1, debug);
         if (data[i].warn_level) {
             symbol->warn_level = data[i].warn_level;
         }
@@ -207,32 +228,40 @@ static void test_options(const testCtx *const p_ctx) {
             symbol->structapp = data[i].structapp;
         }
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
-        assert_equal(ret, data[i].ret_encode, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret_encode, symbol->errtxt);
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
+        assert_equal(ret, data[i].ret_encode, "i:%d ZBarcode_Encode ret %d != %d (%s)\n",
+                    i, ret, data[i].ret_encode, symbol->errtxt);
 
-        if (data[i].option_3 != -1) {
-            assert_equal(symbol->option_3, data[i].option_3, "i:%d symbol->option_3 %d != %d\n", i, symbol->option_3, data[i].option_3); /* Unchanged */
-        } else {
-            assert_zero(symbol->option_3, "i:%d symbol->option_3 %d != 0\n", i, symbol->option_3);
-        }
-
-        assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, symbol->errtxt);
-        assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, symbol->errtxt);
-        assert_zero(strcmp(symbol->errtxt, data[i].expected_errtxt), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected_errtxt);
+        assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n",
+                    i, symbol->rows, data[i].expected_rows, symbol->errtxt);
+        assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n",
+                    i, symbol->width, data[i].expected_width, symbol->errtxt);
+        assert_zero(strcmp(symbol->errtxt, data[i].expected_errtxt), "i:%d strcmp(%s, %s) != 0\n",
+                    i, symbol->errtxt, data[i].expected_errtxt);
+        assert_equal(symbol->option_1, data[i].expected_option_1,
+                    "i:%d symbol->option_1 %d (top %d) != %d (option_2 %d)\n",
+                    i, symbol->option_1, symbol->option_1 >> 8, data[i].expected_option_1, symbol->option_2);
+        assert_equal(symbol->option_2, data[i].expected_option_2, "i:%d symbol->option_2 %d != %d\n",
+                    i, symbol->option_2, data[i].expected_option_2);
+        assert_equal(symbol->option_3, data[i].expected_option_3, "i:%d symbol->option_3 %d != %d\n",
+                    i, symbol->option_3, data[i].expected_option_3);
 
         if (p_ctx->index == -1 && data[i].compare_previous != -1) {
-            ret = testUtilSymbolCmp(symbol, &previous_symbol);
-            assert_equal(!ret, !data[i].compare_previous, "i:%d testUtilSymbolCmp !ret %d != %d\n", i, ret, data[i].compare_previous);
+            ret = testUtilSymbolCmp(symbol, previous_symbol);
+            assert_equal(!ret, !data[i].compare_previous, "i:%d testUtilSymbolCmp !ret %d != %d\n",
+                        i, ret, data[i].compare_previous);
         }
-        memcpy(&previous_symbol, symbol, sizeof(previous_symbol));
 
         if (data[i].ret_vector != -1) {
             ret = ZBarcode_Buffer_Vector(symbol, 0);
-            assert_equal(ret, data[i].ret_vector, "i:%d ZBarcode_Buffer_Vector ret %d != %d\n", i, ret, data[i].ret_vector);
+            assert_equal(ret, data[i].ret_vector, "i:%d ZBarcode_Buffer_Vector ret %d != %d\n",
+                        i, ret, data[i].ret_vector);
         }
 
-        ZBarcode_Delete(symbol);
+        ZBarcode_Delete(previous_symbol);
+        previous_symbol = symbol;
     }
+    ZBarcode_Delete(previous_symbol);
 
     testFinish();
 }
@@ -244,18 +273,18 @@ static void test_reader_init(const testCtx *const p_ctx) {
         int symbology;
         int input_mode;
         int output_options;
-        char *data;
+        const char *data;
         int ret;
         int expected_rows;
         int expected_width;
-        char *expected;
-        char *comment;
+        const char *expected;
+        const char *comment;
     };
-    struct item data[] = {
+    static const struct item data[] = {
         /*  0*/ { BARCODE_PDF417, UNICODE_MODE, READER_INIT, "A", 0, 6, 103, "(12) 4 921 29 900 209 917 46 891 522 472 822 385", "Outputs Test Alpha flag 900" },
         /*  1*/ { BARCODE_MICROPDF417, UNICODE_MODE, READER_INIT, "A", 0, 11, 38, "(11) 921 900 29 900 179 499 922 262 777 478 300", "Outputs Test Alpha flag 900" },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
 
@@ -263,9 +292,10 @@ static void test_reader_init(const testCtx *const p_ctx) {
     char cmp_buf[32768];
     char cmp_msg[1024];
 
-    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder(); /* Only do ZXing-C++ test if asked, too slow otherwise */
+    /* Only do ZXing-C++ test if asked, too slow otherwise */
+    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder();
 
-    testStartSymbol("test_reader_init", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -276,10 +306,13 @@ static void test_reader_init(const testCtx *const p_ctx) {
 
         symbol->debug = ZINT_DEBUG_TEST; /* Needed to get codeword dump in errtxt */
 
-        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/, -1 /*option_1*/, -1 /*option_2*/, -1, data[i].output_options, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/,
+                                    -1 /*option_1*/, -1 /*option_2*/, -1, data[i].output_options,
+                                    data[i].data, -1, debug);
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
-        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
 
         if (p_ctx->generate) {
             printf("        /*%3d*/ { %s, %s, %s, \"%s\", %s, %d, %d, \"%s\", \"%s\" },\n",
@@ -288,22 +321,30 @@ static void test_reader_init(const testCtx *const p_ctx) {
                     testUtilErrorName(data[i].ret), symbol->rows, symbol->width, symbol->errtxt, data[i].comment);
         } else {
             if (ret < ZINT_ERROR) {
-                assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, data[i].data);
-                assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, data[i].data);
+                assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n",
+                            i, symbol->rows, data[i].expected_rows, data[i].data);
+                assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n",
+                            i, symbol->width, data[i].expected_width, data[i].data);
             }
-            assert_zero(strcmp(symbol->errtxt, data[i].expected), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected);
+            assert_zero(strcmp(symbol->errtxt, data[i].expected), "i:%d strcmp(%s, %s) != 0\n",
+                        i, symbol->errtxt, data[i].expected);
 
             if (ret < ZINT_ERROR) {
                 if (do_zxingcpp && testUtilCanZXingCPP(i, symbol, data[i].data, length, debug)) {
                     int cmp_len, ret_len;
                     char modules_dump[32768];
-                    assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1, "i:%d testUtilModulesDump == -1\n", i);
-                    ret = testUtilZXingCPP(i, symbol, data[i].data, length, modules_dump, cmp_buf, sizeof(cmp_buf), &cmp_len);
-                    assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                    assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1,
+                                "i:%d testUtilModulesDump == -1\n", i);
+                    ret = testUtilZXingCPP(i, symbol, data[i].data, length, modules_dump, 1 /*zxingcpp_cmp*/, cmp_buf,
+                                sizeof(cmp_buf), &cmp_len);
+                    assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n",
+                                i, testUtilBarcodeName(symbol->symbology), ret);
 
-                    ret = testUtilZXingCPPCmp(symbol, cmp_msg, cmp_buf, cmp_len, data[i].data, length, NULL /*primary*/, escaped, &ret_len);
+                    ret = testUtilZXingCPPCmp(symbol, cmp_msg, cmp_buf, cmp_len, data[i].data, length,
+                                NULL /*primary*/, escaped, &ret_len);
                     assert_zero(ret, "i:%d %s testUtilZXingCPPCmp %d != 0 %s\n  actual: %.*s\nexpected: %.*s\n",
-                                   i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len, escaped);
+                                i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len,
+                                escaped);
                 }
             }
         }
@@ -324,18 +365,18 @@ static void test_input(const testCtx *const p_ctx) {
         int option_1;
         int option_2;
         struct zint_structapp structapp;
-        char *data;
+        const char *data;
         int ret;
         int expected_eci;
         int expected_rows;
         int expected_width;
-        char *expected;
+        const char *expected;
         int bwipp_cmp;
-        char *comment;
+        const char *comment;
     };
     /* é U+00E9 (\351, 233), UTF-8 C3A9 */
     /* β U+03B2 in ISO 8859-7 Greek (but not other ISO 8859 or Win page) (\342, 226), UTF-8 CEB2 */
-    struct item data[] = {
+    static const struct item data[] = {
         /*  0*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, "é", 0, 0, 6, 103, "(12) 4 913 233 900 398 878 279 350 217 295 231 77", 1, "" },
         /*  1*/ { BARCODE_PDF417, UNICODE_MODE, -1, -1, -1, { 0, 0, "" }, "é", 0, 0, 6, 103, "(12) 4 913 233 900 398 878 279 350 217 295 231 77", 1, "" },
         /*  2*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, 3, -1, -1, { 0, 0, "" }, "é", 0, 3, 7, 103, "(14) 6 927 3 913 233 900 162 81 551 529 607 384 164 108", 1, "" },
@@ -346,7 +387,7 @@ static void test_input(const testCtx *const p_ctx) {
         /*  7*/ { BARCODE_PDF417, UNICODE_MODE, 9, -1, -1, { 0, 0, "" }, "β", 0, 9, 7, 103, "(14) 6 927 9 913 226 900 487 92 418 278 838 500 576 84", 1, "" },
         /*  8*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, "β", ZINT_WARN_USES_ECI, 9, 7, 103, "Warning (14) 6 927 9 913 226 900 487 92 418 278 838 500 576 84", 1, "" },
         /*  9*/ { BARCODE_PDF417, UNICODE_MODE, -1, -1, -1, { 0, 0, "" }, "β", ZINT_WARN_USES_ECI, 9, 7, 103, "Warning (14) 6 927 9 913 226 900 487 92 418 278 838 500 576 84", 1, "" },
-        /* 10*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, 3, -1, -1, { 0, 0, "" }, "β", ZINT_ERROR_INVALID_DATA, 3, 0, 0, "Error 244: Invalid character in input data for ECI 3", 1, "" },
+        /* 10*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, 3, -1, -1, { 0, 0, "" }, "β", ZINT_ERROR_INVALID_DATA, 3, 0, 0, "Error 244: Invalid character in input for ECI '3'", 1, "" },
         /* 11*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, 899, -1, -1, { 0, 0, "" }, "A", 0, 899, 6, 103, "(12) 4 927 899 29 567 272 3 384 796 210 839 746", 0, "BWIPP BYTE1" },
         /* 12*/ { BARCODE_PDF417, UNICODE_MODE, 899, -1, -1, { 0, 0, "" }, "A", 0, 899, 6, 103, "(12) 4 927 899 29 567 272 3 384 796 210 839 746", 0, "BWIPP BYTE1" },
         /* 13*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, 900, -1, -1, { 0, 0, "" }, "A", 0, 900, 7, 103, "(14) 6 926 0 0 29 900 205 526 248 527 915 616 104 416", 0, "BWIPP BYTE1" },
@@ -357,7 +398,7 @@ static void test_input(const testCtx *const p_ctx) {
         /* 18*/ { BARCODE_PDF417, UNICODE_MODE, 810900, -1, -1, { 0, 0, "" }, "A", 0, 810900, 6, 103, "(12) 4 925 0 29 682 61 599 519 256 742 797 153", 0, "BWIPP BYTE1" },
         /* 19*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, 811799, -1, -1, { 0, 0, "" }, "A", 0, 811799, 6, 103, "(12) 4 925 899 29 447 238 770 706 58 39 749 743", 0, "BWIPP BYTE1" },
         /* 20*/ { BARCODE_PDF417, UNICODE_MODE, 811799, -1, -1, { 0, 0, "" }, "A", 0, 811799, 6, 103, "(12) 4 925 899 29 447 238 770 706 58 39 749 743", 0, "BWIPP BYTE1" },
-        /* 21*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, 811800, -1, -1, { 0, 0, "" }, "A", ZINT_ERROR_INVALID_OPTION, 811800, 0, 0, "Error 472: Invalid ECI", 1, "" },
+        /* 21*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, 811800, -1, -1, { 0, 0, "" }, "A", ZINT_ERROR_INVALID_OPTION, 811800, 0, 0, "Error 472: ECI code '811800' out of range (0 to 811799)", 1, "" },
         /* 22*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, "é", 0, 0, 11, 38, "(11) 901 233 900 900 310 142 569 141 677 300 494", 1, "" },
         /* 23*/ { BARCODE_MICROPDF417, UNICODE_MODE, -1, -1, -1, { 0, 0, "" }, "é", 0, 0, 11, 38, "(11) 901 233 900 900 310 142 569 141 677 300 494", 1, "" },
         /* 24*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, 3, -1, -1, { 0, 0, "" }, "é", 0, 3, 11, 38, "(11) 927 3 901 233 657 863 824 246 172 292 833", 1, "" },
@@ -370,7 +411,7 @@ static void test_input(const testCtx *const p_ctx) {
         /* 31*/ { BARCODE_MICROPDF417, UNICODE_MODE, -1, -1, -1, { 0, 0, "" }, "β", ZINT_WARN_USES_ECI, 9, 11, 38, "Warning (11) 927 9 901 226 806 489 813 191 671 146 327", 1, "" },
         /* 32*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, "β", ZINT_WARN_USES_ECI, 9, 11, 38, "Warning (11) 927 9 901 226 806 489 813 191 671 146 327", 1, "" },
         /* 33*/ { BARCODE_MICROPDF417, UNICODE_MODE, -1, -1, -1, { 0, 0, "" }, "β", ZINT_WARN_USES_ECI, 9, 11, 38, "Warning (11) 927 9 901 226 806 489 813 191 671 146 327", 1, "" },
-        /* 34*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, 3, -1, -1, { 0, 0, "" }, "β", ZINT_ERROR_INVALID_DATA, 3, 0, 0, "Error 244: Invalid character in input data for ECI 3", 1, "" },
+        /* 34*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, 3, -1, -1, { 0, 0, "" }, "β", ZINT_ERROR_INVALID_DATA, 3, 0, 0, "Error 244: Invalid character in input for ECI '3'", 1, "" },
         /* 35*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, 899, -1, -1, { 0, 0, "" }, "A", 0, 899, 11, 38, "(11) 927 899 900 29 533 437 884 3 617 241 747", 0, "BWIPP BYTE" },
         /* 36*/ { BARCODE_MICROPDF417, UNICODE_MODE, 899, -1, -1, { 0, 0, "" }, "A", 0, 899, 11, 38, "(11) 927 899 900 29 533 437 884 3 617 241 747", 0, "BWIPP BYTE" },
         /* 37*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, 900, -1, 3, { 0, 0, "" }, "A", 0, 900, 6, 82, "(18) 926 0 0 900 29 900 913 543 414 141 214 886 461 1 419 422 54 495", 0, "BWIPP BYTE" },
@@ -379,9 +420,9 @@ static void test_input(const testCtx *const p_ctx) {
         /* 40*/ { BARCODE_MICROPDF417, UNICODE_MODE, 810899, -1, 3, { 0, 0, "" }, "A", 0, 810899, 6, 82, "(18) 926 899 899 900 29 900 351 555 241 509 787 583 3 326 41 628 534 151", 0, "BWIPP BYTE" },
         /* 41*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, 810900, -1, 1, { 0, 0, "" }, "A", 0, 810900, 11, 38, "(11) 925 0 900 29 233 533 43 483 708 659 704", 0, "BWIPP BYTE" },
         /* 42*/ { BARCODE_MICROPDF417, UNICODE_MODE, 810900, -1, 1, { 0, 0, "" }, "A", 0, 810900, 11, 38, "(11) 925 0 900 29 233 533 43 483 708 659 704", 0, "BWIPP BYTE" },
-        /* 43*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, 811800, -1, -1, { 0, 0, "" }, "A", ZINT_ERROR_INVALID_OPTION, 811800, 0, 0, "Error 472: Invalid ECI", 0, "BWIPP BYTE" },
-        /* 44*/ { BARCODE_HIBC_PDF, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, ",", ZINT_ERROR_INVALID_DATA, 0, 0, 0, "Error 203: Invalid character in data (alphanumerics, space and \"-.$/+%\" only)", 1, "" },
-        /* 45*/ { BARCODE_HIBC_MICPDF, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, ",", ZINT_ERROR_INVALID_DATA, 0, 0, 0, "Error 203: Invalid character in data (alphanumerics, space and \"-.$/+%\" only)", 1, "" },
+        /* 43*/ { BARCODE_MICROPDF417, UNICODE_MODE | FAST_MODE, 811800, -1, -1, { 0, 0, "" }, "A", ZINT_ERROR_INVALID_OPTION, 811800, 0, 0, "Error 472: ECI code '811800' out of range (0 to 811799)", 0, "BWIPP BYTE" },
+        /* 44*/ { BARCODE_HIBC_PDF, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, ",", ZINT_ERROR_INVALID_DATA, 0, 0, 0, "Error 203: Invalid character at position 1 in input (alphanumerics, space and \"-.$/+%\" only)", 1, "" },
+        /* 45*/ { BARCODE_HIBC_MICPDF, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, ",", ZINT_ERROR_INVALID_DATA, 0, 0, 0, "Error 203: Invalid character at position 1 in input (alphanumerics, space and \"-.$/+%\" only)", 1, "" },
         /* 46*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, "AB{}  C#+  de{}  {}F  12{}  G{}  H", 0, 0, 12, 120, "(36) 28 1 865 807 896 782 855 626 807 94 865 807 896 808 776 839 176 808 32 776 839 806 208", 0, "BWIPP different encodation (3 codewords shorter)" },
         /* 47*/ { BARCODE_PDF417, UNICODE_MODE, -1, -1, -1, { 0, 0, "" }, "AB{}  C#+  de{}  {}F  12{}  G{}  H", 0, 0, 11, 120, "(33) 25 1 896 897 806 88 470 806 813 149 809 836 809 809 837 178 806 32 776 839 806 209 809", 0, "BWIPP different encodation, same codeword count" },
         /* 48*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, "{}  #+ de{}  12{}  {}  H", 0, 0, 10, 120, "(30) 22 865 807 896 808 470 807 94 865 807 896 808 32 776 839 806 865 807 896 787 900 900", 0, "BWIPP different encodation" },
@@ -421,7 +462,7 @@ static void test_input(const testCtx *const p_ctx) {
         /* 82*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", 0, 0, 12, 137, "(48) 40 902 491 81 137 450 302 67 15 174 492 862 667 475 869 12 434 685 326 422 57 117 339", 1, "" },
         /* 83*/ { BARCODE_PDF417, DATA_MODE, -1, -1, -1, { 0, 0, "" }, "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", 0, 0, 12, 137, "(48) 40 902 491 81 137 450 302 67 15 174 492 862 667 475 869 12 434 685 326 422 57 117 339", 1, "" },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
     int last_fast_num_cwds = 0; /* Keep clang-tidy happy */
@@ -430,10 +471,11 @@ static void test_input(const testCtx *const p_ctx) {
     char cmp_buf[32768];
     char cmp_msg[1024];
 
-    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript(); /* Only do BWIPP test if asked, too slow otherwise */
-    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder(); /* Only do ZXing-C++ test if asked, too slow otherwise */
+    /* Only do BWIPP/ZXing-C++ tests if asked, too slow otherwise */
+    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript();
+    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder();
 
-    testStartSymbol("test_input", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -444,67 +486,92 @@ static void test_input(const testCtx *const p_ctx) {
 
         symbol->debug = ZINT_DEBUG_TEST; /* Needed to get codeword dump in errtxt */
 
-        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, data[i].eci, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, data[i].eci,
+                                    data[i].option_1, data[i].option_2, -1 /*option_3*/, -1 /*output_options*/,
+                                    data[i].data, -1, debug);
         if (data[i].structapp.count) {
             symbol->structapp = data[i].structapp;
         }
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
-        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
 
         if (p_ctx->generate) {
             printf("        /*%3d*/ { %s, %s, %d, %d, %d, { %d, %d, \"%s\" }, \"%s\", %s, %d, %d, %d, \"%s\", %d, \"%s\" },\n",
-                    i, testUtilBarcodeName(data[i].symbology), testUtilInputModeName(data[i].input_mode), data[i].eci, data[i].option_1, data[i].option_2,
+                    i, testUtilBarcodeName(data[i].symbology), testUtilInputModeName(data[i].input_mode), data[i].eci,
+                    data[i].option_1, data[i].option_2,
                     data[i].structapp.index, data[i].structapp.count, data[i].structapp.id,
                     testUtilEscape(data[i].data, length, escaped, sizeof(escaped)), testUtilErrorName(data[i].ret),
                     symbol->eci, symbol->rows, symbol->width, symbol->errtxt, data[i].bwipp_cmp, data[i].comment);
         } else {
             if (ret < ZINT_ERROR) {
-                assert_equal(symbol->eci, data[i].expected_eci, "i:%d symbol->eci %d != %d (%s)\n", i, symbol->eci, data[i].expected_eci, data[i].data);
-                assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, data[i].data);
-                assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, data[i].data);
+                assert_equal(symbol->eci, data[i].expected_eci, "i:%d symbol->eci %d != %d (%s)\n",
+                            i, symbol->eci, data[i].expected_eci, data[i].data);
+                assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n",
+                            i, symbol->rows, data[i].expected_rows, data[i].data);
+                assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n",
+                            i, symbol->width, data[i].expected_width, data[i].data);
             }
-            assert_zero(strcmp(symbol->errtxt, data[i].expected), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected);
+            assert_zero(strcmp(symbol->errtxt, data[i].expected), "i:%d strcmp(%s, %s) != 0\n",
+                        i, symbol->errtxt, data[i].expected);
 
             if (ret < ZINT_ERROR) {
                 if (ret == 0 && p_ctx->index == -1) {
                     if (i && (data[i - 1].input_mode & FAST_MODE) && !(data[i].input_mode & FAST_MODE)
                             && strcmp(data[i - 1].data, data[i].data) == 0) {
                         int num_cwds;
-                        assert_equal(sscanf(symbol->errtxt, "(%d)", &num_cwds), 1, "i:%d num_cwds sscanf != 1 (%s)\n", i, symbol->errtxt);
-                        assert_nonzero(last_fast_num_cwds >= num_cwds, "i:%d last_fast_num_cwds %d < num_cwds %d\n", i, last_fast_num_cwds, num_cwds);
-                        if (num_cwds < last_fast_num_cwds && (debug & ZINT_DEBUG_TEST_PRINT) && !(debug & ZINT_DEBUG_TEST_LESS_NOISY)) {
+                        assert_equal(sscanf(symbol->errtxt, "(%d)", &num_cwds), 1, "i:%d num_cwds sscanf != 1 (%s)\n",
+                                    i, symbol->errtxt);
+                        assert_nonzero(last_fast_num_cwds >= num_cwds, "i:%d last_fast_num_cwds %d < num_cwds %d\n",
+                                    i, last_fast_num_cwds, num_cwds);
+                        if (num_cwds < last_fast_num_cwds && (debug & ZINT_DEBUG_TEST_PRINT)
+                                && !(debug & ZINT_DEBUG_TEST_LESS_NOISY)) {
                             printf("i:%d diff %d\n", i, num_cwds - last_fast_num_cwds);
                         }
                     }
                     if (data[i].input_mode & FAST_MODE) {
-                        assert_equal(sscanf(symbol->errtxt, "(%d)", &last_fast_num_cwds), 1, "i:%d last_fast sscanf != 1 (%s)\n", i, symbol->errtxt);
+                        assert_equal(sscanf(symbol->errtxt, "(%d)", &last_fast_num_cwds), 1,
+                                    "i:%d last_fast sscanf != 1 (%s)\n", i, symbol->errtxt);
                     }
                 }
                 if (do_bwipp && testUtilCanBwipp(i, symbol, data[i].option_1, data[i].option_2, -1, debug)) {
                     if (!data[i].bwipp_cmp) {
-                        if (debug & ZINT_DEBUG_TEST_PRINT) printf("i:%d %s not BWIPP compatible (%s)\n", i, testUtilBarcodeName(symbol->symbology), data[i].comment);
+                        if (debug & ZINT_DEBUG_TEST_PRINT) {
+                            printf("i:%d %s not BWIPP compatible (%s)\n",
+                                    i, testUtilBarcodeName(symbol->symbology), data[i].comment);
+
+                        }
                     } else {
                         char modules_dump[32768];
-                        assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1, "i:%d testUtilModulesDump == -1\n", i);
-                        ret = testUtilBwipp(i, symbol, data[i].option_1, data[i].option_2, -1, data[i].data, length, NULL, cmp_buf, sizeof(cmp_buf), NULL);
-                        assert_zero(ret, "i:%d %s testUtilBwipp ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                        assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1,
+                                    "i:%d testUtilModulesDump == -1\n", i);
+                        ret = testUtilBwipp(i, symbol, data[i].option_1, data[i].option_2, -1, data[i].data, length,
+                                    NULL, cmp_buf, sizeof(cmp_buf), NULL);
+                        assert_zero(ret, "i:%d %s testUtilBwipp ret %d != 0\n",
+                                    i, testUtilBarcodeName(symbol->symbology), ret);
 
                         ret = testUtilBwippCmp(symbol, cmp_msg, cmp_buf, modules_dump);
                         assert_zero(ret, "i:%d %s testUtilBwippCmp %d != 0 %s\n  actual: %s\nexpected: %s\n",
-                                       i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_buf, modules_dump);
+                                       i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_buf,
+                                       modules_dump);
                     }
                 }
                 if (do_zxingcpp && testUtilCanZXingCPP(i, symbol, data[i].data, length, debug)) {
                     int cmp_len, ret_len;
                     char modules_dump[32768];
-                    assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1, "i:%d testUtilModulesDump == -1\n", i);
-                    ret = testUtilZXingCPP(i, symbol, data[i].data, length, modules_dump, cmp_buf, sizeof(cmp_buf), &cmp_len);
-                    assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                    assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1,
+                                "i:%d testUtilModulesDump == -1\n", i);
+                    ret = testUtilZXingCPP(i, symbol, data[i].data, length, modules_dump, 1 /*zxingcpp_cmp*/, cmp_buf,
+                                sizeof(cmp_buf), &cmp_len);
+                    assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n",
+                                i, testUtilBarcodeName(symbol->symbology), ret);
 
-                    ret = testUtilZXingCPPCmp(symbol, cmp_msg, cmp_buf, cmp_len, data[i].data, length, NULL /*primary*/, escaped, &ret_len);
+                    ret = testUtilZXingCPPCmp(symbol, cmp_msg, cmp_buf, cmp_len, data[i].data, length,
+                                NULL /*primary*/, escaped, &ret_len);
                     assert_zero(ret, "i:%d %s testUtilZXingCPPCmp %d != 0 %s\n  actual: %.*s\nexpected: %.*s\n",
-                                   i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len, escaped);
+                                i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len,
+                                escaped);
                 }
             }
         }
@@ -525,17 +592,18 @@ static void test_encode(const testCtx *const p_ctx) {
         int option_1;
         int option_2;
         int option_3;
-        char *data;
+        const char *data;
         int ret;
 
         int expected_rows;
         int expected_width;
         int bwipp_cmp;
-        char *comment;
-        char *expected;
+        int zxingcpp_cmp;
+        const char *comment;
+        const char *expected;
     };
-    struct item data[] = {
-        /*  0*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 2, -1, "PDF417 Symbology Standard", 0, 10, 103, 0, "ISO 15438:2015 Figure 1, same, BWIPP uses different encodation, same codeword count",
+    static const struct item data[] = {
+        /*  0*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 2, -1, "PDF417 Symbology Standard", 0, 10, 103, 0, 1, "ISO 15438:2015 Figure 1, same, BWIPP uses different encodation, same codeword count",
                     "1111111101010100011101010011100000111010110011110001110111011001100011110101011110000111111101000101001"
                     "1111111101010100011111010100110000110100001110001001111010001010000011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101100110111100001110111111000101011010100111110000111111101000101001"
@@ -547,7 +615,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100110000101001111101101111100010001010100110011111000111111101000101001"
                     "1111111101010100010100011000001100100010111101111001100011100011001011010001100011100111111101000101001"
                 },
-        /*  1*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 2, -1, "PDF417 Symbology Standard", 0, 10, 103, 0, "ISO 15438:2015 Figure 1, same, BWIPP uses different encodation, same codeword count",
+        /*  1*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 2, -1, "PDF417 Symbology Standard", 0, 10, 103, 0, 1, "ISO 15438:2015 Figure 1, same, BWIPP uses different encodation, same codeword count",
                     "1111111101010100011101010011100000111010110011110001110111011001100011110101011110000111111101000101001"
                     "1111111101010100011111010100110000110100001110001001111010001010000011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101100110111100001110111111000101011010100111110000111111101000101001"
@@ -559,21 +627,21 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100110000101001111101101111100010001010100110011111000111111101000101001"
                     "1111111101010100010100011000001100100010111101111001100011100011001011010001100011100111111101000101001"
                 },
-        /*  2*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 2, -1, "PDF417", 0, 5, 103, 1, "ISO 15438:2015 Annex Q example for generating ECC",
+        /*  2*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 2, -1, "PDF417", 0, 5, 103, 1, 1, "ISO 15438:2015 Annex Q example for generating ECC",
                     "1111111101010100011110101011110000110101000110000001110111011001100011110101011110000111111101000101001"
                     "1111111101010100011111101010011100110100001110001001111010001010000011111101010111000111111101000101001"
                     "1111111101010100011101010111111000101100110011110001100011111001001011101010011111100111111101000101001"
                     "1111111101010100010101111001111000101011101110000001100001101000100010101111001111000111111101000101001"
                     "1111111101010100011101011100011000100001101011111101111110110001011011101011100110000111111101000101001"
                 },
-        /*  3*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 2, -1, "PDF417", 0, 5, 103, 1, "ISO 15438:2015 Annex Q example for generating ECC",
+        /*  3*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 2, -1, "PDF417", 0, 5, 103, 1, 1, "ISO 15438:2015 Annex Q example for generating ECC",
                     "1111111101010100011110101011110000110101000110000001110111011001100011110101011110000111111101000101001"
                     "1111111101010100011111101010011100110100001110001001111010001010000011111101010111000111111101000101001"
                     "1111111101010100011101010111111000101100110011110001100011111001001011101010011111100111111101000101001"
                     "1111111101010100010101111001111000101011101110000001100001101000100010101111001111000111111101000101001"
                     "1111111101010100011101011100011000100001101011111101111110110001011011101011100110000111111101000101001"
                 },
-        /*  4*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 0, 1, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZ ", 0, 17, 86, 1, "Text Compaction Alpha",
+        /*  4*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 0, 1, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZ ", 0, 17, 86, 1, 1, "Text Compaction Alpha",
                     "11111111010101000111110101001111101101011001110000011101010111000000111111101000101001"
                     "11111111010101000111111010101110001111110101011100011110101000100000111111101000101001"
                     "11111111010101000110101011111000001010011001111100011101010111111000111111101000101001"
@@ -592,7 +660,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11111111010101000110010110111000001100011000100001011100101000111000111111101000101001"
                     "11111111010101000101000111100100001110000101100010010100011110000100111111101000101001"
                 },
-        /*  5*/ { BARCODE_PDF417, -1, UNICODE_MODE, 0, 1, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZ ", 0, 17, 86, 1, "Text Compaction Alpha",
+        /*  5*/ { BARCODE_PDF417, -1, UNICODE_MODE, 0, 1, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZ ", 0, 17, 86, 1, 1, "Text Compaction Alpha",
                     "11111111010101000111110101001111101101011001110000011101010111000000111111101000101001"
                     "11111111010101000111111010101110001111110101011100011110101000100000111111101000101001"
                     "11111111010101000110101011111000001010011001111100011101010111111000111111101000101001"
@@ -611,7 +679,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11111111010101000110010110111000001100011000100001011100101000111000111111101000101001"
                     "11111111010101000101000111100100001110000101100010010100011110000100111111101000101001"
                 },
-        /*  6*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 1, -1, "abcdefghijklmnopqrstuvwxyz ", 0, 19, 86, 1, "Text Compaction Lower",
+        /*  6*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 1, -1, "abcdefghijklmnopqrstuvwxyz ", 0, 19, 86, 1, 1, "Text Compaction Lower",
                     "11111111010101000110101000110000001101011001110000011101010111000000111111101000101001"
                     "11111111010101000111110101001100001100000101110010011111010100011000111111101000101001"
                     "11111111010101000110101011111000001111101011110110011010100111110000111111101000101001"
@@ -632,7 +700,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11111111010101000111111001011101101010000001001111010010111001111110111111101000101001"
                     "11111111010101000111011010000110001000100111001110011110110100111000111111101000101001"
                 },
-        /*  7*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 1, -1, "abcdefghijklmnopqrstuvwxyz ", 0, 19, 86, 1, "Text Compaction Lower",
+        /*  7*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 1, -1, "abcdefghijklmnopqrstuvwxyz ", 0, 19, 86, 1, 1, "Text Compaction Lower",
                     "11111111010101000110101000110000001101011001110000011101010111000000111111101000101001"
                     "11111111010101000111110101001100001100000101110010011111010100011000111111101000101001"
                     "11111111010101000110101011111000001111101011110110011010100111110000111111101000101001"
@@ -653,7 +721,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11111111010101000111111001011101101010000001001111010010111001111110111111101000101001"
                     "11111111010101000111011010000110001000100111001110011110110100111000111111101000101001"
                 },
-        /*  8*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 2, -1, "abcdefgABCDEFG", 0, 9, 103, 1, "Text Compaction Lower Alpha",
+        /*  8*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 2, -1, "abcdefgABCDEFG", 0, 9, 103, 1, 1, "Text Compaction Lower Alpha",
                     "1111111101010100011111010101111100110101000001100001000001010000010011110101011110000111111101000101001"
                     "1111111101010100011110101000010000111101011100111001110100111001100011110101001000000111111101000101001"
                     "1111111101010100011101010111111000111110010111101101000001110100110010101000011110000111111101000101001"
@@ -664,7 +732,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100111111011010110001011100111111010010101111110111000111111101000101001"
                     "1111111101010100011010011011111100100011101100011101010111011111100011111010011101000111111101000101001"
                 },
-        /*  9*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 2, -1, "abcdefgABCDEFG", 0, 9, 103, 1, "Text Compaction Lower Alpha",
+        /*  9*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 2, -1, "abcdefgABCDEFG", 0, 9, 103, 1, 1, "Text Compaction Lower Alpha",
                     "1111111101010100011111010101111100110101000001100001000001010000010011110101011110000111111101000101001"
                     "1111111101010100011110101000010000111101011100111001110100111001100011110101001000000111111101000101001"
                     "1111111101010100011101010111111000111110010111101101000001110100110010101000011110000111111101000101001"
@@ -675,21 +743,21 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100111111011010110001011100111111010010101111110111000111111101000101001"
                     "1111111101010100011010011011111100100011101100011101010111011111100011111010011101000111111101000101001"
                 },
-        /* 10*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "0123456&\015\011,:#-.$/+%*=^ 789", 0, 5, 137, 1, "Text Compaction Mixed",
+        /* 10*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "0123456&\015\011,:#-.$/+%*=^ 789", 0, 5, 137, 1, 1, "Text Compaction Mixed",
                     "11111111010101000111101010111100001110101100111100010000110111001100110101111001111101010001110111000011101010011100000111111101000101001"
                     "11111111010101000111111010100111001010001111000001011101101111001100110110011110010001110010000011010011111101010111000111111101000101001"
                     "11111111010101000110101001111100001100111010000111011011110010110000100000101011110001101111101010000011101010011111100111111101000101001"
                     "11111111010101000101011110011110001000010000100001010010011000011000110010000100110001000011000110010010101111101111100111111101000101001"
                     "11111111010101000111010111000110001001111001001111010000101111101100100011110010111101001111110110111011101011100110000111111101000101001"
                 },
-        /* 11*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "0123456&\015\011,:#-.$/+%*=^ 789", 0, 5, 137, 1, "Text Compaction Mixed",
+        /* 11*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "0123456&\015\011,:#-.$/+%*=^ 789", 0, 5, 137, 1, 1, "Text Compaction Mixed",
                     "11111111010101000111101010111100001110101100111100010000110111001100110101111001111101010001110111000011101010011100000111111101000101001"
                     "11111111010101000111111010100111001010001111000001011101101111001100110110011110010001110010000011010011111101010111000111111101000101001"
                     "11111111010101000110101001111100001100111010000111011011110010110000100000101011110001101111101010000011101010011111100111111101000101001"
                     "11111111010101000101011110011110001000010000100001010010011000011000110010000100110001000011000110010010101111101111100111111101000101001"
                     "11111111010101000111010111000110001001111001001111010000101111101100100011110010111101001111110110111011101011100110000111111101000101001"
                 },
-        /* 12*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 3, 2, -1, ";<>@[\\]_'~!\015\011,:\012-.$/\"|*()?{", 0, 16, 103, 1, "Text Compaction Punctuation",
+        /* 12*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 3, 2, -1, ";<>@[\\]_'~!\015\011,:\012-.$/\"|*()?{", 0, 16, 103, 1, 1, "Text Compaction Punctuation",
                     "1111111101010100011111010100111110111010110011110001000111011100100011110101011110000111111101000101001"
                     "1111111101010100011111010100001100111111010101110001101011111101111011110101000100000111111101000101001"
                     "1111111101010100011101010111111000101000001000111101011011001111000011010100001111100111111101000101001"
@@ -707,7 +775,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101000011111010111111010001101001011000010011100010010101111000000111111101000101001"
                     "1111111101010100011001011011100000110011001100001101100100101100000011110010100011110111111101000101001"
                 },
-        /* 13*/ { BARCODE_PDF417, -1, UNICODE_MODE, 3, 2, -1, ";<>@[\\]_'~!\015\011,:\012-.$/\"|*()?{", 0, 16, 103, 1, "Text Compaction Punctuation",
+        /* 13*/ { BARCODE_PDF417, -1, UNICODE_MODE, 3, 2, -1, ";<>@[\\]_'~!\015\011,:\012-.$/\"|*()?{", 0, 16, 103, 1, 1, "Text Compaction Punctuation",
                     "1111111101010100011111010100111110111010110011110001000111011100100011110101011110000111111101000101001"
                     "1111111101010100011111010100001100111111010101110001101011111101111011110101000100000111111101000101001"
                     "1111111101010100011101010111111000101000001000111101011011001111000011010100001111100111111101000101001"
@@ -725,7 +793,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101000011111010111111010001101001011000010011100010010101111000000111111101000101001"
                     "1111111101010100011001011011100000110011001100001101100100101100000011110010100011110111111101000101001"
                 },
-        /* 14*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 4, 2, -1, "\015\015\015\015\010\015", 0, 20, 103, 1, "Text Compaction Punctuation 1 Mixed -> Byte",
+        /* 14*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 4, 2, -1, "\015\015\015\015\010\015", 0, 20, 103, 1, 1, "Text Compaction Punctuation 1 Mixed -> Byte",
                     "1111111101010100011010100011000000110101000011000001100011100011010011110101011110000111111101000101001"
                     "1111111101010100011110101101100000111110101100011101110111101111101011111010100011000111111101000101001"
                     "1111111101010100011101010111111000110100111111001001001111000101000011010110111111000111111101000101001"
@@ -747,7 +815,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101101000011000111010111011111001011001111000111011111011010011110111111101000101001"
                     "1111111101010100011110100000110110100111111011011101101110001111101010100001111101100111111101000101001"
                 },
-        /* 15*/ { BARCODE_PDF417, -1, UNICODE_MODE, 4, 2, -1, "\015\015\015\015\010\015", 0, 20, 103, 0, "Text Compaction Punctuation 1 Mixed; BWIPP same as FAST_MODE",
+        /* 15*/ { BARCODE_PDF417, -1, UNICODE_MODE, 4, 2, -1, "\015\015\015\015\010\015", 0, 20, 103, 0, 1, "Text Compaction Punctuation 1 Mixed; BWIPP same as FAST_MODE",
                     "1111111101010100011010100011000000110101000011000001110001110110110011110101011110000111111101000101001"
                     "1111111101010100011110101101100000101100101111110001111001000110110011111010100011000111111101000101001"
                     "1111111101010100011101010111111000100111111001110101010100001111000011010110111111000111111101000101001"
@@ -769,7 +837,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101101000011000110100000100001101001110000111010011111011010011110111111101000101001"
                     "1111111101010100011110100000110110111000000100110101111100100001011010100001111101100111111101000101001"
                 },
-        /* 16*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 4, 3, -1, "??????ABCDEFG??????abcdef??????%%%%%%", 0, 19, 120, 1, "Text Compaction Punctuation Alpha Punctuation Lower Punctuation Mixed",
+        /* 16*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 4, 3, -1, "??????ABCDEFG??????abcdef??????%%%%%%", 0, 19, 120, 1, 1, "Text Compaction Punctuation Alpha Punctuation Lower Punctuation Mixed",
                     "111111110101010001101010001100000011010111001111000100011101110010001100111000110010011111010101111100111111101000101001"
                     "111111110101010001111010100000010011111001110011010111110011100110101101111100101111011111010100011000111111101000101001"
                     "111111110101010001010100111100000011111010111101100101000100000111101111100101111011010101101111100000111111101000101001"
@@ -790,7 +858,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111100101110010010011100000100110100111010000110001100110100001111011100101111100010111111101000101001"
                     "111111110101010001110110100001100010011001111001110101111011110001001011011100011000011011010001000000111111101000101001"
                 },
-        /* 17*/ { BARCODE_PDF417, -1, UNICODE_MODE, 4, 3, -1, "??????ABCDEFG??????abcdef??????%%%%%%", 0, 19, 120, 1, "Text Compaction Punctuation Alpha Punctuation Lower Punctuation Mixed",
+        /* 17*/ { BARCODE_PDF417, -1, UNICODE_MODE, 4, 3, -1, "??????ABCDEFG??????abcdef??????%%%%%%", 0, 19, 120, 1, 1, "Text Compaction Punctuation Alpha Punctuation Lower Punctuation Mixed",
                     "111111110101010001101010001100000011010111001111000100011101110010001100111000110010011111010101111100111111101000101001"
                     "111111110101010001111010100000010011111001110011010111110011100110101101111100101111011111010100011000111111101000101001"
                     "111111110101010001010100111100000011111010111101100101000100000111101111100101111011010101101111100000111111101000101001"
@@ -811,7 +879,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111100101110010010011100000100110100111010000110001100110100001111011100101111100010111111101000101001"
                     "111111110101010001110110100001100010011001111001110101111011110001001011011100011000011011010001000000111111101000101001"
                 },
-        /* 18*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, ";;;;;é;;;;;", 0, 10, 103, 1, "",
+        /* 18*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, ";;;;;é;;;;;", 0, 10, 103, 1, 1, "",
                     "1111111101010100011101010011100000110101101110000001000111011100100011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111110101011000001111101010110000011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101011100011111101001111110011101011010100011111000111111101000101001"
@@ -823,7 +891,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100110111100110011101001101000001110010100110001111100111111101000101001"
                     "1111111101010100010100011000001100100010001110111001001010000010000011010001100011100111111101000101001"
                 },
-        /* 19*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, ";;;;;é;;;;;", 0, 10, 103, 1, "",
+        /* 19*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, ";;;;;é;;;;;", 0, 10, 103, 1, 1, "",
                     "1111111101010100011101010011100000110101101110000001000111011100100011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111110101011000001111101010110000011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101011100011111101001111110011101011010100011111000111111101000101001"
@@ -835,31 +903,31 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100110111100110011101001101000001110010100110001111100111111101000101001"
                     "1111111101010100010100011000001100100010001110111001001010000010000011010001100011100111111101000101001"
                 },
-        /* 20*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 3, -1, "12345678", 0, 3, 120, 1, "Numeric Compaction (minimum)",
+        /* 20*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 3, -1, "12345678", 0, 3, 120, 1, 1, "Numeric Compaction (minimum)",
                     "111111110101010001110101011100000011111010100111110100111101111010001010000001010000011111010101111100111111101000101001"
                     "111111110101010001111010100010000011100010000110100111000101110001101011111000100111011111010101100000111111101000101001"
                     "111111110101010001010100111100000010011001100011110101011000011111001000011000101110010101000111100000111111101000101001"
                 },
-        /* 21*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 3, -1, "12345678", 0, 3, 120, 1, "Numeric Compaction (minimum)",
+        /* 21*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 3, -1, "12345678", 0, 3, 120, 1, 1, "Numeric Compaction (minimum)",
                     "111111110101010001110101011100000011111010100111110100111101111010001010000001010000011111010101111100111111101000101001"
                     "111111110101010001111010100010000011100010000110100111000101110001101011111000100111011111010101100000111111101000101001"
                     "111111110101010001010100111100000010011001100011110101011000011111001000011000101110010101000111100000111111101000101001"
                 },
-        /* 22*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "12345678901234", 0, 5, 120, 1, "Numeric Compaction",
+        /* 22*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "12345678901234", 0, 5, 120, 1, 1, "Numeric Compaction",
                     "111111110101010001111010101111000011101010001110000100111101111010001001011100001110011111010101111100111111101000101001"
                     "111111110101010001111110101000111011010000001110010111111011010011001111010100000010011111101010111000111111101000101001"
                     "111111110101010001010100111100000010111000110011100101110011000011101110001111110101011101010001111110111111101000101001"
                     "111111110101010001010111100111100010001100001100010100001100011101101110101100111100011010111100111110111111101000101001"
                     "111111110101010001110101110000110011000000101110010110001001110000101011001000111111011101011100110000111111101000101001"
                 },
-        /* 23*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "12345678901234", 0, 5, 120, 1, "Numeric Compaction",
+        /* 23*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "12345678901234", 0, 5, 120, 1, 1, "Numeric Compaction",
                     "111111110101010001111010101111000011101010001110000100111101111010001001011100001110011111010101111100111111101000101001"
                     "111111110101010001111110101000111011010000001110010111111011010011001111010100000010011111101010111000111111101000101001"
                     "111111110101010001010100111100000010111000110011100101110011000011101110001111110101011101010001111110111111101000101001"
                     "111111110101010001010111100111100010001100001100010100001100011101101110101100111100011010111100111110111111101000101001"
                     "111111110101010001110101110000110011000000101110010110001001110000101011001000111111011101011100110000111111101000101001"
                 },
-        /* 24*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "1234567890123456789012345678901234567890123", 0, 9, 120, 1, "Numeric Compaction 43 consecutive",
+        /* 24*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "1234567890123456789012345678901234567890123", 0, 9, 120, 1, 1, "Numeric Compaction 43 consecutive",
                     "111111110101010001111101010111110011010110001110000100111101111010001101001101110000011111010101111100111111101000101001"
                     "111111110101010001111010100001000011010011100001000110100111101100001110000101100001011110101001000000111111101000101001"
                     "111111110101010001010100111100000011111010111000010110010010011111001000011010000111010101000011110000111111101000101001"
@@ -870,7 +938,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111110100101110010100111100001000110000101111001101110010110000100010101111110111000111111101000101001"
                     "111111110101010001111110100110010011100100111110100100111110011000101001111000010001011111010011101000111111101000101001"
                 },
-        /* 25*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "1234567890123456789012345678901234567890123", 0, 9, 120, 1, "Numeric Compaction 43 consecutive",
+        /* 25*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "1234567890123456789012345678901234567890123", 0, 9, 120, 1, 1, "Numeric Compaction 43 consecutive",
                     "111111110101010001111101010111110011010110001110000100111101111010001101001101110000011111010101111100111111101000101001"
                     "111111110101010001111010100001000011010011100001000110100111101100001110000101100001011110101001000000111111101000101001"
                     "111111110101010001010100111100000011111010111000010110010010011111001000011010000111010101000011110000111111101000101001"
@@ -881,7 +949,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111110100101110010100111100001000110000101111001101110010110000100010101111110111000111111101000101001"
                     "111111110101010001111110100110010011100100111110100100111110011000101001111000010001011111010011101000111111101000101001"
                 },
-        /* 26*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "12345678901234567890123456789012345678901234", 0, 9, 120, 1, "Numeric Compaction 44 consecutive",
+        /* 26*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "12345678901234567890123456789012345678901234", 0, 9, 120, 1, 1, "Numeric Compaction 44 consecutive",
                     "111111110101010001111101010111110011010110001110000100111101111010001000100011000011011111010101111100111111101000101001"
                     "111111110101010001111010100001000011101001100100000111010001100001001110010000001101011110101001000000111111101000101001"
                     "111111110101010001010100111100000011111100010110100101001100001111101010110011111000010101000011110000111111101000101001"
@@ -892,7 +960,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111110100101110011100110011101000100110001011111101101001110000001010101111110111000111111101000101001"
                     "111111110101010001111110100110010010111001100011100101000110111110001001100001000111011111010011101000111111101000101001"
                 },
-        /* 27*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "12345678901234567890123456789012345678901234", 0, 9, 120, 1, "Numeric Compaction 44 consecutive",
+        /* 27*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "12345678901234567890123456789012345678901234", 0, 9, 120, 1, 1, "Numeric Compaction 44 consecutive",
                     "111111110101010001111101010111110011010110001110000100111101111010001000100011000011011111010101111100111111101000101001"
                     "111111110101010001111010100001000011101001100100000111010001100001001110010000001101011110101001000000111111101000101001"
                     "111111110101010001010100111100000011111100010110100101001100001111101010110011111000010101000011110000111111101000101001"
@@ -903,7 +971,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111110100101110011100110011101000100110001011111101101001110000001010101111110111000111111101000101001"
                     "111111110101010001111110100110010010111001100011100101000110111110001001100001000111011111010011101000111111101000101001"
                 },
-        /* 28*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "123456789012345678901234567890123456789012345", 0, 9, 120, 1, "Numeric Compaction 45 consecutive",
+        /* 28*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "123456789012345678901234567890123456789012345", 0, 9, 120, 1, 1, "Numeric Compaction 45 consecutive",
                     "111111110101010001111101010111110011010110001110000100111101111010001000100011000011011111010101111100111111101000101001"
                     "111111110101010001111010100001000011101001100100000111010001100001001110010000001101011110101001000000111111101000101001"
                     "111111110101010001010100111100000011111100010110100101001100001111101010110011111000010101000011110000111111101000101001"
@@ -914,7 +982,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111110100101110011110001001101100111101001110011101101111010111110010101111110111000111111101000101001"
                     "111111110101010001111110100110010011011110011001110110011100100011101100100100011111011111010011101000111111101000101001"
                 },
-        /* 29*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567", 0, 14, 120, 1, "Numeric Compaction 87 consecutive",
+        /* 29*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567", 0, 14, 120, 1, 1, "Numeric Compaction 87 consecutive",
                     "111111110101010001111010100111100011111010111111010100111101111010001000100011000011011111010101111100111111101000101001"
                     "111111110101010001111110101000111011101001100100000111010001100001001110010000001101011111101010011100111111101000101001"
                     "111111110101010001010100111100000011111100010110100101001100001111101010110011111000011101010001111110111111101000101001"
@@ -930,7 +998,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001010000010100000011110111001001100110100000100110001110111100011010011010000111011110111111101000101001"
                     "111111110101010001111101000100011011100101110011000111100011001101001000001011110001011110100010010000111111101000101001"
                 },
-        /* 30*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567", 0, 14, 120, 1, "Numeric Compaction 87 consecutive",
+        /* 30*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567", 0, 14, 120, 1, 1, "Numeric Compaction 87 consecutive",
                     "111111110101010001111010100111100011111010111111010100111101111010001000100011000011011111010101111100111111101000101001"
                     "111111110101010001111110101000111011101001100100000111010001100001001110010000001101011111101010011100111111101000101001"
                     "111111110101010001010100111100000011111100010110100101001100001111101010110011111000011101010001111110111111101000101001"
@@ -946,7 +1014,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001010000010100000011110111001001100110100000100110001110111100011010011010000111011110111111101000101001"
                     "111111110101010001111101000100011011100101110011000111100011001101001000001011110001011110100010010000111111101000101001"
                 },
-        /* 31*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", 0, 14, 120, 1, "Numeric Compaction 88 consecutive",
+        /* 31*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", 0, 14, 120, 1, 1, "Numeric Compaction 88 consecutive",
                     "111111110101010001111010100111100011111010111111010100111101111010001000100011000011011111010101111100111111101000101001"
                     "111111110101010001111110101000111011101001100100000111010001100001001110010000001101011111101010011100111111101000101001"
                     "111111110101010001010100111100000011111100010110100101001100001111101010110011111000011101010001111110111111101000101001"
@@ -962,7 +1030,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001010000010100000011100010110011110111011001100111001110011010000110011010000111011110111111101000101001"
                     "111111110101010001111101000100011011110010110000110111011100111100101111010000110011011110100010010000111111101000101001"
                 },
-        /* 32*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", 0, 14, 120, 1, "Numeric Compaction 88 consecutive",
+        /* 32*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", 0, 14, 120, 1, 1, "Numeric Compaction 88 consecutive",
                     "111111110101010001111010100111100011111010111111010100111101111010001000100011000011011111010101111100111111101000101001"
                     "111111110101010001111110101000111011101001100100000111010001100001001110010000001101011111101010011100111111101000101001"
                     "111111110101010001010100111100000011111100010110100101001100001111101010110011111000011101010001111110111111101000101001"
@@ -978,7 +1046,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001010000010100000011100010110011110111011001100111001110011010000110011010000111011110111111101000101001"
                     "111111110101010001111101000100011011110010110000110111011100111100101111010000110011011110100010010000111111101000101001"
                 },
-        /* 33*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", 0, 14, 120, 1, "Numeric Compaction 89 consecutive",
+        /* 33*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 2, 3, -1, "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", 0, 14, 120, 1, 1, "Numeric Compaction 89 consecutive",
                     "111111110101010001111010100111100011111010111111010100111101111010001000100011000011011111010101111100111111101000101001"
                     "111111110101010001111110101000111011101001100100000111010001100001001110010000001101011111101010011100111111101000101001"
                     "111111110101010001010100111100000011111100010110100101001100001111101010110011111000011101010001111110111111101000101001"
@@ -994,7 +1062,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001010000010100000011100110011001110100111011110110001100010000100110011010000111011110111111101000101001"
                     "111111110101010001111101000100011011100101110001100110001001110100001010001111000001011110100010010000111111101000101001"
                 },
-        /* 34*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", 0, 14, 120, 1, "Numeric Compaction 89 consecutive -> ML(1) NUM(88)",
+        /* 34*/ { BARCODE_PDF417, -1, UNICODE_MODE, 2, 3, -1, "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", 0, 14, 120, 1, 1, "Numeric Compaction 89 consecutive -> ML(1) NUM(88)",
                     "111111110101010001111010100111100011111010111111010100111101111010001000100011000011011111010101111100111111101000101001"
                     "111111110101010001111110101000111011101001100100000111010001100001001110010000001101011111101010011100111111101000101001"
                     "111111110101010001010100111100000011111100010110100101001100001111101010110011111000011101010001111110111111101000101001"
@@ -1010,7 +1078,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001010000010100000011100110011001110100111011110110001100010000100110011010000111011110111111101000101001"
                     "111111110101010001111101000100011011100101110001100110001001110100001010001111000001011110100010010000111111101000101001"
                 },
-        /* 35*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 0, 3, -1, "AB{}  C#+  de{}  {}F  12{}  G{}  H", 0, 10, 120, 0, "Text Compaction newtable, BWIPP uses PUNCT_SHIFT better for less codewords",
+        /* 35*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 0, 3, -1, "AB{}  C#+  de{}  {}F  12{}  G{}  H", 0, 10, 120, 0, 1, "Text Compaction newtable, BWIPP uses PUNCT_SHIFT better for less codewords",
                     "111111110101010001110101001110000011010111000111100111101010111100001000111011100100011111010101111100111111101000101001"
                     "111111110101010001111101010110000011100000101100010100111110100111001110001100011101011111010100110000111111101000101001"
                     "111111110101010001010100111100000010111111001110100100001101011100001001111101101000011010101111100000111111101000101001"
@@ -1022,7 +1090,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111110100110010010111111011100100110001111001011001011001100111100010100110111110000111111101000101001"
                     "111111110101010001010001100000110010000110001100100110011100110100001100100100110000010100011000011000111111101000101001"
                 },
-        /* 36*/ { BARCODE_PDF417, -1, UNICODE_MODE, 0, 3, -1, "AB{}  C#+  de{}  {}F  12{}  G{}  H", 0, 9, 120, 0, "Text Compaction newtable; BWIPP same except ML before spaces instead of after",
+        /* 36*/ { BARCODE_PDF417, -1, UNICODE_MODE, 0, 3, -1, "AB{}  C#+  de{}  {}F  12{}  G{}  H", 0, 9, 120, 0, 1, "Text Compaction newtable; BWIPP same except ML before spaces instead of after",
                     "111111110101010001111101010111110011010111001111000111101010111100001100000100001011011111010101111100111111101000101001"
                     "111111110101010001111010100100000010011111010001110111000001011001001110100110000010011110101001000000111111101000101001"
                     "111111110101010001010100111100000010001101011100000110001111001011001000111100100001010101001111000000111111101000101001"
@@ -1033,71 +1101,71 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001010111111011100011010000001110010111000001011101101111110001110101010101111110111000111111101000101001"
                     "111111110101010001111110100110010010001111010000100110001010001111101010001101111100011111101001100100111111101000101001"
                 },
-        /* 37*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177", 0, 3, 137, 1, "Byte Compaction",
+        /* 37*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177", 0, 3, 137, 1, 1, "Byte Compaction",
                     "11111111010101000111010101110000001101010000110000010000010000100010101000001001000001010000010010000011101010011100000111111101000101001"
                     "11111111010101000111101010001000001111101000100011011111010001000110111110100010001101011111101011000011111010101100000111111101000101001"
                     "11111111010101000110101001111100001100011110101100011001101011110000100000111010110001011110011100111010101000111100000111111101000101001"
                 },
-        /* 38*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177", 0, 3, 137, 1, "Byte Compaction",
+        /* 38*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177", 0, 3, 137, 1, 1, "Byte Compaction",
                     "11111111010101000111010101110000001101010000110000010000010000100010101000001001000001010000010010000011101010011100000111111101000101001"
                     "11111111010101000111101010001000001111101000100011011111010001000110111110100010001101011111101011000011111010101100000111111101000101001"
                     "11111111010101000110101001111100001100011110101100011001101011110000100000111010110001011110011100111010101000111100000111111101000101001"
                 },
-        /* 39*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177\177", 0, 3, 137, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
+        /* 39*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177\177", 0, 3, 137, 1, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
                     "11111111010101000111010101110000001101010000110000011000111000110100111001001100111101000010100001000011101010011100000111111101000101001"
                     "11111111010101000111101010001000001110010000111011010100111110000110111101001100001101011111101011000011111010101100000111111101000101001"
                     "11111111010101000110101001111100001011111011101100010000001110100110110000011010111101111010111100001010101000111100000111111101000101001"
                 },
-        /* 40*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177\177", 0, 3, 137, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
+        /* 40*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177\177", 0, 3, 137, 1, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
                     "11111111010101000111010101110000001101010000110000011000111000110100111001001100111101000010100001000011101010011100000111111101000101001"
                     "11111111010101000111101010001000001110010000111011010100111110000110111101001100001101011111101011000011111010101100000111111101000101001"
                     "11111111010101000110101001111100001011111011101100010000001110100110110000011010111101111010111100001010101000111100000111111101000101001"
                 },
-        /* 41*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177\177\177", 0, 3, 137, 1, "Byte Compaction",
+        /* 41*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177\177\177", 0, 3, 137, 1, 1, "Byte Compaction",
                     "11111111010101000111010101110000001101010000110000010000010000100010111001001100111101000010100001000011101010011100000111111101000101001"
                     "11111111010101000111101010001000001110010000111011010100111110000110111101001100001101111101000100011011111010101100000111111101000101001"
                     "11111111010101000110101001111100001011000110011110010110001000111000100011010000111001001100100001110010101000111100000111111101000101001"
                 },
-        /* 42*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177\177\177", 0, 3, 137, 1, "Byte Compaction",
+        /* 42*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177\177\177", 0, 3, 137, 1, 1, "Byte Compaction",
                     "11111111010101000111010101110000001101010000110000010000010000100010111001001100111101000010100001000011101010011100000111111101000101001"
                     "11111111010101000111101010001000001110010000111011010100111110000110111101001100001101111101000100011011111010101100000111111101000101001"
                     "11111111010101000110101001111100001011000110011110010110001000111000100011010000111001001100100001110010101000111100000111111101000101001"
                 },
-        /* 43*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177\177\177\177\177\177\177", 0, 4, 137, 1, "Byte Compaction",
+        /* 43*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177\177\177\177\177\177\177", 0, 4, 137, 1, 1, "Byte Compaction",
                     "11111111010101000111101010111100001101011011100000010000010000100010111001001100111101000010100001000011101010011100000111111101000101001"
                     "11111111010101000111110101001100001110010000111011010100111110000110111101001100001101111101000100011011111101010111000111111101000101001"
                     "11111111010101000110101001111100001010000001011110010100000010111100101000000101111001010000001011110011010100111110000111111101000101001"
                     "11111111010101000101011110011110001010001000001000011011000010100000111000110001001101100111000110010010101111101111100111111101000101001"
                 },
-        /* 44*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177\177\177\177\177\177\177", 0, 4, 137, 1, "Byte Compaction",
+        /* 44*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177\177\177\177\177\177\177", 0, 4, 137, 1, 1, "Byte Compaction",
                     "11111111010101000111101010111100001101011011100000010000010000100010111001001100111101000010100001000011101010011100000111111101000101001"
                     "11111111010101000111110101001100001110010000111011010100111110000110111101001100001101111101000100011011111101010111000111111101000101001"
                     "11111111010101000110101001111100001010000001011110010100000010111100101000000101111001010000001011110011010100111110000111111101000101001"
                     "11111111010101000101011110011110001010001000001000011011000010100000111000110001001101100111000110010010101111101111100111111101000101001"
                 },
-        /* 45*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177\177\177\177\177\177\177\177", 0, 4, 137, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
+        /* 45*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 1, 4, -1, "\177\177\177\177\177\177\177\177\177\177\177\177", 0, 4, 137, 1, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
                     "11111111010101000111101010111100001101011011100000011000111000110100111001001100111101000010100001000011101010011100000111111101000101001"
                     "11111111010101000111110101001100001110010000111011010100111110000110111101001100001101111001010010000011111101010111000111111101000101001"
                     "11111111010101000110101001111100001001110000100110010011000100001110101000011001111101101000101111100011010100111110000111111101000101001"
                     "11111111010101000101011110011110001101000100011000010011000111001100110001100001000101110100010111000010101111101111100111111101000101001"
                 },
-        /* 46*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177\177\177\177\177\177\177\177", 0, 4, 137, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
+        /* 46*/ { BARCODE_PDF417, -1, UNICODE_MODE, 1, 4, -1, "\177\177\177\177\177\177\177\177\177\177\177\177", 0, 4, 137, 1, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
                     "11111111010101000111101010111100001101011011100000011000111000110100111001001100111101000010100001000011101010011100000111111101000101001"
                     "11111111010101000111110101001100001110010000111011010100111110000110111101001100001101111001010010000011111101010111000111111101000101001"
                     "11111111010101000110101001111100001001110000100110010011000100001110101000011001111101101000101111100011010100111110000111111101000101001"
                     "11111111010101000101011110011110001101000100011000010011000111001100110001100001000101110100010111000010101111101111100111111101000101001"
                 },
-        /* 47*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, 5, -1, "1\177", 0, 3, 154, 1, "Byte Compaction, 1 Numeric, 1 Byte",
+        /* 47*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, 5, -1, "1\177", 0, 3, 154, 1, 1, "Byte Compaction, 1 Numeric, 1 Byte",
                     "1111111101010100011101010111000000111010100011100001000001000010001011010011011100000101000001001000001000011000110010011110101001111000111111101000101001"
                     "1111111101010100011110101000010000101111110101100001011111101011000011101001110110000111000010110100001110000110011101011111010101100000111111101000101001"
                     "1111111101010100011101010011111100100111100000100101101100010011110010111100000110110101101110111110001001101011100000010101000011110000111111101000101001"
                 },
-        /* 48*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, 5, -1, "1\177", 0, 3, 154, 0, "Byte Compaction, 1 Numeric, 1 Byte; BWIPP same as FAST_MODE",
+        /* 48*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, 5, -1, "1\177", 0, 3, 154, 0, 1, "Byte Compaction, 1 Numeric, 1 Byte; BWIPP same as FAST_MODE",
                     "1111111101010100011101010111000000111010100011100001000001001100011011110011110010100101000001001000001000011000110010011110101001111000111111101000101001"
                     "1111111101010100011110101000010000101111110101100001011111101011000011011011110001000100011100101111101110100111000110011111010101100000111111101000101001"
                     "1111111101010100011101010011111100100110011011110001001100010000111010000011110010100100000100010111101011111011010000010101000011110000111111101000101001"
                 },
-        /* 49*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, 5, -1, "ABCDEF1234567890123\177\177\177\177VWXYZ", 0, 6, 154, 1, "Text, Numeric, Byte, Text",
+        /* 49*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, 5, -1, "ABCDEF1234567890123\177\177\177\177VWXYZ", 0, 6, 154, 1, 1, "Text, Numeric, Byte, Text",
                     "1111111101010100011110101011110000110101110111100001111010101111000010100111001110000110100000101100001001111011110100011110101001111000111111101000101001"
                     "1111111101010100011110101000010000111101011001100001010011110000100011111100011101010110000010111000101111001011011000011111101010111000111111101000101001"
                     "1111111101010100011101010011111100110011111101100101010000001011110010100000010111100101000000101111001010000001011110010101000011110000111111101000101001"
@@ -1105,7 +1173,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010111000001000101111110101100001011111101011000011001011111001110111100100100100001011111101011000011101011100110000111111101000101001"
                     "1111111101010100011111010111100110110111110110011001101001011111000010101110011111100100100001000111101011000000101110011110101111101100111111101000101001"
                 },
-        /* 50*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, 5, -1, "ABCDEF1234567890123\177\177\177\177VWXYZ", 0, 6, 154, 1, "Text, Numeric, Byte(7), Text",
+        /* 50*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, 5, -1, "ABCDEF1234567890123\177\177\177\177VWXYZ", 0, 6, 154, 1, 1, "Text, Numeric, Byte(7), Text",
                     "1111111101010100011110101011110000110101110111100001111010101111000010100111001110000110100000101100001001111011110100011110101001111000111111101000101001"
                     "1111111101010100011110101000010000111101011001100001010011110000100011111100011101010110000010111000101111001011011000011111101010111000111111101000101001"
                     "1111111101010100011101010011111100110011111101100101010000001011110010100000010111100101000000101111001010000001011110010101000011110000111111101000101001"
@@ -1113,7 +1181,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010111000001000101111110101100001011111101011000011001011111001110111100100100100001011111101011000011101011100110000111111101000101001"
                     "1111111101010100011111010111100110110111110110011001101001011111000010101110011111100100100001000111101011000000101110011110101111101100111111101000101001"
                 },
-        /* 51*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 6, 5, -1, "ABCDEF1234567890123\177\177\177\177VWXYZ", 0, 30, 154, 1, "ECC 6: Text, Numeric, Byte, Text",
+        /* 51*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 6, 5, -1, "ABCDEF1234567890123\177\177\177\177VWXYZ", 0, 30, 154, 1, 1, "ECC 6: Text, Numeric, Byte, Text",
                     "1111111101010100010101000001000000110101110111100001111010101111000010100111001110000110100000101100001001111011110100011110101001111000111111101000101001"
                     "1111111101010100011110101100011000111101011001100001010011110000100011111100011101010110000010111000101111001011011000011111010100001100111111101000101001"
                     "1111111101010100011101010011111100110011111101100101010000001011110010100000010111100101000000101111001010000001011110011111101011000010111111101000101001"
@@ -1145,7 +1213,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011100100110100000110101111011000001100110011110100010000010001111010111001011001000001001000011110100011110110110100000111111101000101001"
                     "1111111101010100010110001110111110111110001011100101111101100111101010000111010110000110110010111100001111101011100100010110000011011110111111101000101001"
                 },
-        /* 52*/ { BARCODE_PDF417, -1, UNICODE_MODE, 6, 5, -1, "ABCDEF1234567890123\177\177\177\177VWXYZ", 0, 30, 154, 1, "ECC 6: Text, Numeric, Byte, Text",
+        /* 52*/ { BARCODE_PDF417, -1, UNICODE_MODE, 6, 5, -1, "ABCDEF1234567890123\177\177\177\177VWXYZ", 0, 30, 154, 1, 1, "ECC 6: Text, Numeric, Byte, Text",
                     "1111111101010100010101000001000000110101110111100001111010101111000010100111001110000110100000101100001001111011110100011110101001111000111111101000101001"
                     "1111111101010100011110101100011000111101011001100001010011110000100011111100011101010110000010111000101111001011011000011111010100001100111111101000101001"
                     "1111111101010100011101010011111100110011111101100101010000001011110010100000010111100101000000101111001010000001011110011111101011000010111111101000101001"
@@ -1177,7 +1245,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011100100110100000110101111011000001100110011110100010000010001111010111001011001000001001000011110100011110110110100000111111101000101001"
                     "1111111101010100010110001110111110111110001011100101111101100111101010000111010110000110110010111100001111101011100100010110000011011110111111101000101001"
                 },
-        /* 53*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, 5, -1, "ABCDEF1234567890123\177\177\177\177YZ1234567890123", 0, 7, 154, 0, "Text, Numeric, Byte, 2 Text, Numeric; BWIPP different encodation",
+        /* 53*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, 5, -1, "ABCDEF1234567890123\177\177\177\177YZ1234567890123", 0, 7, 154, 0, 1, "Text, Numeric, Byte, 2 Text, Numeric; BWIPP different encodation",
                     "1111111101010100011111010101111100101011100011100001111010101111000010100111001110000110100000101100001001111011110100011110101001111000111111101000101001"
                     "1111111101010100011111010100011000111101011001100001010011110000100011111100011101010110000010111000101111001011011000011110101001000000111111101000101001"
                     "1111111101010100011101010011111100110011111101100101010000001011110010100000010111100101000000101111001010000001011110011010100011111000111111101000101001"
@@ -1186,7 +1254,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111010111100110110001111100100101100011111001001010011100101100000110011101011100001111010111110110011110101111000010111111101000101001"
                     "1111111101010100011101001110111110110001001100011101010000111000111011101010011100000110100010001100001110111100110001011010011100111100111111101000101001"
                 },
-        /* 54*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, 5, -1, "ABCDEF1234567890123\177\177\177\177YZ1234567890123", 0, 6, 154, 1, "Text, Numeric, Byte, 2 Text, Numeric",
+        /* 54*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, 5, -1, "ABCDEF1234567890123\177\177\177\177YZ1234567890123", 0, 6, 154, 1, 1, "Text, Numeric, Byte, 2 Text, Numeric",
                     "1111111101010100011110101011110000110101110111100001111010101111000010100111001110000110100000101100001001111011110100011110101001111000111111101000101001"
                     "1111111101010100011110101000010000111101011001100001010011110000100011111100011101010110000010111000101111001011011000011111101010111000111111101000101001"
                     "1111111101010100011101010011111100100000111100101001111011011111010010011100001001100100110001000011101110100011111001010101000011110000111111101000101001"
@@ -1194,7 +1262,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010111000001000110000010111000101111001011011000010110001111101000111010011100011001110110111010000011101011100110000111111101000101001"
                     "1111111101010100011111010111100110100001100110111101100110101111000010110011011110000111011100010111101001001001111000011110101111101100111111101000101001"
                 },
-        /* 55*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZ", 0, 14, 154, 1, "ECC 3",
+        /* 55*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZ", 0, 14, 154, 1, 1, "ECC 3",
                     "1111111101010100011110101001111000111010011001111001111010101111000010100111001110000110100000101100001111011010000111011110101001111000111111101000101001"
                     "1111111101010100011110101000001000100101111001000001110110111100110011101100111100110111000101100100001110001001110011011111101010011100111111101000101001"
                     "1111111101010100011101010011111100110111100010011001000001000101111010011110011000110101111100011001001111101011110110010101000001111000111111101000101001"
@@ -1210,7 +1278,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010100000101000000111101100100011101000011011010000011001000000101100110100000010011001010000110000011010100000101000000111111101000101001"
                     "1111111101010100011101000110100000100111101001111001111100100101100011110101101100000111100010011001101111000100000101011110100010010000111111101000101001"
                 },
-        /* 56*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZ", 0, 14, 154, 1, "ECC 3",
+        /* 56*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZABCDEFGHIJKLMOPQRSTUVWXYZ", 0, 14, 154, 1, 1, "ECC 3",
                     "1111111101010100011110101001111000111010011001111001111010101111000010100111001110000110100000101100001111011010000111011110101001111000111111101000101001"
                     "1111111101010100011110101000001000100101111001000001110110111100110011101100111100110111000101100100001110001001110011011111101010011100111111101000101001"
                     "1111111101010100011101010011111100110111100010011001000001000101111010011110011000110101111100011001001111101011110110010101000001111000111111101000101001"
@@ -1226,7 +1294,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010100000101000000111101100100011101000011011010000011001000000101100110100000010011001010000110000011010100000101000000111111101000101001"
                     "1111111101010100011101000110100000100111101001111001111100100101100011110101101100000111100010011001101111000100000101011110100010010000111111101000101001"
                 },
-        /* 57*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 8, 29, 32, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 562, 1, "Max codewords (with padding)",
+        /* 57*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, 8, 29, 32, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 562, 1, 1, "Max codewords (with padding)",
                     "1111111101010100011010100000110000111000100110111101111010101111000010100111001110000110100000101100001111011010000111011001000100110000110010000110111001110001011001111011110111010110000100110011110011101110011000010011011000110100010000100011001100100001100111001110011010000110001100100100001100011001001000011000110010010000110001100100100001100011001001000011000110010010000110001100100100001100011001001000011000110010010000110001100100100001100011001001000011000110010010000110001100100100001100011001001000011000110010011010111000111100111111101000101001"
                     "1111111101010100011110101100000110101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000011110101000001000111111101000101001"
                     "1111111101010100011111010111000100110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011111010111001000111111101000101001"
@@ -1260,7 +1328,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010010000110110000110011010000010001010000100001000011010110111000000111011000001001101100010001001100011001100001010000111100010010111101101111011110011010001000110000110110110001000001001110110101100000011000110001001000110010001101110001010010000010000011111011110101100100010000010100001000010110001100011100010110111100110110010000001001111101100101111010000100001010000110010001100111001101110001101000011101000010111000111001000101110001000001000100100010101110001110000101000110000110001110011010000110011101100001000110111111101000101001"
                     "1111111101010100011011011111001100101111001001111001101110011111010011100110011100100110000100011101001111010011000110011110101110001110100010011110000101100101110000010010111101000111100111010011010000001101011111000111011110101101100000110001001111001101110100000011010010001000111101000111100010010100001111010110011000011001011111011100101000111101000001111001000001010011111001010001100111011100011110101110010000001101011011000011110010110000101110010001001001111001000010100001111100110110100111000010001011010011111100011011011110010000111111101000101001"
                 },
-        /* 58*/ { BARCODE_PDF417, -1, UNICODE_MODE, 8, 29, 32, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 562, 1, "Max codewords (with padding)",
+        /* 58*/ { BARCODE_PDF417, -1, UNICODE_MODE, 8, 29, 32, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 562, 1, 1, "Max codewords (with padding)",
                     "1111111101010100011010100000110000111000100110111101111010101111000010100111001110000110100000101100001111011010000111011001000100110000110010000110111001110001011001111011110111010110000100110011110011101110011000010011011000110100010000100011001100100001100111001110011010000110001100100100001100011001001000011000110010010000110001100100100001100011001001000011000110010010000110001100100100001100011001001000011000110010010000110001100100100001100011001001000011000110010010000110001100100100001100011001001000011000110010011010111000111100111111101000101001"
                     "1111111101010100011110101100000110101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000010111111010110000101111110101100001011111101011000011110101000001000111111101000101001"
                     "1111111101010100011111010111000100110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011000111110010010110001111100100101100011111001001011111010111001000111111101000101001"
@@ -1294,7 +1362,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010010000110110000110011010000010001010000100001000011010110111000000111011000001001101100010001001100011001100001010000111100010010111101101111011110011010001000110000110110110001000001001110110101100000011000110001001000110010001101110001010010000010000011111011110101100100010000010100001000010110001100011100010110111100110110010000001001111101100101111010000100001010000110010001100111001101110001101000011101000010111000111001000101110001000001000100100010101110001110000101000110000110001110011010000110011101100001000110111111101000101001"
                     "1111111101010100011011011111001100101111001001111001101110011111010011100110011100100110000100011101001111010011000110011110101110001110100010011110000101100101110000010010111101000111100111010011010000001101011111000111011110101101100000110001001111001101110100000011010010001000111101000111100010010100001111010110011000011001011111011100101000111101000001111001000001010011111001010001100111011100011110101110010000001101011011000011110010110000101110010001001001111001000010100001111100110110100111000010001011010011111100011011011110010000111111101000101001"
                 },
-        /* 59*/ { BARCODE_PDF417COMP, -1, UNICODE_MODE | FAST_MODE, 1, 2, -1, "PDF417 APK\012", 0, 6, 69, 0, "ISO 15438:2015 Figure G.1, same, BWIPP uses different encodation (AL before <SP>), same codeword count",
+        /* 59*/ { BARCODE_PDF417COMP, -1, UNICODE_MODE | FAST_MODE, 1, 2, -1, "PDF417 APK\012", 0, 6, 69, 0, 1, "ISO 15438:2015 Figure G.1, same, BWIPP uses different encodation (AL before <SP>), same codeword count",
                     "111111110101010001111010101111000011010100001100000111011101100110001"
                     "111111110101010001111010100010000011010000111000100111101000101000001"
                     "111111110101010001110101011111100010110011011110000100111110011000101"
@@ -1302,7 +1370,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111010111000111011111011000100100101110111111000101"
                     "111111110101010001111010111101000010011111001110110100011100011011101"
                 },
-        /* 60*/ { BARCODE_PDF417COMP, -1, UNICODE_MODE, 1, 2, -1, "PDF417 APK\012", 0, 6, 69, 0, "ISO 15438:2015 Figure G.1, same, BWIPP uses different encodation (AL before <SP>), same codeword count",
+        /* 60*/ { BARCODE_PDF417COMP, -1, UNICODE_MODE, 1, 2, -1, "PDF417 APK\012", 0, 6, 69, 0, 1, "ISO 15438:2015 Figure G.1, same, BWIPP uses different encodation (AL before <SP>), same codeword count",
                     "111111110101010001111010101111000011010100001100000111011101100110001"
                     "111111110101010001111010100010000011010000111000100111101000101000001"
                     "111111110101010001110101011111100010110011011110000100111110011000101"
@@ -1310,7 +1378,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111010111000111011111011000100100101110111111000101"
                     "111111110101010001111010111101000010011111001110110100011100011011101"
                 },
-        /* 61*/ { BARCODE_PDF417COMP, -1, UNICODE_MODE | FAST_MODE, 4, 4, -1, "ABCDEFG", 0, 10, 103, 1, "",
+        /* 61*/ { BARCODE_PDF417COMP, -1, UNICODE_MODE | FAST_MODE, 4, 4, -1, "ABCDEFG", 0, 10, 103, 1, 1, "",
                     "1111111101010100011101010011100000110101000011000001111010101111000010100111001110000110100000101100001"
                     "1111111101010100011110101000000100110100000011100101011111101011000010111111010110000101111110101100001"
                     "1111111101010100011010100111110000101111001100011001000001111010100010011111001100100111001011111001001"
@@ -1322,7 +1390,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010100110011111000100110000110111101100111000010111010010001011110000110011111010001001"
                     "1111111101010100010100011000001100110001101010000001100011000110011011001001101110000111110111110101001"
                 },
-        /* 62*/ { BARCODE_PDF417COMP, -1, UNICODE_MODE, 4, 4, -1, "ABCDEFG", 0, 10, 103, 1, "",
+        /* 62*/ { BARCODE_PDF417COMP, -1, UNICODE_MODE, 4, 4, -1, "ABCDEFG", 0, 10, 103, 1, 1, "",
                     "1111111101010100011101010011100000110101000011000001111010101111000010100111001110000110100000101100001"
                     "1111111101010100011110101000000100110100000011100101011111101011000010111111010110000101111110101100001"
                     "1111111101010100011010100111110000101111001100011001000001111010100010011111001100100111001011111001001"
@@ -1334,7 +1402,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010100110011111000100110000110111101100111000010111010010001011110000110011111010001001"
                     "1111111101010100010100011000001100110001101010000001100011000110011011001001101110000111110111110101001"
                 },
-        /* 63*/ { BARCODE_HIBC_PDF, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "H123ABC01234567890D", 0, 8, 120, 0, "BWIPP uses different encodation, same codeword count but zint half-pad shorter",
+        /* 63*/ { BARCODE_HIBC_PDF, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "H123ABC01234567890D", 0, 8, 120, 0, 1, "BWIPP uses different encodation, same codeword count but zint half-pad shorter",
                     "111111110101010001111101010111110011101011001111000100000100010010001110001110100010011111010101111100111111101000101001"
                     "111111110101010001111110101000111011110000010001010110101111110111101111100011101101011110101001000000111111101000101001"
                     "111111110101010001010100111100000011111010111101100100001111000101001100101000011111011101010001111110111111101000101001"
@@ -1344,7 +1412,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001110100111011111010100110001100000110100011100111101111010010111100011101001110111110111111101000101001"
                     "111111110101010001111101001011000011100001001100100111010000011001001111011000110100010101111110111000111111101000101001"
                 },
-        /* 64*/ { BARCODE_HIBC_PDF, -1, UNICODE_MODE, -1, 3, -1, "H123ABC01234567890D", 0, 8, 120, 0, "BWIPP uses different encodation, same codeword count but zint half-pad shorter",
+        /* 64*/ { BARCODE_HIBC_PDF, -1, UNICODE_MODE, -1, 3, -1, "H123ABC01234567890D", 0, 8, 120, 0, 1, "BWIPP uses different encodation, same codeword count but zint half-pad shorter",
                     "111111110101010001111101010111110011101011001111000100000100010010001110001110100010011111010101111100111111101000101001"
                     "111111110101010001111110101000111011110000010001010110101111110111101111100011101101011110101001000000111111101000101001"
                     "111111110101010001010100111100000011111010111101100100001111000101001100101000011111011101010001111110111111101000101001"
@@ -1354,7 +1422,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001110100111011111010100110001100000110100011100111101111010010111100011101001110111110111111101000101001"
                     "111111110101010001111101001011000011100001001100100111010000011001001111011000110100010101111110111000111111101000101001"
                 },
-        /* 65*/ { BARCODE_HIBC_PDF, -1, UNICODE_MODE | FAST_MODE, 1, 3, -1, "A123BJC5D6E71", 0, 6, 120, 1, "BWIPP example",
+        /* 65*/ { BARCODE_HIBC_PDF, -1, UNICODE_MODE | FAST_MODE, 1, 3, -1, "A123BJC5D6E71", 0, 6, 120, 1, 1, "BWIPP example",
                     "111111110101010001111010101111000011110101101111100100000100010010001000011011100110011111010101111100111111101000101001"
                     "111111110101010001111010100010000011110000010001010110101111110111101111000001000101011111101010111000111111101000101001"
                     "111111110101010001010100111100000010110001100011110101111110111101101000111100011011010101000111100000111111101000101001"
@@ -1362,7 +1430,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111010111000111011010111110011100110100000011100101111110101000111011101011100110000111111101000101001"
                     "111111110101010001111101011110110010011100110011100100011110110011001011001011100000011110101111000100111111101000101001"
                 },
-        /* 66*/ { BARCODE_HIBC_PDF, -1, UNICODE_MODE, 1, 3, -1, "A123BJC5D6E71", 0, 6, 120, 1, "BWIPP example",
+        /* 66*/ { BARCODE_HIBC_PDF, -1, UNICODE_MODE, 1, 3, -1, "A123BJC5D6E71", 0, 6, 120, 1, 1, "BWIPP example",
                     "111111110101010001111010101111000011110101101111100100000100010010001000011011100110011111010101111100111111101000101001"
                     "111111110101010001111010100010000011110000010001010110101111110111101111000001000101011111101010111000111111101000101001"
                     "111111110101010001010100111100000010110001100011110101111110111101101000111100011011010101000111100000111111101000101001"
@@ -1370,7 +1438,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111010111000111011010111110011100110100000011100101111110101000111011101011100110000111111101000101001"
                     "111111110101010001111101011110110010011100110011100100011110110011001011001011100000011110101111000100111111101000101001"
                 },
-        /* 67*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "ABCDEFGHIJKLMNOPQRSTUV", 0, 20, 38, 1, "ISO 24728:2006 Figure 1 1st 1x20, same",
+        /* 67*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "ABCDEFGHIJKLMNOPQRSTUV", 0, 20, 38, 1, 1, "ISO 24728:2006 Figure 1 1st 1x20, same",
                     "11110101001000011000110010011110101001"
                     "11100101001111110101011100011100101001"
                     "11101101001010011001111100011101101001"
@@ -1392,7 +1460,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11011101001111011111011010011011101001"
                     "11011001001100010001110100011011001001"
                 },
-        /* 68*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "ABCDEFGHIJKLMNOPQRSTUV", 0, 20, 38, 1, "ISO 24728:2006 Figure 1 1st 1x20, same",
+        /* 68*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "ABCDEFGHIJKLMNOPQRSTUV", 0, 20, 38, 1, 1, "ISO 24728:2006 Figure 1 1st 1x20, same",
                     "11110101001000011000110010011110101001"
                     "11100101001111110101011100011100101001"
                     "11101101001010011001111100011101101001"
@@ -1414,7 +1482,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11011101001111011111011010011011101001"
                     "11011001001100010001110100011011001001"
                 },
-        /* 69*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 20, 55, 1, "ISO 24728:2006 Figure 1 2nd 2x20, same",
+        /* 69*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 20, 55, 1, 1, "ISO 24728:2006 Figure 1 2nd 2x20, same",
                     "1111010100100001100011001001111010101111000011110101001"
                     "1110010100110101111110111101111101000100110011100101001"
                     "1110110100101101100111100001011001110011111011101101001"
@@ -1436,7 +1504,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101110100111010110011110001000001001101100011011101001"
                     "1101100100111100110110100001001001111001000011011001001"
                 },
-        /* 70*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 20, 55, 1, "ISO 24728:2006 Figure 1 2nd 2x20, same",
+        /* 70*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 20, 55, 1, 1, "ISO 24728:2006 Figure 1 2nd 2x20, same",
                     "1111010100100001100011001001111010101111000011110101001"
                     "1110010100110101111110111101111101000100110011100101001"
                     "1110110100101101100111100001011001110011111011101101001"
@@ -1458,7 +1526,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101110100111010110011110001000001001101100011011101001"
                     "1101100100111100110110100001001001111001000011011001001"
                 },
-        /* 71*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMN", 0, 20, 82, 1, "ISO 24728:2006 Figure 1 3rd 3x20",
+        /* 71*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMN", 0, 20, 82, 1, 1, "ISO 24728:2006 Figure 1 3rd 3x20",
                     "1100100010100001100011001001011110010111101010111100001010011100111000011100101101"
                     "1110100010111110100010011001011110110101000011111001101001011110010000011000101101"
                     "1110110010111100010111101001001110110110111011001111001001100001000111011000101001"
@@ -1480,7 +1548,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111010100101111011110100001011001000111110011010111101011110111110110011010000101"
                     "1110010100110010001111011001011001100111000010111011001110001011100110011011000101"
                 },
-        /* 72*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMN", 0, 20, 82, 1, "ISO 24728:2006 Figure 1 3rd 3x20",
+        /* 72*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMN", 0, 20, 82, 1, 1, "ISO 24728:2006 Figure 1 3rd 3x20",
                     "1100100010100001100011001001011110010111101010111100001010011100111000011100101101"
                     "1110100010111110100010011001011110110101000011111001101001011110010000011000101101"
                     "1110110010111100010111101001001110110110111011001111001001100001000111011000101001"
@@ -1502,7 +1570,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111010100101111011110100001011001000111110011010111101011110111110110011010000101"
                     "1110010100110010001111011001011001100111000010111011001110001011100110011011000101"
                 },
-        /* 73*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZAB", 0, 20, 99, 1, "ISO 24728:2006 Figure 1 4th 4x20, same",
+        /* 73*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZAB", 0, 20, 99, 1, 1, "ISO 24728:2006 Figure 1 4th 4x20, same",
                     "110010001010000110001100100111101010111100001011110010101001110011100001101000001011000011100101101"
                     "111010001010100001111100110100101111001000001011110110111011011110011001101100111100100011000101101"
                     "111011001010011000010001110110011101000011101001110110110111100101100001000001010111100011000101001"
@@ -1524,7 +1592,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111101010011100011101010000110001011101111001011001000111110111101011001100101110111100011010000101"
                     "111001010010001000001111010111100010100001001011001100100111101101111101001110100111110011011000101"
                 },
-        /* 74*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZAB", 0, 20, 99, 1, "ISO 24728:2006 Figure 1 4th 4x20, same",
+        /* 74*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZAB", 0, 20, 99, 1, 1, "ISO 24728:2006 Figure 1 4th 4x20, same",
                     "110010001010000110001100100111101010111100001011110010101001110011100001101000001011000011100101101"
                     "111010001010100001111100110100101111001000001011110110111011011110011001101100111100100011000101101"
                     "111011001010011000010001110110011101000011101001110110110111100101100001000001010111100011000101001"
@@ -1546,7 +1614,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111101010011100011101010000110001011101111001011001000111110111101011001100101110111100011010000101"
                     "111001010010001000001111010111100010100001001011001100100111101101111101001110100111110011011000101"
                 },
-        /* 75*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "123456789012345", 0, 14, 38, 1, "Number Compaction",
+        /* 75*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "123456789012345", 0, 14, 38, 1, 1, "Number Compaction",
                     "11101110101011111101001100011101110101"
                     "11100110101110101011111100011100110101"
                     "11110110101000001011001100011110110101"
@@ -1562,7 +1630,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11100101001101011110000110011100101001"
                     "11101101001101000111111001011101101001"
                 },
-        /* 76*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "123456789012345", 0, 14, 38, 1, "Number Compaction",
+        /* 76*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "123456789012345", 0, 14, 38, 1, 1, "Number Compaction",
                     "11101110101011111101001100011101110101"
                     "11100110101110101011111100011100110101"
                     "11110110101000001011001100011110110101"
@@ -1578,7 +1646,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11100101001101011110000110011100101001"
                     "11101101001101000111111001011101101001"
                 },
-        /* 77*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "+12345678901", 0, 14, 38, 0, "Single mixed + Number Compaction; BWIPP different encodation",
+        /* 77*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "+12345678901", 0, 14, 38, 0, 1, "Single mixed + Number Compaction; BWIPP different encodation",
                     "11101110101011111101011000011101110101"
                     "11100110101101111110001101011100110101"
                     "11110110101001111011110100011110110101"
@@ -1594,7 +1662,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11100101001101001110001000011100101001"
                     "11101101001000010011011111011101101001"
                 },
-        /* 78*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "+12345678901", 0, 14, 38, 0, "Single mixed + Number Compaction; BWIPP different encodation",
+        /* 78*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "+12345678901", 0, 14, 38, 0, 1, "Single mixed + Number Compaction; BWIPP different encodation",
                     "11101110101011111101011000011101110101"
                     "11100110101101111110001101011100110101"
                     "11110110101001111011110100011110110101"
@@ -1610,7 +1678,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11100101001101001110001000011100101001"
                     "11101101001000010011011111011101101001"
                 },
-        /* 79*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "\177\177\177", 0, 8, 55, 1, "Byte Compaction",
+        /* 79*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "\177\177\177", 0, 8, 55, 1, 1, "Byte Compaction",
                     "1100100010100000100001000101010000010010000011001000101"
                     "1110100010111110100010001101111101000100011011101000101"
                     "1110110010110001111100100101100011111001001011101100101"
@@ -1620,7 +1688,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100111010111001111001100101000001001101100011001110101"
                     "1110111010111000101111011101110001000011010011101110101"
                 },
-        /* 80*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "\177\177\177", 0, 8, 55, 1, "Byte Compaction",
+        /* 80*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "\177\177\177", 0, 8, 55, 1, 1, "Byte Compaction",
                     "1100100010100000100001000101010000010010000011001000101"
                     "1110100010111110100010001101111101000100011011101000101"
                     "1110110010110001111100100101100011111001001011101100101"
@@ -1630,7 +1698,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100111010111001111001100101000001001101100011001110101"
                     "1110111010111000101111011101110001000011010011101110101"
                 },
-        /* 81*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "\177\177\177\177\177\177", 0, 8, 55, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
+        /* 81*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "\177\177\177\177\177\177", 0, 8, 55, 1, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
                     "1100100010110001110001101001110010011001111011001000101"
                     "1110100010100010001111010001110010000111011011101000101"
                     "1110110010101000011001111101101000101111100011101100101"
@@ -1640,7 +1708,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100111010100100010000100001110111101100001011001110101"
                     "1110111010111110011010100001101100001111010011101110101"
                 },
-        /* 82*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "\177\177\177\177\177\177", 0, 8, 55, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
+        /* 82*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "\177\177\177\177\177\177", 0, 8, 55, 1, 1, "Byte Compaction, mod 6 == 0 (924 emitted)",
                     "1100100010110001110001101001110010011001111011001000101"
                     "1110100010100010001111010001110010000111011011101000101"
                     "1110110010101000011001111101101000101111100011101100101"
@@ -1650,7 +1718,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100111010100100010000100001110111101100001011001110101"
                     "1110111010111110011010100001101100001111010011101110101"
                 },
-        /* 83*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFG\177\177\177", 0, 8, 82, 1, "Text & Byte Compaction",
+        /* 83*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFG\177\177\177", 0, 8, 82, 1, 1, "Text & Byte Compaction",
                     "1100111010100001100011001001000010110111101010111100001010011100111000011001110101"
                     "1110111010111110100010011001000010010110100000011100101101111110101110011101110101"
                     "1110011010101000000101111001000011010101000000101111001010000001011110011100110101"
@@ -1660,7 +1728,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100001010111110111010111001001100010110011100011000101101100001100110011000010101"
                     "1100011010110100011100001001001110010110110000111101001100011011110010011000110101"
                 },
-        /* 84*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFG\177\177\177", 0, 8, 82, 1, "Text & Byte Compaction",
+        /* 84*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFG\177\177\177", 0, 8, 82, 1, 1, "Text & Byte Compaction",
                     "1100111010100001100011001001000010110111101010111100001010011100111000011001110101"
                     "1110111010111110100010011001000010010110100000011100101101111110101110011101110101"
                     "1110011010101000000101111001000011010101000000101111001010000001011110011100110101"
@@ -1670,7 +1738,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100001010111110111010111001001100010110011100011000101101100001100110011000010101"
                     "1100011010110100011100001001001110010110110000111101001100011011110010011000110101"
                 },
-        /* 85*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "\177\177\177abcd123456789", 0, 8, 99, 1, "Byte & Text & Numeric Compaction",
+        /* 85*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "\177\177\177abcd123456789", 0, 8, 99, 1, 1, "Byte & Text & Numeric Compaction",
                     "110011101010000010000100010101000001001000001000010110101000001001000001010000010010000011001110101"
                     "111011101010111111010110000110000010111001001000010010111101011100111001010011111000011011101110101"
                     "111001101011111010111101100101000100000111101000011010111110010111101101110010011111001011100110101"
@@ -1680,7 +1748,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110000101011100011001101110100001101110110001001100010100010110000110001101100110000110011000010101"
                     "110001101011101110011110100101000011111001101001110010110001011110011001110011011101000011000110101"
                 },
-        /* 86*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "\177\177\177abcd123456789", 0, 6, 99, 0, "Byte & Text & Numeric Compaction -> BYT(8) NUM(8); BWIPP same as FAST_MODE",
+        /* 86*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "\177\177\177abcd123456789", 0, 6, 99, 0, 1, "Byte & Text & Numeric Compaction -> BYT(8) NUM(8); BWIPP same as FAST_MODE",
                     "110010001010000010000100010111001001100111101011001110100001010000100001100010010000110011001000101"
                     "111010001011110111001110100110010111100001101001001110110100111000001001011111101001100011101000101"
                     "111011001011101010111111000100001001101111101001101110110001111101000101001000000101111011101100101"
@@ -1688,7 +1756,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110111001011101100011100010101001111100001101000100110111001100111010001111011000110100011011100101"
                     "110111101010111101000000100111011111100101001000110110101101001110000001011100010011000011011110101"
                 },
-        /* 87*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "\177\177\177abcdef12345", 0, 6, 99, 1, "Byte & Text & Numeric Compaction",
+        /* 87*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "\177\177\177abcdef12345", 0, 6, 99, 1, 1, "Byte & Text & Numeric Compaction",
                     "110010001010000010000100010101000001001000001011001110101000001001000001010000010010000011001000101"
                     "111010001010111111010110000110000010111001001001001110111101011100111001110100111001100011101000101"
                     "111011001010110100000111000111110101111011001001101110101000100000111101101101000001111011101100101"
@@ -1696,7 +1764,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110111001011001011101000000101001111110011101000100110111010111101110001111101110011001011011100101"
                     "110111101010011100110011100110100011111101001000110110100110100000111001100100100111110011011110101"
                 },
-        /* 88*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "\177\177\177abcd123456789", 0, 6, 99, 0, "Byte & Text & Numeric Compaction; BWIPP same as FAST_MODE",
+        /* 88*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "\177\177\177abcd123456789", 0, 6, 99, 0, 1, "Byte & Text & Numeric Compaction; BWIPP same as FAST_MODE",
                     "110010001010000010000100010111001001100111101011001110100001010000100001100010010000110011001000101"
                     "111010001011110111001110100110010111100001101001001110110100111000001001011111101001100011101000101"
                     "111011001011101010111111000100001001101111101001101110110001111101000101001000000101111011101100101"
@@ -1704,7 +1772,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110111001011101100011100010101001111100001101000100110111001100111010001111011000110100011011100101"
                     "110111101010111101000000100111011111100101001000110110101101001110000001011100010011000011011110101"
                 },
-        /* 89*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "\177\177\177abcdefgh1234567890123", 0, 8, 99, 1, "Byte & Text & Numeric Compaction",
+        /* 89*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "\177\177\177abcdefgh1234567890123", 0, 8, 99, 1, 1, "Byte & Text & Numeric Compaction",
                     "110011101010000010000100010101000001001000001000010110101000001001000001010000010010000011001110101"
                     "111011101010111111010110000110000010111001001000010010111101011100111001110100111001100011101110101"
                     "111001101011111001011110110101100110011110001000011010100001111000101001111110101100010011100110101"
@@ -1714,7 +1782,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110000101011000011010000100100000101101100001001100010101110111110111001111001110010110011000010101"
                     "110001101011101110111100010100100011110100001001110010100000101111000101111001010010000011000110101"
                 },
-        /* 90*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "\177\177\177abcdefgh1234567890123", 0, 8, 99, 1, "Byte(6) & Text & Numeric Compaction",
+        /* 90*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "\177\177\177abcdefgh1234567890123", 0, 8, 99, 1, 1, "Byte(6) & Text & Numeric Compaction",
                     "110011101010000010000100010101000001001000001000010110101000001001000001010000010010000011001110101"
                     "111011101010111111010110000110000010111001001000010010111101011100111001110100111001100011101110101"
                     "111001101011111001011110110101100110011110001000011010100001111000101001111110101100010011100110101"
@@ -1724,7 +1792,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110000101011000011010000100100000101101100001001100010101110111110111001111001110010110011000010101"
                     "110001101011101110111100010100100011110100001001110010100000101111000101111001010010000011000110101"
                 },
-        /* 91*/ { BARCODE_HIBC_MICPDF, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "H123ABC01234567890D", 0, 8, 99, 0, "BWIPP uses different encodation, same codeword count but zint full-pad shorter",
+        /* 91*/ { BARCODE_HIBC_MICPDF, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "H123ABC01234567890D", 0, 8, 99, 0, 1, "BWIPP uses different encodation, same codeword count but zint full-pad shorter",
                     "110011101010000110001100100100000100010010001000010110111000111010001001000001001100011011001110101"
                     "111011101011010111111011110111110001110110101000010010111101011100111001011111101001100011101110101"
                     "111001101011001010000111110100011110101000001000011010100111110001101001011011000111100011100110101"
@@ -1734,7 +1802,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110000101010110110001000000111000101100111101001100010110111101110000101100010101100000011000010101"
                     "110001101011110110000011010111100100001101101001110010101101011111100001111001000110011011000110101"
                 },
-        /* 92*/ { BARCODE_HIBC_MICPDF, -1, UNICODE_MODE, -1, 4, -1, "H123ABC01234567890D", 0, 8, 99, 0, "BWIPP uses different encodation, same codeword count but zint full-pad shorter",
+        /* 92*/ { BARCODE_HIBC_MICPDF, -1, UNICODE_MODE, -1, 4, -1, "H123ABC01234567890D", 0, 8, 99, 0, 1, "BWIPP uses different encodation, same codeword count but zint full-pad shorter",
                     "110011101010000110001100100100000100010010001000010110111000111010001001000001001100011011001110101"
                     "111011101011010111111011110111110001110110101000010010111101011100111001011111101001100011101110101"
                     "111001101011001010000111110100011110101000001000011010100111110001101001011011000111100011100110101"
@@ -1744,7 +1812,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110000101010110110001000000111000101100111101001100010110111101110000101100010101100000011000010101"
                     "110001101011110110000011010111100100001101101001110010101101011111100001111001000110011011000110101"
                 },
-        /* 93*/ { BARCODE_HIBC_MICPDF, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "/EAH783", 0, 17, 38, 1, "HIBC Provider Applications Standard (PAS) example",
+        /* 93*/ { BARCODE_HIBC_MICPDF, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "/EAH783", 0, 17, 38, 1, 1, "HIBC Provider Applications Standard (PAS) example",
                     "11001101001100011111001001011001101001"
                     "11011101001000001000100100011011101001"
                     "11011001001000100011110100011011001001"
@@ -1763,7 +1831,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11010000101101100100001111011010000101"
                     "11011000101110111000100010011011000101"
                 },
-        /* 94*/ { BARCODE_HIBC_MICPDF, -1, UNICODE_MODE, -1, 1, -1, "/EAH783", 0, 17, 38, 1, "HIBC Provider Applications Standard (PAS) example",
+        /* 94*/ { BARCODE_HIBC_MICPDF, -1, UNICODE_MODE, -1, 1, -1, "/EAH783", 0, 17, 38, 1, 1, "HIBC Provider Applications Standard (PAS) example",
                     "11001101001100011111001001011001101001"
                     "11011101001000001000100100011011101001"
                     "11011001001000100011110100011011001001"
@@ -1782,7 +1850,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11010000101101100100001111011010000101"
                     "11011000101110111000100010011011000101"
                 },
-        /* 95*/ { BARCODE_PDF417, 9, DATA_MODE, -1, -1, -1, "\342", 0, 7, 103, 1, "β",
+        /* 95*/ { BARCODE_PDF417, 9, DATA_MODE, -1, -1, -1, "\342", 0, 7, 103, 1, 9, "β",
                     "1111111101010100011111010101111100110101000110000001100011100011001011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111110101000011001011111100100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000110110010011110001100011111001001011010100011111000111111101000101001"
@@ -1791,7 +1859,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011110101111010000100011110001000101000110010111000011110101111000010111111101000101001"
                     "1111111101010100011101001110111110101110001110001001010001101100000011010011101111000111111101000101001"
                 },
-        /* 96*/ { BARCODE_PDF417, 9, DATA_MODE, -1, -1, -1, "\342", 0, 7, 103, 1, "β",
+        /* 96*/ { BARCODE_PDF417, 9, DATA_MODE, -1, -1, -1, "\342", 0, 7, 103, 1, 9, "β",
                     "1111111101010100011111010101111100110101000110000001100011100011001011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111110101000011001011111100100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000110110010011110001100011111001001011010100011111000111111101000101001"
@@ -1800,7 +1868,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011110101111010000100011110001000101000110010111000011110101111000010111111101000101001"
                     "1111111101010100011101001110111110101110001110001001010001101100000011010011101111000111111101000101001"
                 },
-        /* 97*/ { BARCODE_MICROPDF417, 9, DATA_MODE, -1, 1, -1, "\342\343", 0, 14, 38, 1, "βγ",
+        /* 97*/ { BARCODE_MICROPDF417, 9, DATA_MODE, -1, 1, -1, "\342\343", 0, 14, 38, 1, 9, "βγ",
                     "11101110101001111110010110011101110101"
                     "11100110101101010000111110011100110101"
                     "11110110101000001000010001011110110101"
@@ -1816,7 +1884,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11100101001011100101111100011100101001"
                     "11101101001101001001111100011101101001"
                 },
-        /* 98*/ { BARCODE_MICROPDF417, 9, DATA_MODE, -1, 1, -1, "\342\343", 0, 14, 38, 1, "βγ",
+        /* 98*/ { BARCODE_MICROPDF417, 9, DATA_MODE, -1, 1, -1, "\342\343", 0, 14, 38, 1, 9, "βγ",
                     "11101110101001111110010110011101110101"
                     "11100110101101010000111110011100110101"
                     "11110110101000001000010001011110110101"
@@ -1832,7 +1900,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11100101001011100101111100011100101001"
                     "11101101001101001001111100011101101001"
                 },
-        /* 99*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "12345678", 0, 11, 38, 1, "1 columns x 11 rows, variant 1",
+        /* 99*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "12345678", 0, 11, 38, 1, 1, "1 columns x 11 rows, variant 1",
                     "11001000101001111011110100011100110101"
                     "11101000101110100011000001011110110101"
                     "11101100101000011010011100011110010101"
@@ -1845,7 +1913,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11110110101001000001000010011110101101"
                     "11110010101110001001110110011110101001"
                 },
-        /*100*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "12345678", 0, 11, 38, 1, "1 columns x 11 rows, variant 1",
+        /*100*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "12345678", 0, 11, 38, 1, 1, "1 columns x 11 rows, variant 1",
                     "11001000101001111011110100011100110101"
                     "11101000101110100011000001011110110101"
                     "11101100101000011010011100011110010101"
@@ -1858,7 +1926,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11110110101001000001000010011110101101"
                     "11110010101110001001110110011110101001"
                 },
-        /*101*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "123456789012345678901234567890", 0, 20, 38, 1, "1 columns x 20 rows, variant 4",
+        /*101*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "123456789012345678901234567890", 0, 20, 38, 1, 1, "1 columns x 20 rows, variant 4",
                     "11110101001001111011110100011110101001"
                     "11100101001111101010011000011100101001"
                     "11101101001111110010011001011101101001"
@@ -1880,7 +1948,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11011101001011110111101000011011101001"
                     "11011001001010001111000010011011001001"
                 },
-        /*102*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "123456789012345678901234567890", 0, 20, 38, 1, "1 columns x 20 rows, variant 4",
+        /*102*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "123456789012345678901234567890", 0, 20, 38, 1, 1, "1 columns x 20 rows, variant 4",
                     "11110101001001111011110100011110101001"
                     "11100101001111101010011000011100101001"
                     "11101101001111110010011001011101101001"
@@ -1902,7 +1970,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11011101001011110111101000011011101001"
                     "11011001001010001111000010011011001001"
                 },
-        /*103*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "1234567890123456789012345678901234567890", 0, 24, 38, 1, "1 columns x 24 rows, variant 5",
+        /*103*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "1234567890123456789012345678901234567890", 0, 24, 38, 1, 1, "1 columns x 24 rows, variant 5",
                     "11100110101000011110001010011110100101"
                     "11110110101101001000011000011110101101"
                     "11110010101101000011100010011110101001"
@@ -1928,7 +1996,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11001101101000101101100000011011001101"
                     "11101101101111000010010010011011011101"
                 },
-        /*104*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "1234567890123456789012345678901234567890", 0, 24, 38, 1, "1 columns x 24 rows, variant 5",
+        /*104*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "1234567890123456789012345678901234567890", 0, 24, 38, 1, 1, "1 columns x 24 rows, variant 5",
                     "11100110101000011110001010011110100101"
                     "11110110101101001000011000011110101101"
                     "11110010101101000011100010011110101001"
@@ -1954,7 +2022,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11001101101000101101100000011011001101"
                     "11101101101111000010010010011011011101"
                 },
-        /*105*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "12345678901234567890123456789012345678901234567890", 0, 28, 38, 1, "1 columns x 28 rows, variant 6",
+        /*105*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 1, -1, "12345678901234567890123456789012345678901234567890", 0, 28, 38, 1, 1, "1 columns x 28 rows, variant 6",
                     "11101011001001111011110100011100101101"
                     "11101010001100010111110111011000101101"
                     "11001010001110100111110001011000101001"
@@ -1984,7 +2052,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11010000101001111001100110011001110101"
                     "11011000101110101011100000011101110101"
                 },
-        /*106*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "12345678901234567890123456789012345678901234567890", 0, 28, 38, 1, "1 columns x 28 rows, variant 6",
+        /*106*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 1, -1, "12345678901234567890123456789012345678901234567890", 0, 28, 38, 1, 1, "1 columns x 28 rows, variant 6",
                     "11101011001001111011110100011100101101"
                     "11101010001100010111110111011000101101"
                     "11001010001110100111110001011000101001"
@@ -2014,7 +2082,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11010000101001111001100110011001110101"
                     "11011000101110101011100000011101110101"
                 },
-        /*107*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTU", 0, 11, 55, 1, "2 columns x 11 rows, variant 8",
+        /*107*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTU", 0, 11, 55, 1, 1, "2 columns x 11 rows, variant 8",
                     "1100100010100001100011001001111010101111000011100110101"
                     "1110100010110101111110111101111101000100110011110110101"
                     "1110110010101101100111100001011001110011111011110010101"
@@ -2027,7 +2095,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111011010111000110100001101000101110111000011110101101"
                     "1111001010110001011100000101000100011110001011110101001"
                 },
-        /*108*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTU", 0, 11, 55, 1, "2 columns x 11 rows, variant 8",
+        /*108*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTU", 0, 11, 55, 1, 1, "2 columns x 11 rows, variant 8",
                     "1100100010100001100011001001111010101111000011100110101"
                     "1110100010110101111110111101111101000100110011110110101"
                     "1110110010101101100111100001011001110011111011110010101"
@@ -2040,7 +2108,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111011010111000110100001101000101110111000011110101101"
                     "1111001010110001011100000101000100011110001011110101001"
                 },
-        /*109*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZA", 0, 14, 55, 1, "2 columns x 14 rows, variant 9",
+        /*109*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZA", 0, 14, 55, 1, 1, "2 columns x 14 rows, variant 9",
                     "1110111010101111110101100001111110101011100011101110101"
                     "1110011010101001100111110001010000010001111011100110101"
                     "1111011010111101101000011101100100010011000011110110101"
@@ -2056,7 +2124,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1110010100101111100110111101110110011110011011100101001"
                     "1110110100100000011010111001100111101000011011101101001"
                 },
-        /*110*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZA", 0, 14, 55, 1, "2 columns x 14 rows, variant 9",
+        /*110*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZA", 0, 14, 55, 1, 1, "2 columns x 14 rows, variant 9",
                     "1110111010101111110101100001111110101011100011101110101"
                     "1110011010101001100111110001010000010001111011100110101"
                     "1111011010111101101000011101100100010011000011110110101"
@@ -2072,7 +2140,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1110010100101111100110111101110110011110011011100101001"
                     "1110110100100000011010111001100111101000011011101101001"
                 },
-        /*111*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKL", 0, 17, 55, 1, "2 columns x 17 rows, variant 10",
+        /*111*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKL", 0, 17, 55, 1, 1, "2 columns x 17 rows, variant 10",
                     "1100110100110001111100100101110101011111100011001101001"
                     "1101110100101001110011100001101000001011000011011101001"
                     "1101100100101000011111001101001011110010000011011001001"
@@ -2091,7 +2159,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000010101110011101111001010010011110000011010000101"
                     "1101100010100101111101111101000110000011010011011000101"
                 },
-        /*112*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKL", 0, 17, 55, 1, "2 columns x 17 rows, variant 10",
+        /*112*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKL", 0, 17, 55, 1, 1, "2 columns x 17 rows, variant 10",
                     "1100110100110001111100100101110101011111100011001101001"
                     "1101110100101001110011100001101000001011000011011101001"
                     "1101100100101000011111001101001011110010000011011001001"
@@ -2110,7 +2178,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000010101110011101111001010010011110000011010000101"
                     "1101100010100101111101111101000110000011010011011000101"
                 },
-        /*113*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFG", 0, 23, 55, 1, "2 columns x 23 rows, variant 12",
+        /*113*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFG", 0, 23, 55, 1, 1, "2 columns x 23 rows, variant 12",
                     "1110011010110001111100100101110101011111100011110100101"
                     "1111011010101001110011100001101000001011000011110101101"
                     "1111001010101000011111001101001011110010000011110101001"
@@ -2135,7 +2203,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100100110101100011011110001111101101111010011011001001"
                     "1100110110100001000010000101100010001000011011011001101"
                 },
-        /*114*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFG", 0, 23, 55, 1, "2 columns x 23 rows, variant 12",
+        /*114*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFG", 0, 23, 55, 1, 1, "2 columns x 23 rows, variant 12",
                     "1110011010110001111100100101110101011111100011110100101"
                     "1111011010101001110011100001101000001011000011110101101"
                     "1111001010101000011111001101001011110010000011110101001"
@@ -2160,7 +2228,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100100110101100011011110001111101101111010011011001001"
                     "1100110110100001000010000101100010001000011011011001101"
                 },
-        /*115*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQ", 0, 26, 55, 1, "2 columns x 26 rows, variant 13",
+        /*115*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQ", 0, 26, 55, 1, 1, "2 columns x 26 rows, variant 13",
                     "1100101000110001111100100101110101011111100011000101001"
                     "1100101100101001110011100001101000001011000011001101001"
                     "1100101110101000011111001101001011110010000011011101001"
@@ -2188,7 +2256,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000010100010111011111101010100011110000011001110101"
                     "1101100010110001000001011001110101000111000011101110101"
                 },
-        /*116*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQ", 0, 26, 55, 1, "2 columns x 26 rows, variant 13",
+        /*116*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 2, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQ", 0, 26, 55, 1, 1, "2 columns x 26 rows, variant 13",
                     "1100101000110001111100100101110101011111100011000101001"
                     "1100101100101001110011100001101000001011000011001101001"
                     "1100101110101000011111001101001011110010000011011101001"
@@ -2216,7 +2284,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000010100010111011111101010100011110000011001110101"
                     "1101100010110001000001011001110101000111000011101110101"
                 },
-        /*117*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJ", 0, 6, 82, 1, "3 columns x 6 rows, variant 14",
+        /*117*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJ", 0, 6, 82, 1, 1, "3 columns x 6 rows, variant 14",
                     "1100100010100001100011001001011001110111101010111100001010011100111000011001000101"
                     "1110100010111110100010011001001001110101000011111001101001011110010000011101000101"
                     "1110110010110100010001111101001101110110000101001111101001000100111100011101100101"
@@ -2224,7 +2292,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101110010111010011110011101000100110111011100111100101110100111001100011011100101"
                     "1101111010100001111010000101000110110100110100000011101100100111111001011011110101"
                 },
-        /*118*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJ", 0, 6, 82, 1, "3 columns x 6 rows, variant 14",
+        /*118*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJ", 0, 6, 82, 1, 1, "3 columns x 6 rows, variant 14",
                     "1100100010100001100011001001011001110111101010111100001010011100111000011001000101"
                     "1110100010111110100010011001001001110101000011111001101001011110010000011101000101"
                     "1110110010110100010001111101001101110110000101001111101001000100111100011101100101"
@@ -2232,7 +2300,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101110010111010011110011101000100110111011100111100101110100111001100011011100101"
                     "1101111010100001111010000101000110110100110100000011101100100111111001011011110101"
                 },
-        /*119*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTU", 0, 10, 82, 1, "3 columns x 10 rows, variant 16",
+        /*119*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTU", 0, 10, 82, 1, 1, "3 columns x 10 rows, variant 16",
                     "1100010010110001111100100101001111010111010101111110001010011001111100011000100101"
                     "1110010010110100000101100001011111010111101101000011101100100010011000011100100101"
                     "1111010010111011011110011001011110010110110011110010001110010000011010011110100101"
@@ -2244,7 +2312,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1110100110101011111001100001001000110101110010011111001111101100101000011101001101"
                     "1110101110110111101100111001001000010110111110000101001001110001101110011101011101"
                 },
-        /*120*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTU", 0, 10, 82, 1, "3 columns x 10 rows, variant 16",
+        /*120*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTU", 0, 10, 82, 1, 1, "3 columns x 10 rows, variant 16",
                     "1100010010110001111100100101001111010111010101111110001010011001111100011000100101"
                     "1110010010110100000101100001011111010111101101000011101100100010011000011100100101"
                     "1111010010111011011110011001011110010110110011110010001110010000011010011110100101"
@@ -2256,7 +2324,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1110100110101011111001100001001000110101110010011111001111101100101000011101001101"
                     "1110101110110111101100111001001000010110111110000101001001110001101110011101011101"
                 },
-        /*121*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 12, 82, 1, "3 columns x 12 rows, variant 17",
+        /*121*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 12, 82, 1, 1, "3 columns x 12 rows, variant 17",
                     "1110101100100001100011001001011000010111101010111100001010011100111000011101011001"
                     "1110101000111110100010011001011100010101000011111001101001011110010000011101010001"
                     "1100101000111100010111101001011100110110111011001111001001100001000111011001010001"
@@ -2270,7 +2338,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100010100111101100011000101011001000110110001111000101100011001111001011000101001"
                     "1100110100101010000011110001011001100111001111101011001111010111100010011001101001"
                 },
-        /*122*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 12, 82, 1, "3 columns x 12 rows, variant 17",
+        /*122*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 12, 82, 1, 1, "3 columns x 12 rows, variant 17",
                     "1110101100100001100011001001011000010111101010111100001010011100111000011101011001"
                     "1110101000111110100010011001011100010101000011111001101001011110010000011101010001"
                     "1100101000111100010111101001011100110110111011001111001001100001000111011001010001"
@@ -2284,7 +2352,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1100010100111101100011000101011001000110110001111000101100011001111001011000101001"
                     "1100110100101010000011110001011001100111001111101011001111010111100010011001101001"
                 },
-        /*123*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", 0, 15, 82, 1, "3 columns x 15 rows, variant 18",
+        /*123*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", 0, 15, 82, 1, 1, "3 columns x 15 rows, variant 18",
                     "1101110100100001100011001001011000100111101010111100001010011100111000011011101001"
                     "1101100100111110100010011001011000110101000011111001101001011110010000011011001001"
                     "1101100110111100010111101001010000110110111011001111001001100001000111011011001101"
@@ -2301,7 +2369,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000110111110101101110001001011100101111110101100001111100110100001011010001101"
                     "1101000010111011101011110001011011100100011100000101101011000110001111011010000101"
                 },
-        /*124*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", 0, 15, 82, 1, "3 columns x 15 rows, variant 18",
+        /*124*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", 0, 15, 82, 1, 1, "3 columns x 15 rows, variant 18",
                     "1101110100100001100011001001011000100111101010111100001010011100111000011011101001"
                     "1101100100111110100010011001011000110101000011111001101001011110010000011011001001"
                     "1101100110111100010111101001010000110110111011001111001001100001000111011011001101"
@@ -2318,7 +2386,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000110111110101101110001001011100101111110101100001111100110100001011010001101"
                     "1101000010111011101011110001011011100100011100000101101011000110001111011010000101"
                 },
-        /*125*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", 0, 26, 82, 1, "3 columns x 26 rows, variant 20",
+        /*125*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", 0, 26, 82, 1, 1, "3 columns x 26 rows, variant 20",
                     "1100100010100001100011001001000011010111101010111100001010011100111000011110100101"
                     "1110100010111110100010011001000111010101000011111001101001011110010000011110101101"
                     "1110110010111100010111101001000110010110111011001111001001100001000111011110101001"
@@ -2346,7 +2414,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1110101100100110011010000001001101000111011110001100101100110000100100011011011001"
                     "1110101000111100010100100001011101000101111101001110001111100100010011011011010001"
                 },
-        /*126*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", 0, 26, 82, 1, "3 columns x 26 rows, variant 20",
+        /*126*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRST", 0, 26, 82, 1, 1, "3 columns x 26 rows, variant 20",
                     "1100100010100001100011001001000011010111101010111100001010011100111000011110100101"
                     "1110100010111110100010011001000111010101000011111001101001011110010000011110101101"
                     "1110110010111100010111101001000110010110111011001111001001100001000111011110101001"
@@ -2374,7 +2442,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1110101100100110011010000001001101000111011110001100101100110000100100011011011001"
                     "1110101000111100010100100001011101000101111101001110001111100100010011011011010001"
                 },
-        /*127*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 82, 1, "3 columns x 26 rows, variant 20",
+        /*127*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 82, 1, 1, "3 columns x 26 rows, variant 20",
                     "1110110100110001111100100101011101100111010101111110001010011001111100011011101001"
                     "1110100100110100000101100001001101100111101101000011101100100010011000011011001001"
                     "1110100110111011011110011001000101100110110011110010001110010000011010011011001101"
@@ -2408,7 +2476,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000010110010100001111101000010110100111100110011001111010000111101011000100101"
                     "1101100010101110011101000001000010010110000100010001101110001101000011011100100101"
                 },
-        /*128*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 82, 1, "3 columns x 26 rows, variant 20",
+        /*128*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 82, 1, 1, "3 columns x 26 rows, variant 20",
                     "1110110100110001111100100101011101100111010101111110001010011001111100011011101001"
                     "1110100100110100000101100001001101100111101101000011101100100010011000011011001001"
                     "1110100110111011011110011001000101100110110011110010001110010000011010011011001101"
@@ -2442,7 +2510,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000010110010100001111101000010110100111100110011001111010000111101011000100101"
                     "1101100010101110011101000001000010010110000100010001101110001101000011011100100101"
                 },
-        /*129*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 38, 82, 1, "3 columns x 38 rows, variant 22",
+        /*129*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 38, 82, 1, 1, "3 columns x 38 rows, variant 22",
                     "1100010010110001111100100101000101100111010101111110001010011001111100011010011101"
                     "1110010010110100000101100001000101000111101101000011101100100010011000011010011001"
                     "1111010010111011011110011001001101000110110011110010001110010000011010011010001001"
@@ -2482,7 +2550,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000010110100101111100001001111010101000000100111101011101111011111011001101101"
                     "1101100010111011101100001101011111010100000101000010001011110111100010011101101101"
                 },
-        /*130*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 38, 82, 1, "3 columns x 38 rows, variant 22",
+        /*130*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 38, 82, 1, 1, "3 columns x 38 rows, variant 22",
                     "1100010010110001111100100101000101100111010101111110001010011001111100011010011101"
                     "1110010010110100000101100001000101000111101101000011101100100010011000011010011001"
                     "1111010010111011011110011001001101000110110011110010001110010000011010011010001001"
@@ -2522,7 +2590,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101000010110100101111100001001111010101000000100111101011101111011111011001101101"
                     "1101100010111011101100001101011111010100000101000010001011110111100010011101101101"
                 },
-        /*131*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 44, 82, 1, "3 columns x 44 rows, variant 23",
+        /*131*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 44, 82, 1, 1, "3 columns x 44 rows, variant 23",
                     "1100100010100001100011001001011000010111101010111100001010011100111000011010001001"
                     "1110100010111110100010011001011100010101000011111001101001011110010000011010001101"
                     "1110110010111100010111101001011100110110111011001111001001100001000111011010000101"
@@ -2568,7 +2636,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101001000111000100010011101001111010110000010010011001111011101000110011011001101"
                     "1101011000100100011111011001011111010111011100111100101001011110100000011011011101"
                 },
-        /*132*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 44, 82, 1, "3 columns x 44 rows, variant 23",
+        /*132*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 3, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 44, 82, 1, 1, "3 columns x 44 rows, variant 23",
                     "1100100010100001100011001001011000010111101010111100001010011100111000011010001001"
                     "1110100010111110100010011001011100010101000011111001101001011110010000011010001101"
                     "1110110010111100010111101001011100110110111011001111001001100001000111011010000101"
@@ -2614,19 +2682,19 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1101001000111000100010011101001111010110000010010011001111011101000110011011001101"
                     "1101011000100100011111011001011111010111011100111100101001011110100000011011011101"
                 },
-        /*133*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFG", 0, 4, 99, 1, "4 columns x 4 rows, variant 24",
+        /*133*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFG", 0, 4, 99, 1, 1, "4 columns x 4 rows, variant 24",
                     "110100111010111111010110000111111010101110001001110110110101111110111101111101000100110011010010001"
                     "110100110011111001001110010110001111100100101001110100110001111100100101100011111001001011010110001"
                     "110100010011000110100010000101101111101111001001100100110100110000111001110011100101000011010111001"
                     "110100011011111011001001000110100111000010001001100110101011111101110001110110111100110011010111101"
                 },
-        /*134*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFG", 0, 4, 99, 1, "4 columns x 4 rows, variant 24",
+        /*134*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFG", 0, 4, 99, 1, 1, "4 columns x 4 rows, variant 24",
                     "110100111010111111010110000111111010101110001001110110110101111110111101111101000100110011010010001"
                     "110100110011111001001110010110001111100100101001110100110001111100100101100011111001001011010110001"
                     "110100010011000110100010000101101111101111001001100100110100110000111001110011100101000011010111001"
                     "110100011011111011001001000110100111000010001001100110101011111101110001110110111100110011010111101"
                 },
-        /*135*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRS", 0, 6, 99, 1, "4 columns x 6 rows, variant 25",
+        /*135*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRS", 0, 6, 99, 1, 1, "4 columns x 6 rows, variant 25",
                     "110010001010000110001100100111101010111100001011001110101001110011100001101000001011000011001000101"
                     "111010001010100001111100110100101111001000001001001110111011011110011001101100111100100011101000101"
                     "111011001010011000010001110110011101000011101001101110101111001000000101100011111001001011101100101"
@@ -2634,7 +2702,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110111001011000110011110010101101111100001001000100110111110001010110001111101100010001011011100101"
                     "110111101010001110110001110100000100101111001000110110110111100000101101111000101111001011011110101"
                 },
-        /*136*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRS", 0, 6, 99, 1, "4 columns x 6 rows, variant 25",
+        /*136*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRS", 0, 6, 99, 1, 1, "4 columns x 6 rows, variant 25",
                     "110010001010000110001100100111101010111100001011001110101001110011100001101000001011000011001000101"
                     "111010001010100001111100110100101111001000001001001110111011011110011001101100111100100011101000101"
                     "111011001010011000010001110110011101000011101001101110101111001000000101100011111001001011101100101"
@@ -2642,7 +2710,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110111001011000110011110010101101111100001001000100110111110001010110001111101100010001011011100101"
                     "110111101010001110110001110100000100101111001000110110110111100000101101111000101111001011011110101"
                 },
-        /*137*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJK", 0, 10, 99, 1, "4 columns x 10 rows, variant 27",
+        /*137*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJK", 0, 10, 99, 1, 1, "4 columns x 10 rows, variant 27",
                     "110001001011000111110010010111010101111110001001111010101001100111110001010000010001111011000100101"
                     "111001001011110110100001110110010001001100001011111010110010000110111001110001011001111011100100101"
                     "111101001011100100000110100100110101111110001011110010100110010111111001111101110011001011110100101"
@@ -2654,7 +2722,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111010011011101100000111010110111111010111001001000110100010011111011001111010110000110011101001101"
                     "111010111011001111110110010100011101000011001001000010101111100110010001011100001100111011101011101"
                 },
-        /*138*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJK", 0, 10, 99, 1, "4 columns x 10 rows, variant 27",
+        /*138*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJK", 0, 10, 99, 1, 1, "4 columns x 10 rows, variant 27",
                     "110001001011000111110010010111010101111110001001111010101001100111110001010000010001111011000100101"
                     "111001001011110110100001110110010001001100001011111010110010000110111001110001011001111011100100101"
                     "111101001011100100000110100100110101111110001011110010100110010111111001111101110011001011110100101"
@@ -2666,7 +2734,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111010011011101100000111010110111111010111001001000110100010011111011001111010110000110011101001101"
                     "111010111011001111110110010100011101000011001001000010101111100110010001011100001100111011101011101"
                 },
-        /*139*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 12, 99, 1, "4 columns x 12 rows, variant 28",
+        /*139*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 12, 99, 1, 1, "4 columns x 12 rows, variant 28",
                     "111010110010000110001100100111101010111100001011000010101001110011100001101000001011000011101011001"
                     "111010100010100001111100110100101111001000001011100010111011011110011001101100111100100011101010001"
                     "110010100010011000010001110110011101000011101011100110110111100101100001000001010111100011001010001"
@@ -2680,7 +2748,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110001010010001111001011110111101101100010001011001000111100111011101001111001100011001011000101001"
                     "110011010011101111110100100101011100111111001011001100100001111000101001001111101110110011001101001"
                 },
-        /*140*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 12, 99, 1, "4 columns x 12 rows, variant 28",
+        /*140*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD", 0, 12, 99, 1, 1, "4 columns x 12 rows, variant 28",
                     "111010110010000110001100100111101010111100001011000010101001110011100001101000001011000011101011001"
                     "111010100010100001111100110100101111001000001011100010111011011110011001101100111100100011101010001"
                     "110010100010011000010001110110011101000011101011100110110111100101100001000001010111100011001010001"
@@ -2694,7 +2762,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110001010010001111001011110111101101100010001011001000111100111011101001111001100011001011000101001"
                     "110011010011101111110100100101011100111111001011001100100001111000101001001111101110110011001101001"
                 },
-        /*141*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", 0, 15, 99, 1, "4 columns x 15 rows, variant 29",
+        /*141*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", 0, 15, 99, 1, 1, "4 columns x 15 rows, variant 29",
                     "110111010010000110001100100111101010111100001011000100101001110011100001101000001011000011011101001"
                     "110110010010100001111100110100101111001000001011000110111011011110011001101100111100100011011001001"
                     "110110011010011000010001110110011101000011101010000110110111100101100001000001010111100011011001101"
@@ -2711,7 +2779,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110100011010111010000111110110001000111001001001011100111101100000110101100100011101000011010001101"
                     "110100001010011110100100000100111110011010001011011100111011111101001001011101100011100011010000101"
                 },
-        /*142*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", 0, 15, 99, 1, "4 columns x 15 rows, variant 29",
+        /*142*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI", 0, 15, 99, 1, 1, "4 columns x 15 rows, variant 29",
                     "110111010010000110001100100111101010111100001011000100101001110011100001101000001011000011011101001"
                     "110110010010100001111100110100101111001000001011000110111011011110011001101100111100100011011001001"
                     "110110011010011000010001110110011101000011101010000110110111100101100001000001010111100011011001101"
@@ -2728,7 +2796,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110100011010111010000111110110001000111001001001011100111101100000110101100100011101000011010001101"
                     "110100001010011110100100000100111110011010001011011100111011111101001001011101100011100011010000101"
                 },
-        /*143*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 20, 99, 1, "4 columns x 20 rows, variant 30",
+        /*143*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 20, 99, 1, 1, "4 columns x 20 rows, variant 30",
                     "110010001010000110001100100111101010111100001011110010101001110011100001101000001011000011100101101"
                     "111010001010100001111100110100101111001000001011110110111011011110011001101100111100100011000101101"
                     "111011001010011000010001110110011101000011101001110110110111100101100001000001010111100011000101001"
@@ -2750,7 +2818,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111101010011001100001010000100010001000000101011001000100001100110100001110111001000100011010000101"
                     "111001010011100101100100000111000110111000101011001100111110010010001101110001011101100011011000101"
                 },
-        /*144*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 20, 99, 1, "4 columns x 20 rows, variant 30",
+        /*144*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 20, 99, 1, 1, "4 columns x 20 rows, variant 30",
                     "110010001010000110001100100111101010111100001011110010101001110011100001101000001011000011100101101"
                     "111010001010100001111100110100101111001000001011110110111011011110011001101100111100100011000101101"
                     "111011001010011000010001110110011101000011101001110110110111100101100001000001010111100011000101001"
@@ -2772,7 +2840,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111101010011001100001010000100010001000000101011001000100001100110100001110111001000100011010000101"
                     "111001010011100101100100000111000110111000101011001100111110010010001101110001011101100011011000101"
                 },
-        /*145*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 26, 99, 1, "4 columns x 26 rows, variant 31",
+        /*145*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 26, 99, 1, 1, "4 columns x 26 rows, variant 31",
                     "110010001010000110001100100111101010111100001000011010101001110011100001101000001011000011110100101"
                     "111010001010100001111100110100101111001000001000111010111011011110011001101100111100100011110101101"
                     "111011001010011000010001110110011101000011101000110010110111100101100001000001010111100011110101001"
@@ -2800,7 +2868,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111010110011000110000100100100100001001000001001101000100000100011001101000011001100001011011011001"
                     "111010100011110100010010000111000001101110101011101000111001001110011001101111101001111011011010001"
                 },
-        /*146*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 26, 99, 1, "4 columns x 26 rows, variant 31",
+        /*146*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 26, 99, 1, 1, "4 columns x 26 rows, variant 31",
                     "110010001010000110001100100111101010111100001000011010101001110011100001101000001011000011110100101"
                     "111010001010100001111100110100101111001000001000111010111011011110011001101100111100100011110101101"
                     "111011001010011000010001110110011101000011101000110010110111100101100001000001010111100011110101001"
@@ -2828,7 +2896,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111010110011000110000100100100100001001000001001101000100000100011001101000011001100001011011011001"
                     "111010100011110100010010000111000001101110101011101000111001001110011001101111101001111011011010001"
                 },
-        /*147*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 99, 1, "4 columns x 32 rows, variant 32",
+        /*147*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 99, 1, 1, "4 columns x 32 rows, variant 32",
                     "111011010011000111110010010111010101111110001011101100101001100111110001010000010001111011011101001"
                     "111010010011110110100001110110010001001100001001101100110010000110111001110001011001111011011001001"
                     "111010011011100100000110100100110101111110001000101100100110010111111001111101110011001011011001101"
@@ -2862,7 +2930,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110100001010110000100001110101110000011011101000010110101110000010110001101111110011010011000100101"
                     "110110001010010000001001000110011101100001001000010010111110010101111101110001000100111011100100101"
                 },
-        /*148*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 99, 1, "4 columns x 32 rows, variant 32",
+        /*148*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 32, 99, 1, 1, "4 columns x 32 rows, variant 32",
                     "111011010011000111110010010111010101111110001011101100101001100111110001010000010001111011011101001"
                     "111010010011110110100001110110010001001100001001101100110010000110111001110001011001111011011001001"
                     "111010011011100100000110100100110101111110001000101100100110010111111001111101110011001011011001101"
@@ -2896,7 +2964,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110100001010110000100001110101110000011011101000010110101110000010110001101111110011010011000100101"
                     "110110001010010000001001000110011101100001001000010010111110010101111101110001000100111011100100101"
                 },
-        /*149*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 38, 99, 1, "4 columns x 38 rows, variant 33",
+        /*149*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 38, 99, 1, 1, "4 columns x 38 rows, variant 33",
                     "110001001011000111110010010111010101111110001000101100101001100111110001010000010001111011010011101"
                     "111001001011110110100001110110010001001100001000101000110010000110111001110001011001111011010011001"
                     "111101001011100100000110100100110101111110001001101000100110010111111001111101110011001011010001001"
@@ -2936,7 +3004,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110100001011001111001011000110011111010001001001111010100100101111000001011100000100011011001101101"
                     "110110001011011101111001110111101101100111101011111010110100011001110001100110100001000011101101101"
                 },
-        /*150*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 38, 99, 1, "4 columns x 38 rows, variant 33",
+        /*150*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 38, 99, 1, 1, "4 columns x 38 rows, variant 33",
                     "110001001011000111110010010111010101111110001000101100101001100111110001010000010001111011010011101"
                     "111001001011110110100001110110010001001100001000101000110010000110111001110001011001111011010011001"
                     "111101001011100100000110100100110101111110001001101000100110010111111001111101110011001011010001001"
@@ -2976,7 +3044,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110100001011001111001011000110011111010001001001111010100100101111000001011100000100011011001101101"
                     "110110001011011101111001110111101101100111101011111010110100011001110001100110100001000011101101101"
                 },
-        /*151*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 44, 99, 1, "4 columns x 44 rows, variant 34",
+        /*151*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE | FAST_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 44, 99, 1, 1, "4 columns x 44 rows, variant 34",
                     "110010001010000110001100100111101010111100001011000010101001110011100001101000001011000011010001001"
                     "111010001010100001111100110100101111001000001011100010111011011110011001101100111100100011010001101"
                     "111011001010011000010001110110011101000011101011100110110111100101100001000001010111100011010000101"
@@ -3022,7 +3090,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110100100011100011101100110111010111001111101001111010100001000110110001110100110111100011011001101"
                     "110101100011001000011101000111110100101100001011111010110101111101110001101101111010000011011011101"
                 },
-        /*152*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 44, 99, 1, "4 columns x 44 rows, variant 34",
+        /*152*/ { BARCODE_MICROPDF417, -1, UNICODE_MODE, -1, 4, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 44, 99, 1, 1, "4 columns x 44 rows, variant 34",
                     "110010001010000110001100100111101010111100001011000010101001110011100001101000001011000011010001001"
                     "111010001010100001111100110100101111001000001011100010111011011110011001101100111100100011010001101"
                     "111011001010011000010001110110011101000011101011100110110111100101100001000001010111100011010000101"
@@ -3068,7 +3136,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "110100100011100011101100110111010111001111101001111010100001000110110001110100110111100011011001101"
                     "110101100011001000011101000111110100101100001011111010110101111101110001101101111010000011011011101"
                 },
-        /*153*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "123\035", 0, 7, 103, 1, "MR #151 NUM BYTE1",
+        /*153*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "123\035", 0, 7, 103, 1, 1, "MR #151 NUM BYTE1",
                     "1111111101010100011111010101111100110101000110000001000001000010001011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111010111100011101010111100001000011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101001001111000001010111000111111011010100011111000111111101000101001"
@@ -3077,7 +3145,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011110101111010000110001100101111001000111100010010011110101111000010111111101000101001"
                     "1111111101010100011101001110111110100100001100001101100011000010100011010011101111000111111101000101001"
                 },
-        /*154*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "123\035", 0, 7, 103, 0, "MR #151 NUM BYTE1; BWIPP same as FAST_MODE",
+        /*154*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "123\035", 0, 7, 103, 0, 1, "MR #151 NUM BYTE1; BWIPP same as FAST_MODE",
                     "1111111101010100011111010101111100110101000110000001000001001100011011110101011110000111111101000101001"
                     "1111111101010100011111010100011000110101111110111101011111100100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101011100011111101100011111001001011010100011111000111111101000101001"
@@ -3086,7 +3154,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011110101111010000111110010011101001011101001100000011110101111000010111111101000101001"
                     "1111111101010100011101001110111110100110001100000101110111101101000011010011101111000111111101000101001"
                 },
-        /*155*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "+123456789012", 0, 8, 103, 1, "",
+        /*155*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "+123456789012", 0, 8, 103, 1, 1, "",
                     "1111111101010100011111010101111100110101000011000001000001000100100011110101011110000111111101000101001"
                     "1111111101010100011111101010001110111101011100111001110100111001100011110101001000000111111101000101001"
                     "1111111101010100011101010111111000111110010111101101110010011111001011101010001111110111111101000101001"
@@ -3096,7 +3164,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110110000110110110001001101111101111011010011101111000111111101000101001"
                     "1111111101010100011111010010110000111111011101101101111110100010111010101111110111000111111101000101001"
                 },
-        /*156*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "+123456789012", 0, 8, 103, 1, "",
+        /*156*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "+123456789012", 0, 8, 103, 1, 1, "",
                     "1111111101010100011111010101111100110101000011000001000001000100100011110101011110000111111101000101001"
                     "1111111101010100011111101010001110111101011100111001110100111001100011110101001000000111111101000101001"
                     "1111111101010100011101010111111000111110010111101101110010011111001011101010001111110111111101000101001"
@@ -3106,7 +3174,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110110000110110110001001101111101111011010011101111000111111101000101001"
                     "1111111101010100011111010010110000111111011101101101111110100010111010101111110111000111111101000101001"
                 },
-        /*157*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "+1234567890123", 0, 8, 103, 0, "BWIPP different encodation",
+        /*157*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "+1234567890123", 0, 8, 103, 0, 1, "BWIPP different encodation",
                     "1111111101010100011111010101111100110101000011000001000001000100100011110101011110000111111101000101001"
                     "1111111101010100011111101010001110101111110100110001111010110011000011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101000010111100001011111101110100011101010001111110111111101000101001"
@@ -3116,7 +3184,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110110110000100001001110100100111000011010011101111000111111101000101001"
                     "1111111101010100011111010010110000100001011110000101000111110101110010101111110111000111111101000101001"
                 },
-        /*158*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "+1234567890123", 0, 8, 103, 0, "BWIPP different encodation",
+        /*158*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "+1234567890123", 0, 8, 103, 0, 1, "BWIPP different encodation",
                     "1111111101010100011111010101111100110101000011000001000001000100100011110101011110000111111101000101001"
                     "1111111101010100011111101010001110101111110100110001111010110011000011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101000010111100001011111101110100011101010001111110111111101000101001"
@@ -3126,7 +3194,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110110110000100001001110100100111000011010011101111000111111101000101001"
                     "1111111101010100011111010010110000100001011110000101000111110101110010101111110111000111111101000101001"
                 },
-        /*159*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "90044030118100801265*D_2D+1.02+31351440315981", 0, 11, 120, 0, "BWIPP different encodation",
+        /*159*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "90044030118100801265*D_2D+1.02+31351440315981", 0, 11, 120, 0, 1, "BWIPP different encodation",
                     "111111110101010001110101001110000011010111001111000100111101111010001110001010111000011111010101111100111111101000101001"
                     "111111110101010001111110101000111010011011111000100111100101010000001001001111110111011111010100110000111111101000101001"
                     "111111110101010001010100111100000010011111000011010100001100101110001100000110101111011101010001111110111111101000101001"
@@ -3139,7 +3207,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001010001100000110010001110111001000101111000111100101100110011100111010100011000011000111111101000101001"
                     "111111110101010001110100111000110010100111100001000110100000111101101101011110000011011010011100100000111111101000101001"
                 },
-        /*160*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "90044030118100801265*D_2D+1.02+31351440315981", 0, 11, 120, 0, "BWIPP different encodation",
+        /*160*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "90044030118100801265*D_2D+1.02+31351440315981", 0, 11, 120, 0, 1, "BWIPP different encodation",
                     "111111110101010001110101001110000011010111001111000100111101111010001110001010111000011111010101111100111111101000101001"
                     "111111110101010001111110101000111010011011111000100111100101010000001001001111110111011111010100110000111111101000101001"
                     "111111110101010001010100111100000010011111000011010100001100101110001100000110101111011101010001111110111111101000101001"
@@ -3152,7 +3220,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001010001100000110010011101111001100111101101011100001111010010011110010100011000011000111111101000101001"
                     "111111110101010001110100111000110011110100101000000111111011101000101101011111001110011010011100100000111111101000101001"
                 },
-        /*161*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "+C910332+02032018+KXXXX CXXXX", 0, 9, 120, 1, "",
+        /*161*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "+C910332+02032018+KXXXX CXXXX", 0, 9, 120, 1, 1, "",
                     "111111110101010001111101010111110011010110001110000100000100010010001000011011100011011111010101111100111111101000101001"
                     "111111110101010001111010100001000011000111011111010110101110010000001101001110010000011110101001000000111111101000101001"
                     "111111110101010001010100111100000011101001111100100101010011110000001101010011111000010101000011110000111111101000101001"
@@ -3163,7 +3231,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111110100101110011000101110000010110000101110010001110010000110001010101111110111000111111101000101001"
                     "111111110101010001111110100110010010000011100100110110111110001001001100010010111110011111010011101000111111101000101001"
                 },
-        /*162*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "+C910332+02032018+KXXXX CXXXX", 0, 9, 120, 1, "",
+        /*162*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "+C910332+02032018+KXXXX CXXXX", 0, 9, 120, 1, 1, "",
                     "111111110101010001111101010111110011010110001110000100000100010010001000011011100011011111010101111100111111101000101001"
                     "111111110101010001111010100001000011000111011111010110101110010000001101001110010000011110101001000000111111101000101001"
                     "111111110101010001010100111100000011101001111100100101010011110000001101010011111000010101000011110000111111101000101001"
@@ -3174,7 +3242,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111110100101110011000101110000010110000101110010001110010000110001010101111110111000111111101000101001"
                     "111111110101010001111110100110010010000011100100110110111110001001001100010010111110011111010011101000111111101000101001"
                 },
-        /*163*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "BP2D+1.00+0005+FLE ESC BV+1.00+3.60*BX2D+1.00+0001+Casual shoes & apparel+90044030118100801265*D_2D+1.02+31351440315981+C910332+02032018+KXXXX CXXXX+UNIT 4 HXXXXXXXX BUSINESS PARK++ST  ALBANS+ST  ALBANS++AL2 3TA+0001+000001+001+00000000+00++N+N+N+0000++++++N+++N*DS2D+1.01+0001+0001+90044030118100801265+++++07852389322++E*F_2D+1.00+0005*", 0, 26, 222, 0, "MR #151 NUM -> BYTE Ex. 1; BWIPP different encodation",
+        /*163*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "BP2D+1.00+0005+FLE ESC BV+1.00+3.60*BX2D+1.00+0001+Casual shoes & apparel+90044030118100801265*D_2D+1.02+31351440315981+C910332+02032018+KXXXX CXXXX+UNIT 4 HXXXXXXXX BUSINESS PARK++ST  ALBANS+ST  ALBANS++AL2 3TA+0001+000001+001+00000000+00++N+N+N+0000++++++N+++N*DS2D+1.01+0001+0001+90044030118100801265+++++07852389322++E*F_2D+1.00+0005*", 0, 26, 222, 0, 1, "MR #151 NUM -> BYTE Ex. 1; BWIPP different encodation",
                     "111111110101010001101010000110000011001001000011000111010010000111001000011011100011010000010011101110100000100010010001101001000001100011101010111000000100001010000010001110101011100000011010100001100000111111101000101001"
                     "111111110101010001111010110110000011101000011001000111000011001110101001001111100110011101111011111010100010011110000101110000100001101011001100001111010100010001111001001111100110110011011110101000010000111111101000101001"
                     "111111110101010001010100001111000011111101011000010111010001111100101011010000001110011011111010001000111010010011111101000011100001011010001111000110110110111111000110101101011111100010011010110111111000111111101000101001"
@@ -3202,7 +3270,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001101100110110000010110001111001110101011111011111001001001100110000011011000010000010110110001100110001110100100011100010011011000010000111011010000110001100010111011110011011001101100000111111101000101001"
                     "111111110101010001100101111000110010111011011111100110001011100000101110001011000010010011100010111110111001001110011001110001011001000011110101111011110101011111011000001100110011110100011100101111011100111111101000101001"
                 },
-        /*164*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "BP2D+1.00+0005+FLE ESC BV+1.00+3.60*BX2D+1.00+0001+Casual shoes & apparel+90044030118100801265*D_2D+1.02+31351440315981+C910332+02032018+KXXXX CXXXX+UNIT 4 HXXXXXXXX BUSINESS PARK++ST  ALBANS+ST  ALBANS++AL2 3TA+0001+000001+001+00000000+00++N+N+N+0000++++++N+++N*DS2D+1.01+0001+0001+90044030118100801265+++++07852389322++E*F_2D+1.00+0005*", 0, 26, 222, 0, "MR #151 NUM -> BYTE Ex. 1; BWIPP different encodation",
+        /*164*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "BP2D+1.00+0005+FLE ESC BV+1.00+3.60*BX2D+1.00+0001+Casual shoes & apparel+90044030118100801265*D_2D+1.02+31351440315981+C910332+02032018+KXXXX CXXXX+UNIT 4 HXXXXXXXX BUSINESS PARK++ST  ALBANS+ST  ALBANS++AL2 3TA+0001+000001+001+00000000+00++N+N+N+0000++++++N+++N*DS2D+1.01+0001+0001+90044030118100801265+++++07852389322++E*F_2D+1.00+0005*", 0, 26, 222, 0, 1, "MR #151 NUM -> BYTE Ex. 1; BWIPP different encodation",
                     "111111110101010001101010000110000011001001000011000111010010000111001000011011100011010000010011101110100000100010010001101001000001100011101010111000000100001010000010001110101011100000011010100001100000111111101000101001"
                     "111111110101010001111010110110000011101000011001000111000011001110101001001111100110011101111011111010100010011110000101110000100001101011001100001111010100010001111001001111100110110011011110101000010000111111101000101001"
                     "111111110101010001010100001111000011111101011000010111010001111100101011010000001110011011111010001000111010010011111101000011100001011010001111000110110110111111000110101101011111100010011010110111111000111111101000101001"
@@ -3230,7 +3298,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001101100110110000011000111011001000101100011001000001000111001111011010110001110011000110010110011100001011001111001110011101111000110010110111100111010001111101111001011011011001101100000111111101000101001"
                     "111111110101010001100101111000110011110010110011000100010001111101101110001001101000011001011110001100111101110001110101111001110111001011100010011001000111000100011001001100100111101100011100101111011100111111101000101001"
                 },
-        /*165*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "[)>\03601\0350246290\035840\03501\0355622748502010201\035FDE\035605421261\035280\035\0351/1\0350.30LB\035N\035201 West 103rd St\035Indianapolis\035IN\035Recipient Name\03606\03510ZED006\03511ZSam's Publishing\03512Z1234567890\03515Z118561\03520Z0.00\0340\03531Z1001891751060004629000562274850201\03532Z02\03534Z01\035KShipment PO10001\035\036\004", 0, 26, 222, 0, "MR #151 NUM -> BYTE Ex. 2; BWIPP different encodation",
+        /*165*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "[)>\03601\0350246290\035840\03501\0355622748502010201\035FDE\035605421261\035280\035\0351/1\0350.30LB\035N\035201 West 103rd St\035Indianapolis\035IN\035Recipient Name\03606\03510ZED006\03511ZSam's Publishing\03512Z1234567890\03515Z118561\03520Z0.00\0340\03531Z1001891751060004629000562274850201\03532Z02\03534Z01\035KShipment PO10001\035\036\004", 0, 26, 222, 0, 1, "MR #151 NUM -> BYTE Ex. 2; BWIPP different encodation",
                     "111111110101010001101010000110000011001001000011000100000100001000101001010000100000010000100011011000100010100000100001000100001110111010010001000000100101011110111100001000011000110010011010100001100000111111101000101001"
                     "111111110101010001111010110110000011111000111011010101011111100111001010000111100100010110100111111000101111110010001101111101011101111011001011100000100111110101110111101011111100100011011110101000010000111111101000101001"
                     "111111110101010001010100001111000010101110001111110111010101111110001001111110011101010101110001111110100001111000101001111110101110011011011100110011110100001001001111001010111000111111011010110111111000111111101000101001"
@@ -3258,7 +3326,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001101100110110000010011000011101100100111101111010001100011011001100011110111101001000111100110100111001101000010011000011100110010110000100100110000110001100001000001011011011001101100000111111101000101001"
                     "111111110101010001100101111000110011101000011000010100110111111011001111100011001010010100111110001100100111011011111101111110010100111011111011000010010111101011011000001110101111101111011100101111011100111111101000101001"
                 },
-        /*166*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "[)>\03601\0350246290\035840\03501\0355622748502010201\035FDE\035605421261\035280\035\0351/1\0350.30LB\035N\035201 West 103rd St\035Indianapolis\035IN\035Recipient Name\03606\03510ZED006\03511ZSam's Publishing\03512Z1234567890\03515Z118561\03520Z0.00\0340\03531Z1001891751060004629000562274850201\03532Z02\03534Z01\035KShipment PO10001\035\036\004", 0, 25, 222, 0, "MR #151 NUM -> BYTE Ex. 2; BWIPP different encodation",
+        /*166*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "[)>\03601\0350246290\035840\03501\0355622748502010201\035FDE\035605421261\035280\035\0351/1\0350.30LB\035N\035201 West 103rd St\035Indianapolis\035IN\035Recipient Name\03606\03510ZED006\03511ZSam's Publishing\03512Z1234567890\03515Z118561\03520Z0.00\0340\03531Z1001891751060004629000562274850201\03532Z02\03534Z01\035KShipment PO10001\035\036\004", 0, 25, 222, 0, 1, "MR #151 NUM -> BYTE Ex. 2; BWIPP different encodation",
                     "111111110101010001101010000110000011011011011000000100000100001000101001010000100000010000100011011000100010100000100001000100001110111010010001000000100101011110111100001001111011110100011010100001100000111111101000101001"
                     "111111110101010001111010100000010011110101000000100111000100011000101111100011010100011011111101011100110101111000110001101111100101111011100101111011100111101001001000001100100001110100011110101000010000111111101000101001"
                     "111111110101010001010100001111000011010010111110000101011100011111101000011110001010011111101011100110110111001100111101000010010011110010101110001111110100111000100001101110101011111100010101101111100000111111101000101001"
@@ -3285,7 +3353,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001110010011111001010001111010000100100111110001100101100101100111111011001111010001100100111101100011001011111001100010011001110000101110101111101110110001011000011011110010110010111000000111111101000101001"
                     "111111110101010001101100110110000011010110111000000100001100110100001111101010011111010100001000100000111000010100011101011110011110001011110010100011110111011001100111001110001110110011011011001101100000111111101000101001"
                 },
-        /*167*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "[)>\03601\0350274310\035250\03570\0351111123177100430\035FDE\035630133769\035222\035\0351/1\035160.00KG\035N\03554 Some Paris St\035Paris\035  \035F. Consignee\03606\03510ZEIO05\03511ZThe French Company\03512Z9876543210\03514Z5th Floor - Receiving\03515Z113167\03531Z1010147571640963660600111112317710\03532Z02\035KMISC_REF1\03599ZEI0005\034US\034200\034USD\034Content DESCRIPTION\034\034Y\034NO EEI 30.37 (a)\0340\034\035\036\004", 0, 28, 239, 0, "MR #151 Ex. 3; BWIPP different encodation",
+        /*167*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "[)>\03601\0350274310\035250\03570\0351111123177100430\035FDE\035630133769\035222\035\0351/1\035160.00KG\035N\03554 Some Paris St\035Paris\035  \035F. Consignee\03606\03510ZEIO05\03511ZThe French Company\03512Z9876543210\03514Z5th Floor - Receiving\03515Z113167\03531Z1010147571640963660600111112317710\03532Z02\035KMISC_REF1\03599ZEI0005\034US\034200\034USD\034Content DESCRIPTION\034\034Y\034NO EEI 30.37 (a)\0340\034\035\036\004", 0, 28, 239, 0, 1, "MR #151 Ex. 3; BWIPP different encodation",
                     "11111111010101000101010000010000001101100110110000010000010000100010100101000010000001000010001101100010001010000010000100010000111011101001000100000010010101111011110000100001100011001001000011011100110010101000001000000111111101000101001"
                     "11111111010101000111101010000001001111101001011000011111101000101110110101110010000001011111100100011011111010111011110101011111100011101111101011101111010111111001000110111110101110111101111001010100000011111010100001100111111101000101001"
                     "11111111010101000110101000011111001001111110011101010101110001111110100001111000101001010110001111100010111110011000010111111010001101001110111101001110010100011000111110100110000101110001100111111011001010101101111100000111111101000101001"
@@ -3315,7 +3383,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "11111111010101000101100111001111101110010111110100010110001001110000101110000100011001001110000001011010111100001000100100111000100001101000010011011111010000011101101110110011001011110001111010111100100011110010001111010111111101000101001"
                     "11111111010101000100100011100011101001000110011000011010001000110000111001011011110001000101110001110011001000100110000101100011101100001110001000100111011100100011011110110110001000100001010000001000001010010001110001110111111101000101001"
                 },
-        /*168*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "[)>\03601\0350274310\035250\03570\0351111123177100430\035FDE\035630133769\035222\035\0351/1\035160.00KG\035N\03554 Some Paris St\035Paris\035  \035F. Consignee\03606\03510ZEIO05\03511ZThe French Company\03512Z9876543210\03514Z5th Floor - Receiving\03515Z113167\03531Z1010147571640963660600111112317710\03532Z02\035KMISC_REF1\03599ZEI0005\034US\034200\034USD\034Content DESCRIPTION\034\034Y\034NO EEI 30.37 (a)\0340\034\035\036\004", 0, 30, 222, 0, "MR #151 Ex. 3; BWIPP different encodation",
+        /*168*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "[)>\03601\0350274310\035250\03570\0351111123177100430\035FDE\035630133769\035222\035\0351/1\035160.00KG\035N\03554 Some Paris St\035Paris\035  \035F. Consignee\03606\03510ZEIO05\03511ZThe French Company\03512Z9876543210\03514Z5th Floor - Receiving\03515Z113167\03531Z1010147571640963660600111112317710\03532Z02\035KMISC_REF1\03599ZEI0005\034US\034200\034USD\034Content DESCRIPTION\034\034Y\034NO EEI 30.37 (a)\0340\034\035\036\004", 0, 30, 222, 0, 1, "MR #151 Ex. 3; BWIPP different encodation",
                     "111111110101010001010100000100000011011001000100000100000100001000101001010000100000010000100011011000100010100000100001000100001110111010010001000000100101011110111100001001111011110100011010100001100000111111101000101001"
                     "111111110101010001111101011011100011110101000000100101110010001111101100000101110010011011111101011100110101111000110001000001001111001011001111010111110111010000011000101111000101000100011111010100001100111111101000101001"
                     "111111110101010001010100001111000010100101111000000101011100011111101000011110001010010101100011111000101111100110000101111110100011010011101111010011100101000110001111101001100001011100011111101011001000111111101000101001"
@@ -3347,7 +3415,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111100100100011010101111100011000110100011100000101001110100111110011111010010011000110110111100001001111110111001010011110010000110110101110011111101001100010011101000011110110110100000111111101000101001"
                     "111111110101010001101100001001111010011001000001110101001100111110001011100010001100011011110100000110111001110101111001000111100100010010101100111110000110011000100111101000011001101111010110000110011110111111101000101001"
                 },
-        /*169*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "[)>\03601\0350278759\035840\03503\0355659756807730201\035FDE\035604081602\035169\035\0351/1\0355.00LB\035N\0351234\035Austin\035TX\035Test Co\03606\03510ZED007\03511ZTest Co\03512Z8005553333\03515Z119534\03520Z0.00\034134\03531Z1001901752720007875900565975680773\03532Z02\03534Z01\03539ZNOHA\035\03609\035FDX\035z\0358\035-]\021\020<2\177B\036\004", 0, 25, 222, 0, "MR #151 Ex. 4; BWIPP different encodation",
+        /*169*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "[)>\03601\0350278759\035840\03503\0355659756807730201\035FDE\035604081602\035169\035\0351/1\0355.00LB\035N\0351234\035Austin\035TX\035Test Co\03606\03510ZED007\03511ZTest Co\03512Z8005553333\03515Z119534\03520Z0.00\034134\03531Z1001901752720007875900565975680773\03532Z02\03534Z01\03539ZNOHA\035\03609\035FDX\035z\0358\035-]\021\020<2\177B\036\004", 0, 25, 222, 0, 1, "MR #151 Ex. 4; BWIPP different encodation",
                     "111111110101010001101010000110000011011011011000000100000100001000101001010000100000010000100011011000100010100000100001000100001110111010010001000000100101011110111100001000011000110010011010100001100000111111101000101001"
                     "111111110101010001111010100000010011111000111011010111110100101100001100101111011000010100011111001100101111110010001101111101011101111011001011100000100111110101110111101011111100100011011110101000010000111111101000101001"
                     "111111110101010001010100001111000010101110001111110110101001111100001001111110011101010101110001111110100001111000101001111110101110011011110000101111010111011111100100101000111101100011010101101111100000111111101000101001"
@@ -3374,7 +3442,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001110010011111001010111111001110100101111100001100101100111101001100011011111011001100101111001000100001011110010000001011011000010011110111011111101001001111001011110010010110010111000000111111101000101001"
                     "111111110101010001101100110110000010110011100110000110011101100100001110001110100010010001001110001110100100000100001001101000001000110011010000100011000111010000100111001000110110010000011011001101100000111111101000101001"
                 },
-        /*170*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "[)>\03601\0350278759\035840\03503\0355659756807730201\035FDE\035604081602\035169\035\0351/1\0355.00LB\035N\0351234\035Austin\035TX\035Test Co\03606\03510ZED007\03511ZTest Co\03512Z8005553333\03515Z119534\03520Z0.00\034134\03531Z1001901752720007875900565975680773\03532Z02\03534Z01\03539ZNOHA\035\03609\035FDX\035z\0358\035-]\021\020<2\177B\036\004", 0, 26, 205, 0, "MR #151 Ex. 4; BWIPP different encodation",
+        /*170*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "[)>\03601\0350278759\035840\03503\0355659756807730201\035FDE\035604081602\035169\035\0351/1\0355.00LB\035N\0351234\035Austin\035TX\035Test Co\03606\03510ZED007\03511ZTest Co\03512Z8005553333\03515Z119534\03520Z0.00\034134\03531Z1001901752720007875900565975680773\03532Z02\03534Z01\03539ZNOHA\035\03609\035FDX\035z\0358\035-]\021\020<2\177B\036\004", 0, 26, 205, 0, 1, "MR #151 Ex. 4; BWIPP different encodation",
                     "1111111101010100011010100001100000111011010110000001000001000010001010010100001000000100001000110110001000101000001000010001000011101110100100010000001001010111101111000011101010001110000111111101000101001"
                     "1111111101010100011110101101100000101111110100110001111010100000010010111001101111110100111011111101001101111110101110011010111100011000110111110010111101110010111101110011110101000010000111111101000101001"
                     "1111111101010100011101010001111110111111010011101101011100110001110010100100111100000101011100011111101000011110001010011111101011100110111100001011110101110111111001001011010110111111000111111101000101001"
@@ -3402,7 +3470,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011011001101100000100001010001000001111011101011000011101100000100110110010111001111001110111110111001011000100100110000110101000001100001010001110011100011110010001011110111111101000101001"
                     "1111111101010100011001011110001100101101111100001001111010001000010011000011011110100110111011111010001000000101111001010000100111101000111000010110000101100001001110001011100101111011100111111101000101001"
                 },
-        /*171*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "[)>\03601\0350285040\035840\03501\035D10011060813097\035EMSY\03537\03562\035\0351/1\0353LB\035N\0354440 E ELWOOD ST\035PHOENIX\035AZ\035CXXXXXX RXXX\03606\0353Z01\03511ZONTRAC - CXXXXXX RXXX\03512Z\03514ZSTE 102\03515Z90210\03520Z2000\034U\0341288\03521Z1\03522Z0\03524Z1\0359KRef-12549\035\036\004", 0, 25, 205, 0, "MR #151 Ex. 5; BWIPP different encodation",
+        /*171*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "[)>\03601\0350285040\035840\03501\035D10011060813097\035EMSY\03537\03562\035\0351/1\0353LB\035N\0354440 E ELWOOD ST\035PHOENIX\035AZ\035CXXXXXX RXXX\03606\0353Z01\03511ZONTRAC - CXXXXXX RXXX\03512Z\03514ZSTE 102\03515Z90210\03520Z2000\034U\0341288\03521Z1\03522Z0\03524Z1\0359KRef-12549\035\036\004", 0, 25, 205, 0, 1, "MR #151 Ex. 5; BWIPP different encodation",
                     "1111111101010100011010100001100000100101110011100001000001000010001010010100001000000100001000110110001000101000001000010001000011101110100100010000001001010111101111000011101010001110000111111101000101001"
                     "1111111101010100011110101000000100101111110101100001111100011101101011111101001011100111010001111011101010011111100111010111111001000110111110101110111101100101110000010011110101000010000111111101000101001"
                     "1111111101010100011101010001111110101011100011111101001111110011101010101110001111110111010101111110001001111110011101010101110001111110100011110001101101000011110001010010101101111100000111111101000101001"
@@ -3429,7 +3497,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101101111110100111111000101101001110011110010111011011111101100010101111100110000101011110100000010011111101000011010110110010011110001111110100011001010110010111000000111111101000101001"
                     "1111111101010100011011001101100000111011000010011001101001000011000010000101100000110110100010110000001101110111100111011100011101100110111011101100110001110010111011111011110010001011110111111101000101001"
                 },
-        /*172*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "[)>\03601\0350285040\035840\03501\035D10011060813097\035EMSY\03537\03562\035\0351/1\0353LB\035N\0354440 E ELWOOD ST\035PHOENIX\035AZ\035CXXXXXX RXXX\03606\0353Z01\03511ZONTRAC - CXXXXXX RXXX\03512Z\03514ZSTE 102\03515Z90210\03520Z2000\034U\0341288\03521Z1\03522Z0\03524Z1\0359KRef-12549\035\036\004", 0, 22, 205, 0, "MR #151 Ex. 5; BWIPP different encodation",
+        /*172*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "[)>\03601\0350285040\035840\03501\035D10011060813097\035EMSY\03537\03562\035\0351/1\0353LB\035N\0354440 E ELWOOD ST\035PHOENIX\035AZ\035CXXXXXX RXXX\03606\0353Z01\03511ZONTRAC - CXXXXXX RXXX\03512Z\03514ZSTE 102\03515Z90210\03520Z2000\034U\0341288\03521Z1\03522Z0\03524Z1\0359KRef-12549\035\036\004", 0, 22, 205, 0, 1, "MR #151 Ex. 5; BWIPP different encodation",
                     "1111111101010100011101010001110000111001011001111001000001000010001010010100001000000100001000110110001000101000001000010001000011101110100100010000001001010111101111000011101010001110000111111101000101001"
                     "1111111101010100011111010100001100101111110100110001111010100000010011110111001110010111100001000100101101111110101110011010111100011000110111110010111101110010111101110011111101010001110111111101000101001"
                     "1111111101010100011101010001111110111111010011101101011100110001110011010010111110000101011100011111101111101001110100010000111100010100110110101111000001101111000010110011010100001111100111111101000101001"
@@ -3453,7 +3521,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010110110011110000101110001000001101101000100011111010011111011101100110110110011111001000000110100111011000011101001110110011110010110001010011000011111011001001000111110111111101000101001"
                     "1111111101010100010110111000110000110111000110001001110001110100010011011000110000110111011000100110001000110001100100010100110001100000110011100110100001100000100110111010110111000110000111111101000101001"
                 },
-        /*173*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "01\01130\011{)>\01194\011GSA/XE 7\0110200\01502\01107072017\0111Z291YX2AT50000027\01111\011P\011\0113\01110.0\011KGS\011\011\011F/D\011415.52\011USD\011\011\011\011US\011EFTA\011U\011\011\011\011\0112\01504\011SH\011PHILIPS HEALTHCARE\011ROERMOND\011\0116045GH   \011NL\011291YX2\011MARIE CURIEWEG 20\011\011\011NL009076840B01\011PHS EMEA TOMS\011310475528727\011\011\011\01504\011ST\011PHILIPS MEDICAL SYSTEMS\011LOUISVILLE\011KY\01140219    \011US\011\0111920 OUTER LOOP  DRIVE\011\011\011\011C/O UPS-SPS. DOCK 157\011\011\011\011\01505\011GSI\011MEDICAL EQUIPMENT\01507\0111Z291YX2AT50000027\01110.0\011\011\011\011\011\011\011\011\011\011\011\01508\0112\011EA\011103.88\011FILTER  603Y0066\011JP\011\011\011\011\011\011451213341491\01508\0112\011EA\011103.88\011FILTER  603Y0066\011JP\011\011\011\011\011\011451213341491\01513\011\011\011\0114509123000\0112\011415.52\011415.52\01599\015", 0, 32, 256, 0, "MR #151 Ex. 6; BWIPP different encodation",
+        /*173*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "01\01130\011{)>\01194\011GSA/XE 7\0110200\01502\01107072017\0111Z291YX2AT50000027\01111\011P\011\0113\01110.0\011KGS\011\011\011F/D\011415.52\011USD\011\011\011\011US\011EFTA\011U\011\011\011\011\0112\01504\011SH\011PHILIPS HEALTHCARE\011ROERMOND\011\0116045GH   \011NL\011291YX2\011MARIE CURIEWEG 20\011\011\011NL009076840B01\011PHS EMEA TOMS\011310475528727\011\011\011\01504\011ST\011PHILIPS MEDICAL SYSTEMS\011LOUISVILLE\011KY\01140219    \011US\011\0111920 OUTER LOOP  DRIVE\011\011\011\011C/O UPS-SPS. DOCK 157\011\011\011\011\01505\011GSI\011MEDICAL EQUIPMENT\01507\0111Z291YX2AT50000027\01110.0\011\011\011\011\011\011\011\011\011\011\011\01508\0112\011EA\011103.88\011FILTER  603Y0066\011JP\011\011\011\011\011\011451213341491\01508\0112\011EA\011103.88\011FILTER  603Y0066\011JP\011\011\011\011\011\011451213341491\01513\011\011\011\0114509123000\0112\011415.52\011415.52\01599\015", 0, 32, 256, 0, 1, "MR #151 Ex. 6; BWIPP different encodation",
                     "1111111101010100011010100000110000101100011110111001000011011100110011101001000111000101000110001100001110011010110000010111100011110010111010001011100001100001100011011010010001110111000110011010010000001110110110011100011010100000110000111111101000101001"
                     "1111111101010100011110101101100000111110101110111101100110011110010011010001110000100110000010001110101110110011101000011010111110001110111110101000001101111010100100000011101100111010000111100101010000001111110010101110011110101000001000111111101000101001"
                     "1111111101010100010101000001111000111010101111110001011001011100000010100100000111100100000110010011101111110100111011010100100000111100111011111000101101000011100001011010011111001100010100111000010011001111110010111011011010110111111000111111101000101001"
@@ -3487,7 +3555,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010010000110110000100100001101100001010000001010000011011001000100000101001110111000001000101000100000011001011011100000110101110111100001000001010000010010000010011101110110011110111010001110111101110011010010000110110000111111101000101001"
                     "1111111101010100011011011110001000100100001111001001111000100001010011111100110101100101011111100011101000001011110010011101000011000010101110011111101001011101111110001011100110001110010100110101111110001111110100010111011011011110010000111111101000101001"
                 },
-        /*174*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "01\01130\011{)>\01194\011GSA/XE 7\0110200\01502\01107072017\0111Z291YX2AT50000027\01111\011P\011\0113\01110.0\011KGS\011\011\011F/D\011415.52\011USD\011\011\011\011US\011EFTA\011U\011\011\011\011\0112\01504\011SH\011PHILIPS HEALTHCARE\011ROERMOND\011\0116045GH   \011NL\011291YX2\011MARIE CURIEWEG 20\011\011\011NL009076840B01\011PHS EMEA TOMS\011310475528727\011\011\011\01504\011ST\011PHILIPS MEDICAL SYSTEMS\011LOUISVILLE\011KY\01140219    \011US\011\0111920 OUTER LOOP  DRIVE\011\011\011\011C/O UPS-SPS. DOCK 157\011\011\011\011\01505\011GSI\011MEDICAL EQUIPMENT\01507\0111Z291YX2AT50000027\01110.0\011\011\011\011\011\011\011\011\011\011\011\01508\0112\011EA\011103.88\011FILTER  603Y0066\011JP\011\011\011\011\011\011451213341491\01508\0112\011EA\011103.88\011FILTER  603Y0066\011JP\011\011\011\011\011\011451213341491\01513\011\011\011\0114509123000\0112\011415.52\011415.52\01599\015", 0, 32, 256, 0, "MR #151 Ex. 6; BWIPP different encodation",
+        /*174*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "01\01130\011{)>\01194\011GSA/XE 7\0110200\01502\01107072017\0111Z291YX2AT50000027\01111\011P\011\0113\01110.0\011KGS\011\011\011F/D\011415.52\011USD\011\011\011\011US\011EFTA\011U\011\011\011\011\0112\01504\011SH\011PHILIPS HEALTHCARE\011ROERMOND\011\0116045GH   \011NL\011291YX2\011MARIE CURIEWEG 20\011\011\011NL009076840B01\011PHS EMEA TOMS\011310475528727\011\011\011\01504\011ST\011PHILIPS MEDICAL SYSTEMS\011LOUISVILLE\011KY\01140219    \011US\011\0111920 OUTER LOOP  DRIVE\011\011\011\011C/O UPS-SPS. DOCK 157\011\011\011\011\01505\011GSI\011MEDICAL EQUIPMENT\01507\0111Z291YX2AT50000027\01110.0\011\011\011\011\011\011\011\011\011\011\011\01508\0112\011EA\011103.88\011FILTER  603Y0066\011JP\011\011\011\011\011\011451213341491\01508\0112\011EA\011103.88\011FILTER  603Y0066\011JP\011\011\011\011\011\011451213341491\01513\011\011\011\0114509123000\0112\011415.52\011415.52\01599\015", 0, 32, 256, 0, 1, "MR #151 Ex. 6; BWIPP different encodation",
                     "1111111101010100011010100000110000101100011110111001000011011100110011101001000111000101000110001100001110011010011000010000010100001000100011000110000101110100010111000010010001110111000110011010010000001110110110011100011010100000110000111111101000101001"
                     "1111111101010100011110101101100000111110101110111101100110011110010011010001110000100110000010001110101110110011101000011010111110001110111110101000001101111010100100000011101100111010000111100101010000001111110010101110011110101000001000111111101000101001"
                     "1111111101010100010101000001111000111010101111110001011001011100000010100100000111100100000110010011101111110100111011010100100000111100111011111000101101000011100001011010011111001100010100111000010011001111110010111011011010110111111000111111101000101001"
@@ -3521,7 +3589,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010010000110110000100001001000010001010100000100000011001110110000010111010101110000001110000110100011010110011000100000100100000010010001110011001011000011011000011001100101110011110110001011001111000111010010000110110000111111101000101001"
                     "1111111101010100011011011110001000111011100111101001010001111000001011101101110001000101111101100111101000110100111111011110001101100100101100111110000101111010000001001011100100011101100111100100001101101110000101100010011011011110010000111111101000101001"
                 },
-        /*175*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC123456789ABC", 0, 9, 103, 1, "T3 N9 T3 -> T15",
+        /*175*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC123456789ABC", 0, 9, 103, 1, 1, "T3 N9 T3 -> T15",
                     "1111111101010100011111010101111100110101000001100001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011110101000010000111010011000001001111010111001110011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011010101000011110000111111101000101001"
@@ -3532,7 +3600,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100100100111110110001110110000111010010101111110111000111111101000101001"
                     "1111111101010100011010011011111100101111100110010001011110010100000011111010011101000111111101000101001"
                 },
-        /*176*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC123456789ABC", 0, 9, 103, 1, "T3 N9 T3 -> T15",
+        /*176*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC123456789ABC", 0, 9, 103, 1, 1, "T3 N9 T3 -> T15",
                     "1111111101010100011111010101111100110101000001100001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011110101000010000111010011000001001111010111001110011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011010101000011110000111111101000101001"
@@ -3543,7 +3611,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100100100111110110001110110000111010010101111110111000111111101000101001"
                     "1111111101010100011010011011111100101111100110010001011110010100000011111010011101000111111101000101001"
                 },
-        /*177*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC1234567890ABC", 0, 9, 103, 1, "T3 N10 T3 -> T16",
+        /*177*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC1234567890ABC", 0, 9, 103, 1, 1, "T3 N10 T3 -> T16",
                     "1111111101010100011111010101111100110101000001100001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011110101000010000111010011000001001111010111001110011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011010101000011110000111111101000101001"
@@ -3554,7 +3622,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100110100011111011101110000010111011010101111110111000111111101000101001"
                     "1111111101010100011010011011111100110001001111110101000111100001001011111010011101000111111101000101001"
                 },
-        /*178*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC1234567890ABC", 0, 9, 103, 1, "T3 N10 T3 -> T16",
+        /*178*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC1234567890ABC", 0, 9, 103, 1, 1, "T3 N10 T3 -> T16",
                     "1111111101010100011111010101111100110101000001100001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011110101000010000111010011000001001111010111001110011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011010101000011110000111111101000101001"
@@ -3565,7 +3633,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100110100011111011101110000010111011010101111110111000111111101000101001"
                     "1111111101010100011010011011111100110001001111110101000111100001001011111010011101000111111101000101001"
                 },
-        /*179*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC12345678901ABC", 0, 10, 103, 0, "T3 N11 T3; BWIPP -> T17",
+        /*179*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC12345678901ABC", 0, 10, 103, 0, 1, "T3 N11 T3; BWIPP -> T17",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111010011000000101011111101001100011111010100110000111111101000101001"
                     "1111111101010100011101010111111000111110010111000101111110100011001011010100011111000111111101000101001"
@@ -3577,7 +3645,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100100111000101100001100110100111100010100110001111100111111101000101001"
                     "1111111101010100010100011000001100110111011000100001000110001100001011010001100011100111111101000101001"
                 },
-        /*180*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC12345678901ABC", 0, 10, 103, 0, "T3 N11 T3; BWIPP -> T17",
+        /*180*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC12345678901ABC", 0, 10, 103, 0, 1, "T3 N11 T3; BWIPP -> T17",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111010011000001001111010111001110011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011011010100011111000111111101000101001"
@@ -3589,7 +3657,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100110111010111000001011100100000011010100110001111100111111101000101001"
                     "1111111101010100010100011000001100100010000111011101110010010011100011010001100011100111111101000101001"
                 },
-        /*181*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "AB+12345678901ABC", 0, 10, 103, 0, "T3 N11 T3; BWIPP -> T17",
+        /*181*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "AB+12345678901ABC", 0, 10, 103, 0, 1, "T3 N11 T3; BWIPP -> T17",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000110111110101111001011111101001100011111010100110000111111101000101001"
                     "1111111101010100011101010111111000111110010111000101111110100011001011010100011111000111111101000101001"
@@ -3601,7 +3669,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100101000010001111001101111000101100010100110001111100111111101000101001"
                     "1111111101010100010100011000001100101100011100001101101100100010000011010001100011100111111101000101001"
                 },
-        /*182*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "AB+12345678901ABC", 0, 10, 103, 1, "T3 N11 T3",
+        /*182*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "AB+12345678901ABC", 0, 10, 103, 1, 1, "T3 N11 T3",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000110111110101111001111010111001110011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011011010100011111000111111101000101001"
@@ -3613,7 +3681,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100111101011111001101011110001010000010100110001111100111111101000101001"
                     "1111111101010100010100011000001100110011110111000101000100011011000011010001100011100111111101000101001"
                 },
-        /*183*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC12345678901+BC", 0, 10, 103, 1, "T3 N11 T3 -> T17",
+        /*183*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC12345678901+BC", 0, 10, 103, 1, 1, "T3 N11 T3 -> T17",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111010011000001001111010111001110011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011011010100011111000111111101000101001"
@@ -3625,7 +3693,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100111110101110001001011110001010000010100110001111100111111101000101001"
                     "1111111101010100010100011000001100110001011000111001101011000111000011010001100011100111111101000101001"
                 },
-        /*184*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC12345678901+BC", 0, 10, 103, 1, "T3 N11 T3 -> T17",
+        /*184*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC12345678901+BC", 0, 10, 103, 1, 1, "T3 N11 T3 -> T17",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111010011000001001111010111001110011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011011010100011111000111111101000101001"
@@ -3637,7 +3705,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100111110101110001001011110001010000010100110001111100111111101000101001"
                     "1111111101010100010100011000001100110001011000111001101011000111000011010001100011100111111101000101001"
                 },
-        /*185*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "AB+12345678901+BC", 0, 10, 103, 1, "T3 N11 T3 -> T17",
+        /*185*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "AB+12345678901+BC", 0, 10, 103, 1, 1, "T3 N11 T3 -> T17",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000110111110101111001111010111001110011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011011010100011111000111111101000101001"
@@ -3649,7 +3717,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100100001100101110001000000100101111010100110001111100111111101000101001"
                     "1111111101010100010100011000001100111000110001011001001000010000100011010001100011100111111101000101001"
                 },
-        /*186*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "AB+12345678901+BC", 0, 10, 103, 1, "T3 N11 T3 -> T17",
+        /*186*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "AB+12345678901+BC", 0, 10, 103, 1, 1, "T3 N11 T3 -> T17",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000110111110101111001111010111001110011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011011010100011111000111111101000101001"
@@ -3661,7 +3729,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100100001100101110001000000100101111010100110001111100111111101000101001"
                     "1111111101010100010100011000001100111000110001011001001000010000100011010001100011100111111101000101001"
                 },
-        /*187*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC123456789012ABC", 0, 10, 103, 1, "T3 N12 T3 -> T18",
+        /*187*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC123456789012ABC", 0, 10, 103, 1, 1, "T3 N12 T3 -> T18",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111010011000001001111010111001110011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011011010100011111000111111101000101001"
@@ -3673,7 +3741,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100110011101000111001100011110001011010100110001111100111111101000101001"
                     "1111111101010100010100011000001100101000110110000001001001111001111011010001100011100111111101000101001"
                 },
-        /*188*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC123456789012ABC", 0, 10, 103, 1, "T3 N12 T3 -> T18",
+        /*188*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC123456789012ABC", 0, 10, 103, 1, 1, "T3 N12 T3 -> T18",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111010011000001001111010111001110011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101000100000111101111100101111011011010100011111000111111101000101001"
@@ -3685,7 +3753,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100110011101000111001100011110001011010100110001111100111111101000101001"
                     "1111111101010100010100011000001100101000110110000001001001111001111011010001100011100111111101000101001"
                 },
-        /*189*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD123456789ABC", 0, 9, 103, 1, "T4 N9 T3 -> T16",
+        /*189*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD123456789ABC", 0, 9, 103, 1, 1, "T4 N9 T3 -> T16",
                     "1111111101010100011111010101111100110101000001100001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011110101000010000110101111110111101111000001000101011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101001100111110001010000010001111010101000011110000111111101000101001"
@@ -3696,7 +3764,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100100010000111100101111001001100011010101111110111000111111101000101001"
                     "1111111101010100011010011011111100100100010111100001001001100011111011111010011101000111111101000101001"
                 },
-        /*190*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD123456789ABC", 0, 9, 103, 1, "T4 N9 T3 -> T16",
+        /*190*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD123456789ABC", 0, 9, 103, 1, 1, "T4 N9 T3 -> T16",
                     "1111111101010100011111010101111100110101000001100001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011110101000010000110101111110111101111000001000101011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101001100111110001010000010001111010101000011110000111111101000101001"
@@ -3707,7 +3775,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100100010000111100101111001001100011010101111110111000111111101000101001"
                     "1111111101010100011010011011111100100100010111100001001001100011111011111010011101000111111101000101001"
                 },
-        /*191*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD1234567890ABC", 0, 10, 103, 1, "T4 N10 T3 -> T17",
+        /*191*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD1234567890ABC", 0, 10, 103, 1, 1, "T4 N10 T3 -> T17",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000110101111110111101111000001000101011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101001100111110001010000010001111011010100011111000111111101000101001"
@@ -3719,7 +3787,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100100001111000100101110111010011110010100110001111100111111101000101001"
                     "1111111101010100010100011000001100110010110111000001011001111011100011010001100011100111111101000101001"
                 },
-        /*192*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD1234567890ABC", 0, 10, 103, 1, "T4 N10 T3 -> T17",
+        /*192*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD1234567890ABC", 0, 10, 103, 1, 1, "T4 N10 T3 -> T17",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000110101111110111101111000001000101011111010100110000111111101000101001"
                     "1111111101010100011101010111111000101001100111110001010000010001111011010100011111000111111101000101001"
@@ -3731,7 +3799,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100100001111000100101110111010011110010100110001111100111111101000101001"
                     "1111111101010100010100011000001100110010110111000001011001111011100011010001100011100111111101000101001"
                 },
-        /*193*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD12345678901ABC", 0, 10, 103, 0, "T4 N11 T3; BWIPP -> T18",
+        /*193*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD12345678901ABC", 0, 10, 103, 0, 1, "T4 N11 T3; BWIPP -> T18",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000110101111110111101011111101001100011111010100110000111111101000101001"
                     "1111111101010100011101010111111000111110010111000101111110100011001011010100011111000111111101000101001"
@@ -3743,7 +3811,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100100111001000001101000111011011100010100110001111100111111101000101001"
                     "1111111101010100010100011000001100100011100111001001000100010010000011010001100011100111111101000101001"
                 },
-        /*194*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD12345678901ABC", 0, 10, 103, 0, "T4 N11 T3; BWIPP -> T18",
+        /*194*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD12345678901ABC", 0, 10, 103, 0, 1, "T4 N11 T3; BWIPP -> T18",
                     "1111111101010100011101010011100000110101101110000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111010100011000110101111110111101011111101001100011111010100110000111111101000101001"
                     "1111111101010100011101010111111000111110010111000101111110100011001011010100011111000111111101000101001"
@@ -3755,7 +3823,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100100111001000001101000111011011100010100110001111100111111101000101001"
                     "1111111101010100010100011000001100100011100111001001000100010010000011010001100011100111111101000101001"
                 },
-        /*195*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD123456789012ABC", 0, 7, 120, 0, "T4 N12 T3; BWIPP -> T19",
+        /*195*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD123456789012ABC", 0, 7, 120, 0, 1, "T4 N12 T3; BWIPP -> T19",
                     "111111110101010001111101010111110011101011011110000111101010111100001010011100111000011111010101111100111111101000101001"
                     "111111110101010001111101010001100010111111010011000111111010101110001001100011111010011110101001000000111111101000101001"
                     "111111110101010001010100111100000011101001111110110100000101011110001010000100111100011010100011111000111111101000101001"
@@ -3764,7 +3832,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111101011110110010110100011100000100011110010001001101111000010110011110101111000010111111101000101001"
                     "111111110101010001110100111011111010011100011101000110110001000000101001100111011000011101001110111110111111101000101001"
                 },
-        /*196*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD123456789012ABC", 0, 7, 120, 1, "T5 N11 T3 -> T19",
+        /*196*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD123456789012ABC", 0, 7, 120, 1, 1, "T5 N11 T3 -> T19",
                     "111111110101010001111101010111110011101011011110000111101010111100001010011100111000011111010101111100111111101000101001"
                     "111111110101010001111101010001100011110000010001010110101111110111101111101000100110011110101001000000111111101000101001"
                     "111111110101010001010100111100000010110110011110000101100111001111101110101011111100011010100011111000111111101000101001"
@@ -3773,7 +3841,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "111111110101010001111101011110110011011000010011110100011110101000001011111001100010011110101111000010111111101000101001"
                     "111111110101010001110100111011111010100001101100000111001100110011101010001110011100011101001110111110111111101000101001"
                 },
-        /*197*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD\177FGH", 0, 9, 103, 1, "BYTE1",
+        /*197*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD\177FGH", 0, 9, 103, 1, 1, "BYTE1",
                     "1111111101010100011111010101111100110101000001100001000001000010001011110101011110000111111101000101001"
                     "1111111101010100011110101000010000110100111100011001100100111100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000111001100101111101111110010110010010101000011110000111111101000101001"
@@ -3784,7 +3852,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100111000010011001001111000101100011010101111110111000111111101000101001"
                     "1111111101010100011010011011111100100111000001001101100110110011111011111010011101000111111101000101001"
                 },
-        /*198*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD\177FGH", 0, 8, 103, 0, "BYTE1; BWIPP same as FAST_MODE",
+        /*198*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD\177FGH", 0, 8, 103, 0, 1, "BYTE1; BWIPP same as FAST_MODE",
                     "1111111101010100011111010101111100110101000011000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111101010001110110101111110111101011111100100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101000000101111001111100101111011011101010001111110111111101000101001"
@@ -3794,7 +3862,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110100010010000010001101000011101111011010011101111000111111101000101001"
                     "1111111101010100011111010010110000101111000100111101001100111110100010101111110111000111111101000101001"
                 },
-        /*199*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC+\177FGH", 0, 9, 103, 1, "BYTE1",
+        /*199*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC+\177FGH", 0, 9, 103, 1, 1, "BYTE1",
                     "1111111101010100011111010101111100110101000001100001000001000010001011110101011110000111111101000101001"
                     "1111111101010100011110101000010000110100111100011001100100111100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000100110010111000001101000001011111010101000011110000111111101000101001"
@@ -3805,7 +3873,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100111010000111001101110010011000001010101111110111000111111101000101001"
                     "1111111101010100011010011011111100100111101100001101001110110011100011111010011101000111111101000101001"
                 },
-        /*200*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD\177FGH", 0, 8, 103, 0, "BYTE1; BWIPP same as FAST_MODE",
+        /*200*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD\177FGH", 0, 8, 103, 0, 1, "BYTE1; BWIPP same as FAST_MODE",
                     "1111111101010100011111010101111100110101000011000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111101010001110110101111110111101011111100100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101000000101111001111100101111011011101010001111110111111101000101001"
@@ -3815,7 +3883,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110100010010000010001101000011101111011010011101111000111111101000101001"
                     "1111111101010100011111010010110000101111000100111101001100111110100010101111110111000111111101000101001"
                 },
-        /*201*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC+\177+GH", 0, 9, 103, 1, "BYTE1",
+        /*201*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABC+\177+GH", 0, 9, 103, 1, 1, "BYTE1",
                     "1111111101010100011111010101111100110101000001100001000001000010001011110101011110000111111101000101001"
                     "1111111101010100011110101000010000110100111100011001100100111100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000100110010111000001101000001011111010101000011110000111111101000101001"
@@ -3826,7 +3894,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100110110001111001001110110111001000010101111110111000111111101000101001"
                     "1111111101010100011010011011111100110110001011110001000000100101111011111010011101000111111101000101001"
                 },
-        /*202*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC+\177+GH", 0, 8, 103, 0, "BYTE1; BWIPP same as FAST_MODE",
+        /*202*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABC+\177+GH", 0, 8, 103, 0, 1, "BYTE1; BWIPP same as FAST_MODE",
                     "1111111101010100011111010101111100110101000011000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111101010001110111010011000001001110011000111010011110101001000000111111101000101001"
                     "1111111101010100011101010111111000100111111001110101010000001011110011101010001111110111111101000101001"
@@ -3836,7 +3904,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110110010000100110001110001000100111011010011101111000111111101000101001"
                     "1111111101010100011111010010110000100101111000001001110001101110001010101111110111000111111101000101001"
                 },
-        /*203*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD+\177GH", 0, 8, 103, 0, "BYTE1; BWIPP different encodation (A5 B3)",
+        /*203*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD+\177GH", 0, 8, 103, 0, 1, "BYTE1; BWIPP different encodation (A5 B3)",
                     "1111111101010100011111010101111100110101000011000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111101010001110110101111110111101101111101011110011110101001000000111111101000101001"
                     "1111111101010100011101010111111000100111111001110101010000001011110011101010001111110111111101000101001"
@@ -3846,7 +3914,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110101000010000010001100110100000100011010011101111000111111101000101001"
                     "1111111101010100011111010010110000111100010001101101001001111100110010101111110111000111111101000101001"
                 },
-        /*204*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD+\177GH", 0, 8, 103, 0, "BYTE1; BWIPP different encodation (A5 B3)",
+        /*204*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD+\177GH", 0, 8, 103, 0, 1, "BYTE1; BWIPP different encodation (A5 B3)",
                     "1111111101010100011111010101111100110101000011000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111101010001110110101111110111101101111101011110011110101001000000111111101000101001"
                     "1111111101010100011101010111111000100111111001110101010000001011110011101010001111110111111101000101001"
@@ -3856,7 +3924,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110101000010000010001100110100000100011010011101111000111111101000101001"
                     "1111111101010100011111010010110000111100010001101101001001111100110010101111110111000111111101000101001"
                 },
-        /*205*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD\177+GH", 0, 9, 103, 1, "BYTE1",
+        /*205*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD\177+GH", 0, 9, 103, 1, 1, "BYTE1",
                     "1111111101010100011111010101111100110101000001100001000001000010001011110101011110000111111101000101001"
                     "1111111101010100011110101000010000110100111100011001100100111100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000111001100101111101111110010110010010101000011110000111111101000101001"
@@ -3867,7 +3935,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011111101001011100111010110010000001110001011010000010101111110111000111111101000101001"
                     "1111111101010100011010011011111100111111001001101001001110000100110011111010011101000111111101000101001"
                 },
-        /*206*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD\177+GH", 0, 8, 103, 0, "BYTE1; BWIPP same as FAST_MODE",
+        /*206*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD\177+GH", 0, 8, 103, 0, 1, "BYTE1; BWIPP same as FAST_MODE",
                     "1111111101010100011111010101111100110101000011000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111101010001110110101111110111101011111100100011011110101001000000111111101000101001"
                     "1111111101010100011101010111111000101000000101111001101111110001101011101010001111110111111101000101001"
@@ -3877,7 +3945,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110110011001100001101010010000100000011010011101111000111111101000101001"
                     "1111111101010100011111010010110000110101111101110001100010001110010010101111110111000111111101000101001"
                 },
-        /*207*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD+\177+GH", 0, 8, 103, 0, "BYTE1; BWIPP different encodation (A5 B4)",
+        /*207*/ { BARCODE_PDF417, -1, UNICODE_MODE | FAST_MODE, -1, -1, -1, "ABCD+\177+GH", 0, 8, 103, 0, 1, "BYTE1; BWIPP different encodation (A5 B4)",
                     "1111111101010100011111010101111100110101000011000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111101010001110110101111110111101101111101011110011110101001000000111111101000101001"
                     "1111111101010100011101010111111000100111111001110101010000001011110011101010001111110111111101000101001"
@@ -3887,7 +3955,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110100000101100110001010011001100000011010011101111000111111101000101001"
                     "1111111101010100011111010010110000111101000001101101110101110000011010101111110111000111111101000101001"
                 },
-        /*208*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD+\177+GH", 0, 8, 103, 0, "BYTE1; BWIPP different encodation (A5 B4)",
+        /*208*/ { BARCODE_PDF417, -1, UNICODE_MODE, -1, -1, -1, "ABCD+\177+GH", 0, 8, 103, 0, 1, "BYTE1; BWIPP different encodation (A5 B4)",
                     "1111111101010100011111010101111100110101000011000001111010101111000011110101011110000111111101000101001"
                     "1111111101010100011111101010001110110101111110111101101111101011110011110101001000000111111101000101001"
                     "1111111101010100011101010111111000100111111001110101010000001011110011101010001111110111111101000101001"
@@ -3897,7 +3965,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011101001110111110100000101100110001010011001100000011010011101111000111111101000101001"
                     "1111111101010100011111010010110000111101000001101101110101110000011010101111110111000111111101000101001"
                 },
-        /*209*/ { BARCODE_PDF417, 29, UNICODE_MODE | FAST_MODE, -1, -1, -1, "￥3149.79", 0, 10, 103, 1, "",
+        /*209*/ { BARCODE_PDF417, 29, UNICODE_MODE | FAST_MODE, -1, -1, -1, "￥3149.79", 0, 10, 103, 1, 1, "",
                     "1111111101010100011101010011100000110101101110000001100011100011001011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111110101110111101101111110101110011111010100110000111111101000101001"
                     "1111111101010100011101010111111000110010111111010001110010111111011011010100011111000111111101000101001"
@@ -3909,7 +3977,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100011010011011111100111110101110100001001111101110110010100110001111100111111101000101001"
                     "1111111101010100010100011000001100111001000110111101000010110000011011010001100011100111111101000101001"
                 },
-        /*210*/ { BARCODE_PDF417, 29, UNICODE_MODE, -1, -1, -1, "￥3149.79", 0, 10, 103, 0, "BWIPP same as FAST_MODE",
+        /*210*/ { BARCODE_PDF417, 29, UNICODE_MODE, -1, -1, -1, "￥3149.79", 0, 10, 103, 0, 1, "BWIPP same as FAST_MODE",
                     "1111111101010100011101010011100000110101101110000001100011100011001011110101011110000111111101000101001"
                     "1111111101010100011111010100011000111110101110111101011111100100011011111010100110000111111101000101001"
                     "1111111101010100011101010111111000110010111111010001001111110011101011010100011111000111111101000101001"
@@ -3922,7 +3990,7 @@ static void test_encode(const testCtx *const p_ctx) {
                     "1111111101010100010100011000001100110100000100001101001011110111100011010001100011100111111101000101001"
                 },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
     int last_fast_num_cwds = 0; /* Keep clang-tidy happy */
@@ -3931,10 +3999,11 @@ static void test_encode(const testCtx *const p_ctx) {
     char cmp_buf[32768];
     char cmp_msg[1024];
 
-    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript(); /* Only do BWIPP test if asked, too slow otherwise */
-    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder(); /* Only do ZXing-C++ test if asked, too slow otherwise */
+    /* Only do BWIPP/ZXing-C++ tests if asked, too slow otherwise */
+    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript();
+    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder();
 
-    testStartSymbol("test_encode", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -3945,17 +4014,20 @@ static void test_encode(const testCtx *const p_ctx) {
 
         symbol->debug = ZINT_DEBUG_TEST; /* Needed to get codeword dump in errtxt */
 
-        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, data[i].eci, data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, data[i].eci,
+                                    data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/,
+                                    data[i].data, -1, debug);
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
-        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
 
         if (p_ctx->generate) {
-            printf("        /*%3d*/ { %s, %d, %s, %d, %d, %d, \"%s\", %s, %d, %d, %d, \"%s\",\n",
+            printf("        /*%3d*/ { %s, %d, %s, %d, %d, %d, \"%s\", %s, %d, %d, %d, %d, \"%s\",\n",
                     i, testUtilBarcodeName(data[i].symbology), data[i].eci, testUtilInputModeName(data[i].input_mode),
                     data[i].option_1, data[i].option_2, data[i].option_3,
                     testUtilEscape(data[i].data, length, escaped, sizeof(escaped)), testUtilErrorName(data[i].ret),
-                    symbol->rows, symbol->width, data[i].bwipp_cmp, data[i].comment);
+                    symbol->rows, symbol->width, data[i].bwipp_cmp, data[i].zxingcpp_cmp, data[i].comment);
             testUtilModulesPrint(symbol, "                    ", "\n");
             printf("                },\n");
         } else {
@@ -3964,49 +4036,69 @@ static void test_encode(const testCtx *const p_ctx) {
 
                 testUtilEscape(data[i].data, length, escaped, sizeof(escaped));
 
-                assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, escaped);
-                assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, escaped);
+                assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n",
+                            i, symbol->rows, data[i].expected_rows, escaped);
+                assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n",
+                            i, symbol->width, data[i].expected_width, escaped);
 
                 ret = testUtilModulesCmp(symbol, data[i].expected, &width, &row);
-                assert_zero(ret, "i:%d testUtilModulesCmp ret %d != 0 width %d row %d (%s)\n", i, ret, width, row, escaped);
+                assert_zero(ret, "i:%d testUtilModulesCmp ret %d != 0 width %d row %d (%s)\n",
+                            i, ret, width, row, escaped);
 
                 if (ret == 0 && p_ctx->index == -1) {
                     if (i && (data[i - 1].input_mode & FAST_MODE) && !(data[i].input_mode & FAST_MODE)
                             && strcmp(data[i - 1].data, data[i].data) == 0) {
                         int num_cwds;
-                        assert_equal(sscanf(symbol->errtxt, "(%d)", &num_cwds), 1, "i:%d num_cwds sscanf != 1 (%s)\n", i, symbol->errtxt);
-                        assert_nonzero(last_fast_num_cwds >= num_cwds, "i:%d last_fast_num_cwds %d < num_cwds %d\n", i, last_fast_num_cwds, num_cwds);
-                        if (num_cwds < last_fast_num_cwds && (debug & ZINT_DEBUG_TEST_PRINT) && !(debug & ZINT_DEBUG_TEST_LESS_NOISY)) {
+                        assert_equal(sscanf(symbol->errtxt, "(%d)", &num_cwds), 1, "i:%d num_cwds sscanf != 1 (%s)\n",
+                                    i, symbol->errtxt);
+                        assert_nonzero(last_fast_num_cwds >= num_cwds, "i:%d last_fast_num_cwds %d < num_cwds %d\n",
+                                    i, last_fast_num_cwds, num_cwds);
+                        if (num_cwds < last_fast_num_cwds && (debug & ZINT_DEBUG_TEST_PRINT)
+                                && !(debug & ZINT_DEBUG_TEST_LESS_NOISY)) {
                             printf("i:%d diff %d\n", i, num_cwds - last_fast_num_cwds);
                         }
                     }
                     if (data[i].input_mode & FAST_MODE) {
-                        assert_equal(sscanf(symbol->errtxt, "(%d)", &last_fast_num_cwds), 1, "i:%d last_fast sscanf != 1 (%s)\n", i, symbol->errtxt);
+                        assert_equal(sscanf(symbol->errtxt, "(%d)", &last_fast_num_cwds), 1,
+                                    "i:%d last_fast sscanf != 1 (%s)\n", i, symbol->errtxt);
                     }
                 }
 
-                if (do_bwipp && testUtilCanBwipp(i, symbol, data[i].option_1, data[i].option_2, data[i].option_3, debug)) {
+                if (do_bwipp && testUtilCanBwipp(i, symbol, data[i].option_1, data[i].option_2, data[i].option_3,
+                        debug)) {
                     if (!data[i].bwipp_cmp) {
-                        if (debug & ZINT_DEBUG_TEST_PRINT) printf("i:%d %s not BWIPP compatible (%s)\n", i, testUtilBarcodeName(symbol->symbology), data[i].comment);
+                        if (debug & ZINT_DEBUG_TEST_PRINT) {
+                            printf("i:%d %s not BWIPP compatible (%s)\n",
+                                    i, testUtilBarcodeName(symbol->symbology), data[i].comment);
+                        }
                     } else {
-                        ret = testUtilBwipp(i, symbol, data[i].option_1, data[i].option_2, data[i].option_3, data[i].data, length, NULL, cmp_buf, sizeof(cmp_buf), NULL);
-                        assert_zero(ret, "i:%d %s testUtilBwipp ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                        ret = testUtilBwipp(i, symbol, data[i].option_1, data[i].option_2, data[i].option_3,
+                                    data[i].data, length, NULL, cmp_buf, sizeof(cmp_buf), NULL);
+                        assert_zero(ret, "i:%d %s testUtilBwipp ret %d != 0\n",
+                                    i, testUtilBarcodeName(symbol->symbology), ret);
 
                         ret = testUtilBwippCmp(symbol, cmp_msg, cmp_buf, data[i].expected);
                         assert_zero(ret, "i:%d %s testUtilBwippCmp %d != 0 %s\n  actual: %s\nexpected: %s\n",
-                                       i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_buf, data[i].expected);
+                                       i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_buf,
+                                       data[i].expected);
                     }
                 }
                 if (do_zxingcpp && testUtilCanZXingCPP(i, symbol, data[i].data, length, debug)) {
                     int cmp_len, ret_len;
                     char modules_dump[2710 * 8 + 1];
-                    assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1, "i:%d testUtilModulesDump == -1\n", i);
-                    ret = testUtilZXingCPP(i, symbol, data[i].data, length, modules_dump, cmp_buf, sizeof(cmp_buf), &cmp_len);
-                    assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                    assert_nonzero(data[i].zxingcpp_cmp, "i:%d data[i].zxingcpp_cmp == 0", i);
+                    assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1,
+                                "i:%d testUtilModulesDump == -1\n", i);
+                    ret = testUtilZXingCPP(i, symbol, data[i].data, length, modules_dump, data[i].zxingcpp_cmp,
+                                cmp_buf, sizeof(cmp_buf), &cmp_len);
+                    assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n",
+                                i, testUtilBarcodeName(symbol->symbology), ret);
 
-                    ret = testUtilZXingCPPCmp(symbol, cmp_msg, cmp_buf, cmp_len, data[i].data, length, NULL /*primary*/, escaped, &ret_len);
+                    ret = testUtilZXingCPPCmp(symbol, cmp_msg, cmp_buf, cmp_len, data[i].data, length,
+                                NULL /*primary*/, escaped, &ret_len);
                     assert_zero(ret, "i:%d %s testUtilZXingCPPCmp %d != 0 %s\n  actual: %.*s\nexpected: %.*s\n",
-                                   i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len, escaped);
+                                i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len,
+                                escaped);
                 }
             }
         }
@@ -4033,10 +4125,10 @@ static void test_encode_segs(const testCtx *const p_ctx) {
         int expected_rows;
         int expected_width;
         int bwipp_cmp;
-        char *comment;
-        char *expected;
+        const char *comment;
+        const char *expected;
     };
-    struct item data[] = {
+    static const struct item data[] = {
         /*  0*/ { BARCODE_PDF417, UNICODE_MODE | FAST_MODE, -1, -1, -1, { 0, 0, "" }, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, { TU(""), 0, 0 } }, 0, 8, 103, 1, "Standard example",
                     "1111111101010100011111010101111100110101000011000001111001111001010011110101011110000111111101000101001"
                     "1111111101010100011111101010001110101000011110010001001111110010110011110101001000000111111101000101001"
@@ -4660,7 +4752,7 @@ static void test_encode_segs(const testCtx *const p_ctx) {
                     ""
                 },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, j, seg_count, ret;
     struct zint_symbol *symbol = NULL;
     int last_fast_num_cwds = 0; /* Keep clang-tidy happy */
@@ -4669,10 +4761,11 @@ static void test_encode_segs(const testCtx *const p_ctx) {
     char cmp_buf[32768];
     char cmp_msg[1024];
 
-    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript(); /* Only do BWIPP test if asked, too slow otherwise */
-    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder(); /* Only do ZXing-C++ test if asked, too slow otherwise */
+    /* Only do BWIPP/ZXing-C++ tests if asked, too slow otherwise */
+    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript();
+    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder();
 
-    testStartSymbol("test_encode_segs", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -4684,25 +4777,30 @@ static void test_encode_segs(const testCtx *const p_ctx) {
         symbol->debug = ZINT_DEBUG_TEST; /* Needed to get codeword dump in errtxt */
 
         testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/,
-                    data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/, NULL, 0, debug);
+                            data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/,
+                            NULL, 0, debug);
         for (j = 0, seg_count = 0; j < 3 && data[i].segs[j].length; j++, seg_count++);
 
         ret = ZBarcode_Encode_Segs(symbol, data[i].segs, seg_count);
-        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode_Segs ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode_Segs ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
 
         if (p_ctx->generate) {
             char escaped1[4096];
             char escaped2[4096];
-            int length = data[i].segs[0].length == -1 ? (int) ustrlen(data[i].segs[0].source) : data[i].segs[0].length;
-            int length1 = data[i].segs[1].length == -1 ? (int) ustrlen(data[i].segs[1].source) : data[i].segs[1].length;
-            int length2 = data[i].segs[2].length == -1 ? (int) ustrlen(data[i].segs[2].source) : data[i].segs[2].length;
+            int length = data[i].segs[0].length == -1 ? (int) z_ustrlen(data[i].segs[0].source) : data[i].segs[0].length;
+            int length1 = data[i].segs[1].length == -1 ? (int) z_ustrlen(data[i].segs[1].source) : data[i].segs[1].length;
+            int length2 = data[i].segs[2].length == -1 ? (int) z_ustrlen(data[i].segs[2].source) : data[i].segs[2].length;
             printf("        /*%3d*/ { %s, %s, %d, %d, %d, { %d, %d, \"%s\" }, { { TU(\"%s\"), %d, %d }, { TU(\"%s\"), %d, %d }, { TU(\"%s\"), %d, %d } }, %s, %d, %d, %d, \"%s\",\n",
                     i, testUtilBarcodeName(data[i].symbology), testUtilInputModeName(data[i].input_mode),
                     data[i].option_1, data[i].option_2, data[i].option_3,
                     data[i].structapp.index, data[i].structapp.count, data[i].structapp.id,
-                    testUtilEscape((const char *) data[i].segs[0].source, length, escaped, sizeof(escaped)), data[i].segs[0].length, data[i].segs[0].eci,
-                    testUtilEscape((const char *) data[i].segs[1].source, length1, escaped1, sizeof(escaped1)), data[i].segs[1].length, data[i].segs[1].eci,
-                    testUtilEscape((const char *) data[i].segs[2].source, length2, escaped2, sizeof(escaped2)), data[i].segs[2].length, data[i].segs[2].eci,
+                    testUtilEscape((const char *) data[i].segs[0].source, length, escaped, sizeof(escaped)),
+                    data[i].segs[0].length, data[i].segs[0].eci,
+                    testUtilEscape((const char *) data[i].segs[1].source, length1, escaped1, sizeof(escaped1)),
+                    data[i].segs[1].length, data[i].segs[1].eci,
+                    testUtilEscape((const char *) data[i].segs[2].source, length2, escaped2, sizeof(escaped2)),
+                    data[i].segs[2].length, data[i].segs[2].eci,
                     testUtilErrorName(data[i].ret), symbol->rows, symbol->width, data[i].bwipp_cmp, data[i].comment);
             if (data[i].ret < ZINT_ERROR) {
                 testUtilModulesPrint(symbol, "                    ", "\n");
@@ -4714,8 +4812,10 @@ static void test_encode_segs(const testCtx *const p_ctx) {
             if (ret < ZINT_ERROR) {
                 int width, row;
 
-                assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d\n", i, symbol->rows, data[i].expected_rows);
-                assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d\n", i, symbol->width, data[i].expected_width);
+                assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d\n",
+                            i, symbol->rows, data[i].expected_rows);
+                assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d\n",
+                            i, symbol->width, data[i].expected_width);
 
                 ret = testUtilModulesCmp(symbol, data[i].expected, &width, &row);
                 assert_zero(ret, "i:%d testUtilModulesCmp ret %d != 0 width %d row %d\n", i, ret, width, row);
@@ -4723,50 +4823,264 @@ static void test_encode_segs(const testCtx *const p_ctx) {
                 if (data[i].ret == 0 && p_ctx->index == -1) {
                     if (i && (data[i - 1].input_mode & FAST_MODE) && !(data[i].input_mode & FAST_MODE)) {
                         int num_cwds;
-                        assert_equal(sscanf(symbol->errtxt, "(%d)", &num_cwds), 1, "i:%d num_cwds sscanf != 1 (%s)\n", i, symbol->errtxt);
-                        assert_nonzero(last_fast_num_cwds >= num_cwds, "i:%d last_fast_num_cwds %d < num_cwds %d\n", i, last_fast_num_cwds, num_cwds);
-                        if (num_cwds < last_fast_num_cwds && (debug & ZINT_DEBUG_TEST_PRINT) && !(debug & ZINT_DEBUG_TEST_LESS_NOISY)) {
+                        assert_equal(sscanf(symbol->errtxt, "(%d)", &num_cwds), 1, "i:%d num_cwds sscanf != 1 (%s)\n",
+                                    i, symbol->errtxt);
+                        assert_nonzero(last_fast_num_cwds >= num_cwds, "i:%d last_fast_num_cwds %d < num_cwds %d\n",
+                                    i, last_fast_num_cwds, num_cwds);
+                        if (num_cwds < last_fast_num_cwds && (debug & ZINT_DEBUG_TEST_PRINT)
+                                && !(debug & ZINT_DEBUG_TEST_LESS_NOISY)) {
                             printf("i:%d diff %d\n", i, num_cwds - last_fast_num_cwds);
                         }
                     }
                     if (data[i].input_mode & FAST_MODE) {
-                        assert_equal(sscanf(symbol->errtxt, "(%d)", &last_fast_num_cwds), 1, "i:%d last_fast sscanf != 1 (%s)\n", i, symbol->errtxt);
+                        assert_equal(sscanf(symbol->errtxt, "(%d)", &last_fast_num_cwds), 1,
+                                    "i:%d last_fast sscanf != 1 (%s)\n", i, symbol->errtxt);
                     }
                 }
 
-                if (do_bwipp && testUtilCanBwipp(i, symbol, data[i].option_1, data[i].option_2, data[i].option_3, debug)) {
+                if (do_bwipp && testUtilCanBwipp(i, symbol, data[i].option_1, data[i].option_2, data[i].option_3,
+                        debug)) {
                     if (!data[i].bwipp_cmp) {
-                        if (debug & ZINT_DEBUG_TEST_PRINT) printf("i:%d %s not BWIPP compatible (%s)\n", i, testUtilBarcodeName(symbol->symbology), data[i].comment);
+                        if (debug & ZINT_DEBUG_TEST_PRINT) {
+                            printf("i:%d %s not BWIPP compatible (%s)\n",
+                                    i, testUtilBarcodeName(symbol->symbology), data[i].comment);
+                        }
                     } else {
-                        ret = testUtilBwippSegs(i, symbol, data[i].option_1, data[i].option_2, data[i].option_3, data[i].segs, seg_count, NULL, cmp_buf, sizeof(cmp_buf));
-                        assert_zero(ret, "i:%d %s testUtilBwippSegs ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                        ret = testUtilBwippSegs(i, symbol, data[i].option_1, data[i].option_2, data[i].option_3,
+                                    data[i].segs, seg_count, NULL, cmp_buf, sizeof(cmp_buf));
+                        assert_zero(ret, "i:%d %s testUtilBwippSegs ret %d != 0\n",
+                                    i, testUtilBarcodeName(symbol->symbology), ret);
 
                         ret = testUtilBwippCmp(symbol, cmp_msg, cmp_buf, data[i].expected);
                         assert_zero(ret, "i:%d %s testUtilBwippCmp %d != 0 %s\n  actual: %s\nexpected: %s\n",
-                                       i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_buf, data[i].expected);
+                                       i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_buf,
+                                       data[i].expected);
                     }
                 }
-                if (do_zxingcpp && testUtilCanZXingCPP(i, symbol, (const char *) data[i].segs[0].source, data[i].segs[0].length, debug)) {
+                if (do_zxingcpp && testUtilCanZXingCPP(i, symbol, (const char *) data[i].segs[0].source,
+                        data[i].segs[0].length, debug)) {
                     if ((data[i].input_mode & 0x07) == DATA_MODE) {
                         if (debug & ZINT_DEBUG_TEST_PRINT) {
-                            printf("i:%d multiple segments in DATA_MODE not currently supported for ZXing-C++ testing (%s)\n",
+                            printf("i:%d %s multiple segments in DATA_MODE not currently supported for ZXing-C++ testing\n",
                                     i, testUtilBarcodeName(symbol->symbology));
                         }
                     } else {
                         int cmp_len, ret_len;
                         char modules_dump[2710 * 8 + 1];
-                        assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1, "i:%d testUtilModulesDump == -1\n", i);
-                        ret = testUtilZXingCPP(i, symbol, (const char *) data[i].segs[0].source, data[i].segs[0].length,
-                                modules_dump, cmp_buf, sizeof(cmp_buf), &cmp_len);
-                        assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                        assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1,
+                                    "i:%d testUtilModulesDump == -1\n", i);
+                        ret = testUtilZXingCPP(i, symbol, (const char *) data[i].segs[0].source,
+                                data[i].segs[0].length, modules_dump, 1 /*zxingcpp_cmp*/, cmp_buf, sizeof(cmp_buf),
+                                &cmp_len);
+                        assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n",
+                                i, testUtilBarcodeName(symbol->symbology), ret);
 
                         ret = testUtilZXingCPPCmpSegs(symbol, cmp_msg, cmp_buf, cmp_len, data[i].segs, seg_count,
                                 NULL /*primary*/, escaped, &ret_len);
                         assert_zero(ret, "i:%d %s testUtilZXingCPPCmpSegs %d != 0 %s\n  actual: %.*s\nexpected: %.*s\n",
-                                       i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len, escaped);
+                                i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len,
+                                escaped);
                     }
                 }
             }
+        }
+
+        ZBarcode_Delete(symbol);
+    }
+
+    testFinish();
+}
+
+static void test_rt(const testCtx *const p_ctx) {
+    int debug = p_ctx->debug;
+
+    struct item {
+        int symbology;
+        int input_mode;
+        int eci;
+        int output_options;
+        const char *data;
+        int length;
+        int ret;
+        int expected_eci;
+        const char *expected;
+        int expected_length;
+        int expected_content_eci;
+    };
+    /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
+    static const struct item data[] = {
+        /*  0*/ { BARCODE_PDF417, UNICODE_MODE, -1, -1, "é", -1, 0, 0, "", -1, 0 },
+        /*  1*/ { BARCODE_PDF417, UNICODE_MODE, -1, BARCODE_CONTENT_SEGS, "é", -1, 0, 0, "é", -1, 3 }, /* Now UTF-8, not converted */
+        /*  2*/ { BARCODE_PDF417, UNICODE_MODE, -1, -1, "ก", -1, ZINT_WARN_USES_ECI, 13, "", -1, 0 },
+        /*  3*/ { BARCODE_PDF417, UNICODE_MODE, -1, BARCODE_CONTENT_SEGS, "ก", -1, ZINT_WARN_USES_ECI, 13, "ก", -1, 13 },
+        /*  4*/ { BARCODE_PDF417, DATA_MODE, -1, -1, "\351", -1, 0, 0, "", -1, 0 },
+        /*  5*/ { BARCODE_PDF417, DATA_MODE, -1, BARCODE_CONTENT_SEGS, "\351", -1, 0, 0, "\351", -1, 3 },
+        /*  6*/ { BARCODE_PDF417, UNICODE_MODE, 26, -1, "é", -1, 0, 26, "", -1, 0 },
+        /*  7*/ { BARCODE_PDF417, UNICODE_MODE, 26, BARCODE_CONTENT_SEGS, "é", -1, 0, 26, "é", -1, 26 },
+        /*  8*/ { BARCODE_PDF417, UNICODE_MODE, 899, -1, "é", -1, 0, 899, "", -1, 0 },
+        /*  9*/ { BARCODE_PDF417, UNICODE_MODE, 899, BARCODE_CONTENT_SEGS, "é", -1, 0, 899, "é", -1, 899 },
+        /* 10*/ { BARCODE_HIBC_PDF, UNICODE_MODE, -1, -1, "H123ABC01234567890", -1, 0, 0, "", -1, 0 },
+        /* 11*/ { BARCODE_HIBC_PDF, UNICODE_MODE, -1, BARCODE_CONTENT_SEGS, "H123ABC01234567890", -1, 0, 0, "+H123ABC01234567890D", -1, 3 },
+        /* 12*/ { BARCODE_PDF417COMP, UNICODE_MODE, -1, -1, "é", -1, 0, 0, "", -1, 0 },
+        /* 13*/ { BARCODE_PDF417COMP, UNICODE_MODE, -1, BARCODE_CONTENT_SEGS, "é", -1, 0, 0, "é", -1, 3 },
+        /* 14*/ { BARCODE_MICROPDF417, UNICODE_MODE, -1, -1, "é", -1, 0, 0, "", -1, 0 },
+        /* 15*/ { BARCODE_MICROPDF417, UNICODE_MODE, -1, BARCODE_CONTENT_SEGS, "é", -1, 0, 0, "é", -1, 3 },
+        /* 16*/ { BARCODE_MICROPDF417, UNICODE_MODE, -1, -1, "ก", -1, ZINT_WARN_USES_ECI, 13, "", -1, 0 },
+        /* 17*/ { BARCODE_MICROPDF417, UNICODE_MODE, -1, BARCODE_CONTENT_SEGS, "ก", -1, ZINT_WARN_USES_ECI, 13, "ก", -1, 13 },
+        /* 18*/ { BARCODE_MICROPDF417, DATA_MODE, -1, -1, "\351", -1, 0, 0, "", -1, 0 },
+        /* 19*/ { BARCODE_MICROPDF417, DATA_MODE, -1, BARCODE_CONTENT_SEGS, "\351", -1, 0, 0, "\351", -1, 3 },
+        /* 20*/ { BARCODE_MICROPDF417, UNICODE_MODE, 26, -1, "é", -1, 0, 26, "", -1, 0 },
+        /* 21*/ { BARCODE_MICROPDF417, UNICODE_MODE, 26, BARCODE_CONTENT_SEGS, "é", -1, 0, 26, "é", -1, 26 },
+        /* 22*/ { BARCODE_MICROPDF417, UNICODE_MODE, 899, -1, "é", -1, 0, 899, "", -1, 0 },
+        /* 23*/ { BARCODE_MICROPDF417, UNICODE_MODE, 899, BARCODE_CONTENT_SEGS, "é", -1, 0, 899, "é", -1, 899 },
+        /* 24*/ { BARCODE_HIBC_MICPDF, UNICODE_MODE, -1, -1, "H123ABC01234567890", -1, 0, 0, "", -1, 0 },
+        /* 25*/ { BARCODE_HIBC_MICPDF, UNICODE_MODE, -1, BARCODE_CONTENT_SEGS, "H123ABC01234567890", -1, 0, 0, "+H123ABC01234567890D", -1, 3 },
+    };
+    const int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
+    struct zint_symbol *symbol = NULL;
+
+    int expected_length;
+
+    char escaped[4096];
+    char escaped2[4096];
+
+    testStartSymbol(p_ctx->func_name, &symbol);
+
+    for (i = 0; i < data_size; i++) {
+
+        if (testContinue(p_ctx, i)) continue;
+
+        symbol = ZBarcode_Create();
+        assert_nonnull(symbol, "Symbol not created\n");
+
+        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, data[i].eci,
+                                    -1 /*option_1*/, -1 /*option_2*/, -1 /*option_3*/, data[i].output_options,
+                                    data[i].data, data[i].length, debug);
+        expected_length = data[i].expected_length == -1 ? (int) strlen(data[i].expected) : data[i].expected_length;
+
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
+
+        if (ret < ZINT_ERROR) {
+            assert_equal(symbol->eci, data[i].expected_eci, "i:%d eci %d != %d\n",
+                        i, symbol->eci, data[i].expected_eci);
+            if (symbol->output_options & BARCODE_CONTENT_SEGS) {
+                assert_nonnull(symbol->content_segs, "i:%d content_segs NULL\n", i);
+                assert_nonnull(symbol->content_segs[0].source, "i:%d content_segs[0].source NULL\n", i);
+                assert_equal(symbol->content_segs[0].length, expected_length,
+                            "i:%d content_segs[0].length %d != expected_length %d\n",
+                            i, symbol->content_segs[0].length, expected_length);
+                assert_zero(memcmp(symbol->content_segs[0].source, data[i].expected, expected_length),
+                            "i:%d content_segs[0].source memcmp(%s, %s, %d) != 0\n", i,
+                            testUtilEscape((const char *) symbol->content_segs[0].source, symbol->content_segs[0].length,
+                                            escaped, sizeof(escaped)),
+                            testUtilEscape(data[i].expected, expected_length, escaped2, sizeof(escaped2)),
+                            expected_length);
+                assert_equal(symbol->content_segs[0].eci, data[i].expected_content_eci,
+                            "i:%d content_segs[0].eci %d != expected_content_eci %d\n",
+                            i, symbol->content_segs[0].eci, data[i].expected_content_eci);
+            } else {
+                assert_null(symbol->content_segs, "i:%d content_segs not NULL\n", i);
+            }
+        }
+
+        ZBarcode_Delete(symbol);
+    }
+
+    testFinish();
+}
+
+static void test_rt_segs(const testCtx *const p_ctx) {
+    int debug = p_ctx->debug;
+
+    struct item {
+        int symbology;
+        int input_mode;
+        int output_options;
+        struct zint_seg segs[3];
+        int ret;
+
+        int expected_rows;
+        int expected_width;
+        struct zint_seg expected_content_segs[3];
+        int expected_content_seg_count;
+    };
+    /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
+    static const struct item data[] = {
+        /*  0*/ { BARCODE_PDF417, UNICODE_MODE, -1, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, {0} }, 0, 8, 103, {{0}}, 0 },
+        /*  1*/ { BARCODE_PDF417, UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, { TU(""), 0, 0 } }, 0, 8, 103, { { TU("¶"), 2, 3 }, { TU("Ж"), 2, 7 }, {0} }, 2 }, /* Now UTF-8, not converted */
+        /*  2*/ { BARCODE_PDF417, UNICODE_MODE, -1, { { TU("éé"), -1, 0 }, { TU("กขฯ"), -1, 0 }, { TU("βββ"), -1, 0 } }, ZINT_WARN_USES_ECI, 8, 120, {{0}}, 0 },
+        /*  3*/ { BARCODE_PDF417, UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("éé"), -1, 0 }, { TU("กขฯ"), -1, 0 }, { TU("βββ"), -1, 0 } }, ZINT_WARN_USES_ECI, 8, 120, { { TU("éé"), 4, 3 }, { TU("กขฯ"), 9, 13 }, { TU("βββ"), 6, 9 } }, 3 },
+        /*  4*/ { BARCODE_PDF417, DATA_MODE, -1, { { TU("¶"), -1, 26 }, { TU("Ж"), -1, 0 }, { TU("\223\137"), -1, 20 } }, 0, 8, 120, {{0}}, 0 },
+        /*  5*/ { BARCODE_PDF417, DATA_MODE, BARCODE_CONTENT_SEGS, { { TU("¶"), -1, 26 }, { TU("Ж"), -1, 0 }, { TU("\223\137"), -1, 20 } }, 0, 8, 120, { { TU("¶"), 2, 26 }, { TU("\320\226"), 2, 3 }, { TU("\223\137"), 2, 20 } }, 3 },
+        /*  6*/ { BARCODE_PDF417COMP, UNICODE_MODE, -1, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, {0} }, 0, 8, 69, {{0}}, 0 },
+        /*  7*/ { BARCODE_PDF417COMP, UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, { TU(""), 0, 0 } }, 0, 8, 69, { { TU("¶"), 2, 3 }, { TU("Ж"), 2, 7 }, {0} }, 2 },
+        /*  8*/ { BARCODE_MICROPDF417, UNICODE_MODE, -1, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, {0} }, 0, 6, 82, {{0}}, 0 },
+        /*  9*/ { BARCODE_MICROPDF417, UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("¶"), -1, 0 }, { TU("Ж"), -1, 7 }, { TU(""), 0, 0 } }, 0, 6, 82, { { TU("¶"), 2, 3 }, { TU("Ж"), 2, 7 }, {0} }, 2 },
+        /* 10*/ { BARCODE_MICROPDF417, UNICODE_MODE, -1, { { TU("éé"), -1, 0 }, { TU("กขฯ"), -1, 0 }, { TU("βββ"), -1, 0 } }, ZINT_WARN_USES_ECI, 24, 38, {{0}}, 0 },
+        /* 11*/ { BARCODE_MICROPDF417, UNICODE_MODE, BARCODE_CONTENT_SEGS, { { TU("éé"), -1, 0 }, { TU("กขฯ"), -1, 0 }, { TU("βββ"), -1, 0 } }, ZINT_WARN_USES_ECI, 24, 38, { { TU("éé"), 4, 3 }, { TU("กขฯ"), 9, 13 }, { TU("βββ"), 6, 9 } }, 3 },
+        /* 12*/ { BARCODE_MICROPDF417, DATA_MODE, -1, { { TU("¶"), -1, 26 }, { TU("Ж"), -1, 0 }, { TU("\223\137"), -1, 20 } }, 0, 24, 38, {{0}}, 0 },
+        /* 13*/ { BARCODE_MICROPDF417, DATA_MODE, BARCODE_CONTENT_SEGS, { { TU("¶"), -1, 26 }, { TU("Ж"), -1, 0 }, { TU("\223\137"), -1, 20 } }, 0, 24, 38, { { TU("¶"), 2, 26 }, { TU("\320\226"), 2, 3 }, { TU("\223\137"), 2, 20 } }, 3 },
+    };
+    const int data_size = ARRAY_SIZE(data);
+    int i, j, seg_count, ret;
+    struct zint_symbol *symbol = NULL;
+
+    int expected_length;
+
+    char escaped[4096];
+    char escaped2[4096];
+
+    testStartSymbol(p_ctx->func_name, &symbol);
+
+    for (i = 0; i < data_size; i++) {
+
+        if (testContinue(p_ctx, i)) continue;
+
+        symbol = ZBarcode_Create();
+        assert_nonnull(symbol, "Symbol not created\n");
+
+        testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/,
+                            -1 /*option_1*/, -1 /*option_2*/, -1 /*option_3*/, data[i].output_options,
+                            NULL, 0, debug);
+        for (j = 0, seg_count = 0; j < 3 && data[i].segs[j].length; j++, seg_count++);
+
+        ret = ZBarcode_Encode_Segs(symbol, data[i].segs, seg_count);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode_Segs ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
+
+        assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (width %d)\n",
+                    i, symbol->rows, data[i].expected_rows, symbol->width);
+        assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d\n",
+                    i, symbol->width, data[i].expected_width);
+
+        assert_equal(symbol->content_seg_count, data[i].expected_content_seg_count, "i:%d symbol->content_seg_count %d != %d\n",
+                    i, symbol->content_seg_count, data[i].expected_content_seg_count);
+        if (symbol->output_options & BARCODE_CONTENT_SEGS) {
+            assert_nonnull(symbol->content_segs, "i:%d content_segs NULL\n", i);
+            for (j = 0; j < symbol->content_seg_count; j++) {
+                assert_nonnull(symbol->content_segs[j].source, "i:%d content_segs[%d].source NULL\n", i, j);
+
+                expected_length = data[i].expected_content_segs[j].length;
+
+                assert_equal(symbol->content_segs[j].length, expected_length,
+                            "i:%d content_segs[%d].length %d != expected_length %d\n",
+                            i, j, symbol->content_segs[j].length, expected_length);
+                assert_zero(memcmp(symbol->content_segs[j].source, data[i].expected_content_segs[j].source, expected_length),
+                            "i:%d content_segs[%d].source memcmp(%s, %s, %d) != 0\n", i, j,
+                            testUtilEscape((const char *) symbol->content_segs[j].source, expected_length, escaped,
+                                            sizeof(escaped)),
+                            testUtilEscape((const char *) data[i].expected_content_segs[j].source, expected_length,
+                                            escaped2, sizeof(escaped2)),
+                            expected_length);
+                assert_equal(symbol->content_segs[j].eci, data[i].expected_content_segs[j].eci,
+                            "i:%d content_segs[%d].eci %d != expected_content_segs.eci %d\n",
+                            i, j, symbol->content_segs[j].eci, data[i].expected_content_segs[j].eci);
+            }
+        } else {
+            assert_null(symbol->content_segs, "i:%d content_segs not NULL\n", i);
         }
 
         ZBarcode_Delete(symbol);
@@ -4784,13 +5098,14 @@ static void test_fuzz(const testCtx *const p_ctx) {
         int input_mode;
         int option_1;
         int option_2;
-        char *data;
+        const char *data;
         int length;
         int ret;
         int bwipp_cmp;
-        char *comment;
+        int zxingcpp_cmp;
+        const char *comment;
     };
-    struct item data[] = {
+    static const struct item data[] = {
         /*  0*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, -1, -1,
                     "\060\075\204\060\204\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075"
                     "\204\060\075\060\103\204\060\214\060\204\060\075\060\031\060\073\060\025\060\075\060\204\060\103\204\060\075\060\204\060\000\075\060\226\060\100\204\060\204\060"
@@ -4817,7 +5132,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075\204\060\075\060\103"
                     "\204\060\214\060\204\060\075\060\073\060\075\060\204\060\103\204\060\075\060\204\060\204\060\122\060\000\060\075\060\000\076\060\100\000\060\004\060\103\204\060"
                     "\204\060\003\060\204\075\060\120\214\060\204\060\004\060\103\204\060\204\060\003\060\211\074\060\120\060\124\060\351\060\120\060\075\060\351\060\072\375\060\204\060",
-                    1001, ZINT_ERROR_TOO_LONG, 1, ""
+                    1001, ZINT_ERROR_TOO_LONG, 1, 899, ""
                 }, /* Original OSS-Fuzz triggering data */
         /*  1*/ { BARCODE_PDF417, DATA_MODE, -1, -1,
                     "\060\075\204\060\204\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075"
@@ -4845,7 +5160,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075\204\060\075\060\103"
                     "\204\060\214\060\204\060\075\060\073\060\075\060\204\060\103\204\060\075\060\204\060\204\060\122\060\000\060\075\060\000\076\060\100\000\060\004\060\103\204\060"
                     "\204\060\003\060\204\075\060\120\214\060\204\060\004\060\103\204\060\204\060\003\060\211\074\060\120\060\124\060\351\060\120\060\075\060\351\060\072\375\060\204\060",
-                    1001, 0, 0, "BWIPP different encodation"
+                    1001, 0, 0, 899, "BWIPP different encodation"
                 }, /* Original OSS-Fuzz triggering data */
         /*  2*/ { BARCODE_PDF417COMP, DATA_MODE | FAST_MODE, -1, -1,
                     "\060\075\204\060\204\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075"
@@ -4873,7 +5188,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075\204\060\075\060\103"
                     "\204\060\214\060\204\060\075\060\073\060\075\060\204\060\103\204\060\075\060\204\060\204\060\122\060\000\060\075\060\000\076\060\100\000\060\004\060\103\204\060"
                     "\204\060\003\060\204\075\060\120\214\060\204\060\004\060\103\204\060\204\060\003\060\211\074\060\120\060\124\060\351\060\120\060\075\060\351\060\072\375\060\204\060",
-                    1001, ZINT_ERROR_TOO_LONG, 1, ""
+                    1001, ZINT_ERROR_TOO_LONG, 1, 899, ""
                 },
         /*  3*/ { BARCODE_PDF417COMP, DATA_MODE, -1, -1,
                     "\060\075\204\060\204\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075"
@@ -4901,7 +5216,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075\204\060\075\060\103"
                     "\204\060\214\060\204\060\075\060\073\060\075\060\204\060\103\204\060\075\060\204\060\204\060\122\060\000\060\075\060\000\076\060\100\000\060\004\060\103\204\060"
                     "\204\060\003\060\204\075\060\120\214\060\204\060\004\060\103\204\060\204\060\003\060\211\074\060\120\060\124\060\351\060\120\060\075\060\351\060\072\375\060\204\060",
-                    1001, 0, 0, "BWIPP different encodation"
+                    1001, 0, 0, 899, "BWIPP different encodation"
                 },
         /*  4*/ { BARCODE_MICROPDF417, DATA_MODE | FAST_MODE, -1, -1,
                     "\060\075\204\060\204\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075"
@@ -4929,7 +5244,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075\204\060\075\060\103"
                     "\204\060\214\060\204\060\075\060\073\060\075\060\204\060\103\204\060\075\060\204\060\204\060\122\060\000\060\075\060\000\076\060\100\000\060\004\060\103\204\060"
                     "\204\060\003\060\204\075\060\120\214\060\204\060\004\060\103\204\060\204\060\003\060\211\074\060\120\060\124\060\351\060\120\060\075\060\351\060\072\375\060\204\060",
-                    1001, ZINT_ERROR_TOO_LONG, 1, ""
+                    1001, ZINT_ERROR_TOO_LONG, 1, 899, ""
                 },
         /*  5*/ { BARCODE_MICROPDF417, DATA_MODE, -1, -1,
                     "\060\075\204\060\204\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075"
@@ -4957,7 +5272,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\060\204\041\060\075\060\204\060\075\060\075\204\060\075\060\103\204\060\204\060\003\120\060\075\060\004\060\204\060\074\204\060\204\060\075\204\060\075\060\103"
                     "\204\060\214\060\204\060\075\060\073\060\075\060\204\060\103\204\060\075\060\204\060\204\060\122\060\000\060\075\060\000\076\060\100\000\060\004\060\103\204\060"
                     "\204\060\003\060\204\075\060\120\214\060\204\060\004\060\103\204\060\204\060\003\060\211\074\060\120\060\124\060\351\060\120\060\075\060\351\060\072\375\060\204\060",
-                    1001, ZINT_ERROR_TOO_LONG, 1, ""
+                    1001, ZINT_ERROR_TOO_LONG, 1, 899, ""
                 },
         /*  6*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, 0, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
@@ -4979,7 +5294,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "1234567890",
-                    2710, 0, 0, "BWIPP different encodation"
+                    2710, 0, 0, 899, "BWIPP different encodation"
                 }, /* Max numerics with ECC 0 */
         /*  7*/ { BARCODE_PDF417, DATA_MODE, 0, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
@@ -5001,7 +5316,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "1234567890",
-                    2710, 0, 0, "BWIPP different encodation"
+                    2710, 0, 0, 1, "BWIPP different encodation"
                 }, /* Max numerics with ECC 0 */
         /*  8*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, 0, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
@@ -5023,7 +5338,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "12345678901",
-                    2711, ZINT_ERROR_TOO_LONG, 1, ""
+                    2711, ZINT_ERROR_TOO_LONG, 1, 1, ""
                 },
         /*  9*/ { BARCODE_PDF417, DATA_MODE, 0, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
@@ -5045,7 +5360,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "12345678901",
-                    2711, ZINT_ERROR_TOO_LONG, 1, ""
+                    2711, ZINT_ERROR_TOO_LONG, 1, 1, ""
                 },
         /* 10*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, -1, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
@@ -5065,7 +5380,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678",
-                    2528, 0, 0, "BWIPP different encodation"
+                    2528, 0, 0, 1, "BWIPP different encodation"
                 }, /* Max numerics with ECC 5 */
         /* 11*/ { BARCODE_PDF417, DATA_MODE, -1, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
@@ -5085,7 +5400,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678",
-                    2528, 0, 0, "BWIPP different encodation"
+                    2528, 0, 0, 1, "BWIPP different encodation"
                 }, /* Max numerics with ECC 5 */
         /* 12*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, 0, -1,
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -5103,7 +5418,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCD",
-                    1850, 0, 0, "BWIPP different encodation"
+                    1850, 0, 0, 1, "BWIPP different encodation"
                 }, /* Max text with ECC 0 */
         /* 13*/ { BARCODE_PDF417, DATA_MODE, 0, -1,
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -5121,7 +5436,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCD",
-                    1850, 0, 0, "BWIPP different encodation"
+                    1850, 0, 0, 1, "BWIPP different encodation"
                 }, /* Max text with ECC 0 */
         /* 14*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, 0, -1,
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -5139,7 +5454,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFG",
-                    1853, ZINT_ERROR_TOO_LONG, 1, ""
+                    1853, ZINT_ERROR_TOO_LONG, 1, 1, ""
                 },
         /* 15*/ { BARCODE_PDF417, DATA_MODE, 0, -1,
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -5157,7 +5472,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFG",
-                    1853, ZINT_ERROR_TOO_LONG, 1, ""
+                    1853, ZINT_ERROR_TOO_LONG, 1, 1, ""
                 },
         /* 16*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, 0, -1,
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
@@ -5188,7 +5503,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240",
-                    1108, 0, 0, "BWIPP different encodation"
+                    1108, 0, 0, 899, "BWIPP different encodation"
                 }, /* Max bytes with ECC 0 */
         /* 17*/ { BARCODE_PDF417, DATA_MODE, 0, -1,
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
@@ -5219,7 +5534,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240",
-                    1108, 0, 0, "BWIPP different encodation"
+                    1108, 0, 0, 899, "BWIPP different encodation"
                 }, /* Max bytes with ECC 0 */
         /* 18*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, 0, -1,
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
@@ -5250,7 +5565,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240",
-                    1111, ZINT_ERROR_TOO_LONG, 1, ""
+                    1111, ZINT_ERROR_TOO_LONG, 1, 899, ""
                 },
         /* 19*/ { BARCODE_PDF417, DATA_MODE, 0, -1,
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
@@ -5281,51 +5596,51 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
                     "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240",
-                    1111, ZINT_ERROR_TOO_LONG, 1, ""
+                    1111, ZINT_ERROR_TOO_LONG, 1, 899, ""
                 },
         /* 20*/ { BARCODE_MICROPDF417, DATA_MODE | FAST_MODE, -1, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456",
-                    366, 0, 1, ""
+                    366, 0, 1, 1, ""
                 }, /* Max numerics */
         /* 21*/ { BARCODE_MICROPDF417, DATA_MODE, -1, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456",
-                    366, 0, 1, ""
+                    366, 0, 1, 1, ""
                 }, /* Max numerics */
         /* 22*/ { BARCODE_MICROPDF417, DATA_MODE | FAST_MODE, -1, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "1234567890123456789012345678901234567890123456789012345678901234567",
-                    367, ZINT_ERROR_TOO_LONG, 1, ""
+                    367, ZINT_ERROR_TOO_LONG, 1, 1, ""
                 },
         /* 23*/ { BARCODE_MICROPDF417, DATA_MODE, -1, -1,
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
                     "1234567890123456789012345678901234567890123456789012345678901234567",
-                    367, ZINT_ERROR_TOO_LONG, 1, ""
+                    367, ZINT_ERROR_TOO_LONG, 1, 1, ""
                 },
         /* 24*/ { BARCODE_MICROPDF417, DATA_MODE | FAST_MODE, -1, -1,
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP",
-                    250, 0, 1, ""
+                    250, 0, 1, 1, ""
                 }, /* Max text */
         /* 25*/ { BARCODE_MICROPDF417, DATA_MODE, -1, -1,
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP",
-                    250, 0, 1, ""
+                    250, 0, 1, 1, ""
                 }, /* Max text */
         /* 26*/ { BARCODE_MICROPDF417, DATA_MODE | FAST_MODE, -1, -1,
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQ",
-                    251, ZINT_ERROR_TOO_LONG, 1, ""
+                    251, ZINT_ERROR_TOO_LONG, 1, 1, ""
                 },
         /* 27*/ { BARCODE_MICROPDF417, DATA_MODE, -1, -1,
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQ",
-                    251, ZINT_ERROR_TOO_LONG, 1, ""
+                    251, ZINT_ERROR_TOO_LONG, 1, 1, ""
                 },
         /* 28*/ { BARCODE_PDF417COMP, DATA_MODE | FAST_MODE, 0, -1,
                     "\000\000\000\377\377\010\002\000\000\033\005\031\000\000\002\000\000\000\000\101\101\101\101\101\101\101\101\000\000\000\000\000\000\000\374\000\101\101\101\000"
@@ -5355,7 +5670,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\101\000\000\000\000\374\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\323\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
                     "\000\000\000\000\000\000\000\000\323\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
                     "\000\000\000\000\000\000\000\000",
-                    1048, 0, 0, "BWIPP different encodation"
+                    1048, 0, 0, 899, "BWIPP different encodation"
                 }, /* #300 (#1) Andre Maute (`pdf_text_submode_length()` not checking if previous/next BYT) */
         /* 29*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, -1, -1,
                     "\060\060\060\060\060\060\060\060\060\060\060\162\162\162\162\162\162\162\162\162\162\047\122\162\000\000\167\211\206\001\000\047\153\153\153\153\153\067\066\164"
@@ -5424,7 +5739,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\051\051\051\051\107\107\051\051\051\051\051\051\051\051\051\051\051\051\050\051\051\050\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051"
                     "\051\051\050\152\152\152\152\152\152\152\152\051\050\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\000\124\164\164\162\162\162\047\122\162\162"
                     "\162\162\001\100\167\167\001\044\204\167\167",
-                    2611, ZINT_ERROR_TOO_LONG, 1, ""
+                    2611, ZINT_ERROR_TOO_LONG, 1, 899, ""
                 }, /* #300 (#7) Andre Maute */
         /* 30*/ { BARCODE_PDF417, DATA_MODE, -1, -1,
                     "\060\060\060\060\060\060\060\060\060\060\060\162\162\162\162\162\162\162\162\162\162\047\122\162\000\000\167\211\206\001\000\047\153\153\153\153\153\067\066\164"
@@ -5493,7 +5808,7 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\051\051\051\051\107\107\051\051\051\051\051\051\051\051\051\051\051\051\050\051\051\050\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051"
                     "\051\051\050\152\152\152\152\152\152\152\152\051\050\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\051\000\124\164\164\162\162\162\047\122\162\162"
                     "\162\162\001\100\167\167\001\044\204\167\167",
-                    2611, ZINT_ERROR_TOO_LONG, 1, ""
+                    2611, ZINT_ERROR_TOO_LONG, 1, 899, ""
                 }, /* #300 (#7) Andre Maute !FAST_MODE */
         /* 31*/ { BARCODE_PDF417, DATA_MODE | FAST_MODE, -1, 242,
                     "\000\000\000\000\000\000\000\000\000\000\000\212\377\000\000\153\153\153\153\153\153\153\060\047\047\043\047\057\153\000\153\153\137\377\153\153\000\134\000\000"
@@ -5564,10 +5879,10 @@ static void test_fuzz(const testCtx *const p_ctx) {
                     "\142\134\162\162\162\162\077\162\072\176\000\162\162\377\377\377\377\377\377\134\134\134\142\134\162\362\162\162\162\072\176\000\162\162\162\162\162\174\174\377"
                     "\134\134\134\162\142\362\134\162\162\162\072\176\000\215\215\162\162\162\174\174\174\174\134\134\134\142\134\000\153\153\153\153\153\153\153\062\047\047\043\047"
                     "\057\262\054\377\134\134\142\153\330\153",
-                    2690, ZINT_ERROR_TOO_LONG, 1, ""
+                    2690, ZINT_ERROR_TOO_LONG, 1, 899, ""
                 }, /* #300 (#10) Andre Maute */
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length, ret;
     struct zint_symbol *symbol = NULL;
 
@@ -5575,10 +5890,11 @@ static void test_fuzz(const testCtx *const p_ctx) {
     char cmp_buf[32768];
     char cmp_msg[32768];
 
-    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript(); /* Only do BWIPP test if asked, too slow otherwise */
-    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder(); /* Only do ZXing-C++ test if asked, too slow otherwise */
+    /* Only do BWIPP/ZXing-C++ tests if asked, too slow otherwise */
+    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript();
+    int do_zxingcpp = (debug & ZINT_DEBUG_TEST_ZXINGCPP) && testUtilHaveZXingCPPDecoder();
 
-    testStartSymbol("test_fuzz", &symbol);
+    testStartSymbol(p_ctx->func_name, &symbol);
 
     for (i = 0; i < data_size; i++) {
 
@@ -5587,37 +5903,52 @@ static void test_fuzz(const testCtx *const p_ctx) {
         symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
-        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, data[i].length, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/,
+                                    data[i].option_1, data[i].option_2, -1, -1 /*output_options*/,
+                                    data[i].data, data[i].length, debug);
 
-        ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
-        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
+        ret = ZBarcode_Encode(symbol, TCU(data[i].data), length);
+        assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n",
+                    i, ret, data[i].ret, symbol->errtxt);
 
         if (ret < ZINT_ERROR) {
 
             if (do_bwipp && testUtilCanBwipp(i, symbol, data[i].option_1, data[i].option_2, -1, debug)) {
                 if (!data[i].bwipp_cmp) {
-                    if (debug & ZINT_DEBUG_TEST_PRINT) printf("i:%d %s not BWIPP compatible (%s)\n", i, testUtilBarcodeName(symbol->symbology), data[i].comment);
+                    if (debug & ZINT_DEBUG_TEST_PRINT) {
+                        printf("i:%d %s not BWIPP compatible (%s)\n",
+                                i, testUtilBarcodeName(symbol->symbology), data[i].comment);
+                    }
                 } else {
                     char modules_dump[32768];
-                    assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1, "i:%d testUtilModulesDump == -1\n", i);
-                    ret = testUtilBwipp(i, symbol, data[i].option_1, data[i].option_2, -1, data[i].data, length, NULL, cmp_buf, sizeof(cmp_buf), NULL);
-                    assert_zero(ret, "i:%d %s testUtilBwipp ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                    assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1,
+                                "i:%d testUtilModulesDump == -1\n", i);
+                    ret = testUtilBwipp(i, symbol, data[i].option_1, data[i].option_2, -1, data[i].data, length, NULL,
+                                cmp_buf, sizeof(cmp_buf), NULL);
+                    assert_zero(ret, "i:%d %s testUtilBwipp ret %d != 0\n",
+                                i, testUtilBarcodeName(symbol->symbology), ret);
 
                     ret = testUtilBwippCmp(symbol, cmp_msg, cmp_buf, modules_dump);
                     assert_zero(ret, "i:%d %s testUtilBwippCmp %d != 0 %s\n  actual: %s\nexpected: %s\n",
-                                   i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_buf, modules_dump);
+                                i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_buf, modules_dump);
                 }
             }
             if (do_zxingcpp && testUtilCanZXingCPP(i, symbol, data[i].data, length, debug)) {
                 int cmp_len, ret_len;
                 char modules_dump[32768];
-                assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1, "i:%d testUtilModulesDump == -1\n", i);
-                ret = testUtilZXingCPP(i, symbol, data[i].data, length, modules_dump, cmp_buf, sizeof(cmp_buf), &cmp_len);
-                assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                assert_nonzero(data[i].zxingcpp_cmp, "i:%d data[i].zxingcpp_cmp == 0", i);
+                assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1,
+                            "i:%d testUtilModulesDump == -1\n", i);
+                ret = testUtilZXingCPP(i, symbol, data[i].data, length, modules_dump, data[i].zxingcpp_cmp, cmp_buf,
+                            sizeof(cmp_buf), &cmp_len);
+                assert_zero(ret, "i:%d %s testUtilZXingCPP ret %d != 0\n",
+                            i, testUtilBarcodeName(symbol->symbology), ret);
 
-                ret = testUtilZXingCPPCmp(symbol, cmp_msg, cmp_buf, cmp_len, data[i].data, length, NULL /*primary*/, escaped, &ret_len);
+                ret = testUtilZXingCPPCmp(symbol, cmp_msg, cmp_buf, cmp_len, data[i].data, length, NULL /*primary*/,
+                            escaped, &ret_len);
                 assert_zero(ret, "i:%d %s testUtilZXingCPPCmp %d != 0 %s\n  actual: %.*s\nexpected: %.*s\n",
-                               i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len, escaped);
+                            i, testUtilBarcodeName(symbol->symbology), ret, cmp_msg, cmp_len, cmp_buf, ret_len,
+                            escaped);
             }
         }
 
@@ -5628,8 +5959,8 @@ static void test_fuzz(const testCtx *const p_ctx) {
 }
 
 
-INTERNAL void pdf_numbprocess_test(short *chainemc, int *p_mclength, const unsigned char chaine[], const int start,
-                const int length);
+INTERNAL void zint_test_pdf_numbprocess(short *chainemc, int *p_mclength, const unsigned char chaine[],
+                const int start, const int length);
 
 #include "../large.h"
 
@@ -5680,17 +6011,17 @@ static int annex_d_decode_dump(short chainemc[], int mclength, unsigned char *ch
         return -1;
     }
 
-    large_load_u64(&t, 0);
+    zint_large_load_u64(&t, 0);
     for (i = 1; i < mclength; i++) {
-        large_load(&s, &pow900s[mclength - i - 1]);
-        large_mul_u64(&s, chainemc[i]);
-        large_add(&t, &s);
+        zint_large_load(&s, &pow900s[mclength - i - 1]);
+        zint_large_mul_u64(&s, chainemc[i]);
+        zint_large_add(&t, &s);
     }
-    large_dump(&t, buf1);
+    zint_large_dump(&t, buf1);
 
-    large_load_str_u64(&e, chaine, length);
-    large_add(&e, &pow10s[length]); /* Add "1" prefix */
-    large_dump(&e, buf2);
+    zint_large_load_str_u64(&e, chaine, length);
+    zint_large_add(&e, &pow10s[length]); /* Add "1" prefix */
+    zint_large_dump(&e, buf2);
 
     return 0;
 }
@@ -5703,7 +6034,7 @@ static void test_numbprocess(const testCtx *const p_ctx) {
         int expected[16];
     };
     /* s/\/\*[ 0-9]*\*\//\=printf("\/\*%3d*\/", line(".") - line("'<")): */
-    struct item data[] = {
+    static const struct item data[] = {
         /*  0*/ { TU("1"), 2, { 902, 11, }, },
         /*  1*/ { TU("9"), 2, { 902, 19, }, },
         /*  2*/ { TU("12"), 2, { 902, 112, }, },
@@ -5757,240 +6088,42 @@ static void test_numbprocess(const testCtx *const p_ctx) {
         /* 50*/ { TU("12345678901234567890123456789012345678901234"), 16, { 902, 491, 81, 137, 450, 302, 67, 15, 174, 492, 862, 667, 475, 869, 12, 434, }, },
         /* 51*/ { TU("99999999999999999999999999999999999999999999"), 16, { 902, 874, 223, 532, 264, 888, 236, 358, 185, 93, 795, 72, 289, 146, 822, 199, }, },
     };
-    int data_size = ARRAY_SIZE(data);
+    const int data_size = ARRAY_SIZE(data);
     int i, length;
 
-    short chainemc[32];
+    short chainemc[32] = {0}; /* Suppress clang -fsanitize=memory false positive */
     int mclength;
 
-    testStart("test_numbprocess");
+    testStart(p_ctx->func_name);
 
     for (i = 0; i < data_size; i++) {
         int j;
 
         if (testContinue(p_ctx, i)) continue;
 
-        length = (int) ustrlen(data[i].chaine);
+        length = (int) z_ustrlen(data[i].chaine);
         mclength = 0;
-        pdf_numbprocess_test(chainemc, &mclength, data[i].chaine, 0, length);
-        assert_nonzero(mclength < ARRAY_SIZE(chainemc), "i:%d mclength %d >= ARRAY_SIZE(chainemc) %d\n", i, mclength, ARRAY_SIZE(chainemc));
+        zint_test_pdf_numbprocess(chainemc, &mclength, data[i].chaine, 0, length);
+        assert_nonzero(mclength < ARRAY_SIZE(chainemc), "i:%d mclength %d >= ARRAY_SIZE(chainemc) %d\n",
+                    i, mclength, ARRAY_SIZE(chainemc));
 #if 0
         for (j = 0; j < mclength; j++) { printf(" %d", chainemc[j]); } printf("\n");
 #endif
-        assert_equal(mclength, data[i].expected_len, "i:%d mclength %d != expected_len %d\n", i, mclength, data[i].expected_len);
+        assert_equal(mclength, data[i].expected_len, "i:%d mclength %d != expected_len %d\n",
+                    i, mclength, data[i].expected_len);
         for (j = 0; j < mclength; j++) {
-            assert_equal(chainemc[j], data[i].expected[j], "i:%d chainemc[%d] %d != %d\n", i, j, chainemc[j], data[i].expected[j]);
+            assert_equal(chainemc[j], data[i].expected[j], "i:%d chainemc[%d] %d != %d\n",
+                        i, j, chainemc[j], data[i].expected[j]);
         }
         if (length < 20) {
             char buf1[64], buf2[64];
-            assert_zero(annex_d_decode_dump(chainemc, mclength, data[i].chaine, length, buf1, buf2), "i:%d annex_d_decode_dump() fail\n", i);
+            assert_zero(annex_d_decode_dump(chainemc, mclength, data[i].chaine, length, buf1, buf2),
+                        "i:%d annex_d_decode_dump() fail\n", i);
             assert_zero(strcmp(buf1, buf2), "i:%d, strcmp(%s, %s) != 0\n", i, buf1, buf2);
         }
     }
 
     testFinish();
-}
-
-#include <time.h>
-
-#define TEST_PERF_ITER_MILLES   5
-#define TEST_PERF_ITERATIONS    (TEST_PERF_ITER_MILLES * 1000)
-#define TEST_PERF_TIME(arg)     (((arg) * 1000.0) / CLOCKS_PER_SEC)
-
-/* Not a real test, just performance indicator */
-static void test_perf(const testCtx *const p_ctx) {
-    int debug = p_ctx->debug;
-
-    struct item {
-        int symbology;
-        int input_mode;
-        int option_1;
-        int option_2;
-        char *data;
-        int ret;
-
-        int expected_rows;
-        int expected_width;
-        char *comment;
-    };
-    struct item data[] = {
-        /*  0*/ { BARCODE_PDF417, -1, -1, -1, "1234567890", 0, 7, 103, "10 numerics" },
-        /*  1*/ { BARCODE_PDF417, -1, -1, -1,
-                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyz&,:#-.$/+%*=^ABCDEFGHIJKLMNOPQRSTUVWXYZ12345678901234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLM"
-                    "NOPQRSTUVWXYZ;<>@[]_`~!||()?{}'123456789012345678901234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJK"
-                    "LMNOPQRSTUVWXYZ12345678912345678912345678912345678900001234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFG"
-                    "HIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678901234567"
-                    "890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcde"
-                    "fghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO",
-                    0, 43, 290, "960 chars, text/numeric" },
-        /*  2*/ { BARCODE_PDF417, DATA_MODE, -1, -1,
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240"
-                    "\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240\240",
-                    0, 51, 358, "960 chars, byte" },
-        /*  3*/ { BARCODE_PDF417, -1, -1, -1,
-                    "BP2D+1.00+0005+FLE ESC BV+1.00+3.60*BX2D+1.00+0001+Casual shoes & apparel+90044030118100801265*D_2D+1.02+31351440315981+C910332+02032018+KXXXX CXXXX+UNIT 4 HXXX"
-                    "XXXXX BUSINESS PARK++ST  ALBANS+ST  ALBANS++AL2 3TA+0001+000001+001+00000000+00++N+N+N+0000++++++N+++N*DS2D+1.01+0001+0001+90044030118100801265+++++07852389322+"
-                    "+E*F_2D+1.00+0005*",
-                    0, 26, 222, "338 chars, text/numeric/byte" },
-    };
-    int data_size = ARRAY_SIZE(data);
-    int i, length, ret;
-    struct zint_symbol *symbol;
-
-    clock_t start;
-    clock_t total_create = 0, total_encode = 0, total_buffer = 0, total_buf_inter = 0, total_print = 0;
-    clock_t diff_create, diff_encode, diff_buffer, diff_buf_inter, diff_print;
-    int comment_max = 0;
-
-    if (!(debug & ZINT_DEBUG_TEST_PERFORMANCE)) { /* -d 256 */
-        return;
-    }
-
-    for (i = 0; i < data_size; i++) if ((int) strlen(data[i].comment) > comment_max) comment_max = (int) strlen(data[i].comment);
-
-    printf("Iterations %d\n", TEST_PERF_ITERATIONS);
-
-    printf("FAST_MODE\n");
-    for (i = 0; i < data_size; i++) {
-        int j;
-
-        if (testContinue(p_ctx, i)) continue;
-
-        diff_create = diff_encode = diff_buffer = diff_buf_inter = diff_print = 0;
-
-        for (j = 0; j < TEST_PERF_ITERATIONS; j++) {
-            int input_mode = data[i].input_mode == -1 ? FAST_MODE : (data[i].input_mode | FAST_MODE);
-            start = clock();
-            symbol = ZBarcode_Create();
-            diff_create += clock() - start;
-            assert_nonnull(symbol, "Symbol not created\n");
-
-            length = testUtilSetSymbol(symbol, data[i].symbology, input_mode, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
-
-            start = clock();
-            ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
-            diff_encode += clock() - start;
-            assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
-
-            assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, data[i].data);
-            assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, data[i].data);
-
-            start = clock();
-            ret = ZBarcode_Buffer(symbol, 0 /*rotate_angle*/);
-            diff_buffer += clock() - start;
-            assert_zero(ret, "i:%d ZBarcode_Buffer ret %d != 0 (%s)\n", i, ret, symbol->errtxt);
-
-            symbol->output_options |= OUT_BUFFER_INTERMEDIATE;
-            start = clock();
-            ret = ZBarcode_Buffer(symbol, 0 /*rotate_angle*/);
-            diff_buf_inter += clock() - start;
-            assert_zero(ret, "i:%d ZBarcode_Buffer OUT_BUFFER_INTERMEDIATE ret %d != 0 (%s)\n", i, ret, symbol->errtxt);
-            symbol->output_options &= ~OUT_BUFFER_INTERMEDIATE; /* Undo */
-
-            start = clock();
-            ret = ZBarcode_Print(symbol, 0 /*rotate_angle*/);
-            diff_print += clock() - start;
-            assert_zero(ret, "i:%d ZBarcode_Print ret %d != 0 (%s)\n", i, ret, symbol->errtxt);
-            assert_zero(testUtilRemove(symbol->outfile), "i:%d testUtilRemove(%s) != 0\n", i, symbol->outfile);
-
-            ZBarcode_Delete(symbol);
-        }
-
-        printf("%*s: encode % 8gms, buffer % 8gms, buf_inter % 8gms, print % 8gms, create % 8gms\n", comment_max, data[i].comment,
-                TEST_PERF_TIME(diff_encode), TEST_PERF_TIME(diff_buffer), TEST_PERF_TIME(diff_buf_inter), TEST_PERF_TIME(diff_print), TEST_PERF_TIME(diff_create));
-
-        total_create += diff_create;
-        total_encode += diff_encode;
-        total_buffer += diff_buffer;
-        total_buf_inter += diff_buf_inter;
-        total_print += diff_print;
-    }
-    if (p_ctx->index == -1) {
-        printf("%*s: encode % 8gms, buffer % 8gms, buf_inter % 8gms, print % 8gms, create % 8gms\n", comment_max, "totals",
-                TEST_PERF_TIME(total_encode), TEST_PERF_TIME(total_buffer), TEST_PERF_TIME(total_buf_inter), TEST_PERF_TIME(total_print), TEST_PERF_TIME(total_create));
-    }
-
-    printf("OPTIMIZED\n");
-    total_create = 0, total_encode = 0, total_buffer = 0, total_buf_inter = 0, total_print = 0;
-    for (i = 0; i < data_size; i++) {
-        int j;
-
-        if (testContinue(p_ctx, i)) continue;
-
-        diff_create = diff_encode = diff_buffer = diff_buf_inter = diff_print = 0;
-
-        for (j = 0; j < TEST_PERF_ITERATIONS; j++) {
-            start = clock();
-            symbol = ZBarcode_Create();
-            diff_create += clock() - start;
-            assert_nonnull(symbol, "Symbol not created\n");
-
-            length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
-
-            start = clock();
-            ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
-            diff_encode += clock() - start;
-            assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
-
-            assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, data[i].data);
-            assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, data[i].data);
-
-            start = clock();
-            ret = ZBarcode_Buffer(symbol, 0 /*rotate_angle*/);
-            diff_buffer += clock() - start;
-            assert_zero(ret, "i:%d ZBarcode_Buffer ret %d != 0 (%s)\n", i, ret, symbol->errtxt);
-
-            symbol->output_options |= OUT_BUFFER_INTERMEDIATE;
-            start = clock();
-            ret = ZBarcode_Buffer(symbol, 0 /*rotate_angle*/);
-            diff_buf_inter += clock() - start;
-            assert_zero(ret, "i:%d ZBarcode_Buffer OUT_BUFFER_INTERMEDIATE ret %d != 0 (%s)\n", i, ret, symbol->errtxt);
-            symbol->output_options &= ~OUT_BUFFER_INTERMEDIATE; /* Undo */
-
-            start = clock();
-            ret = ZBarcode_Print(symbol, 0 /*rotate_angle*/);
-            diff_print += clock() - start;
-            assert_zero(ret, "i:%d ZBarcode_Print ret %d != 0 (%s)\n", i, ret, symbol->errtxt);
-            assert_zero(testUtilRemove(symbol->outfile), "i:%d testUtilRemove(%s) != 0\n", i, symbol->outfile);
-
-            ZBarcode_Delete(symbol);
-        }
-
-        printf("%*s: encode % 8gms, buffer % 8gms, buf_inter % 8gms, print % 8gms, create % 8gms\n", comment_max, data[i].comment,
-                TEST_PERF_TIME(diff_encode), TEST_PERF_TIME(diff_buffer), TEST_PERF_TIME(diff_buf_inter), TEST_PERF_TIME(diff_print), TEST_PERF_TIME(diff_create));
-
-        total_create += diff_create;
-        total_encode += diff_encode;
-        total_buffer += diff_buffer;
-        total_buf_inter += diff_buf_inter;
-        total_print += diff_print;
-    }
-    if (p_ctx->index == -1) {
-        printf("%*s: encode % 8gms, buffer % 8gms, buf_inter % 8gms, print % 8gms, create % 8gms\n", comment_max, "totals",
-                TEST_PERF_TIME(total_encode), TEST_PERF_TIME(total_buffer), TEST_PERF_TIME(total_buf_inter), TEST_PERF_TIME(total_print), TEST_PERF_TIME(total_create));
-    }
 }
 
 int main(int argc, char *argv[]) {
@@ -6002,9 +6135,10 @@ int main(int argc, char *argv[]) {
         { "test_input", test_input },
         { "test_encode", test_encode },
         { "test_encode_segs", test_encode_segs },
+        { "test_rt", test_rt },
+        { "test_rt_segs", test_rt_segs },
         { "test_fuzz", test_fuzz },
         { "test_numbprocess", test_numbprocess },
-        { "test_perf", test_perf },
     };
 
     testRun(argc, argv, funcs, ARRAY_SIZE(funcs));

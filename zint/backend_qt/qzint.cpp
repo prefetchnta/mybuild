@@ -1,7 +1,7 @@
 /***************************************************************************
  *   Copyright (C) 2008 by BogDan Vatra                                    *
  *   bogdan@licentia.eu                                                    *
- *   Copyright (C) 2010-2023 Robin Stuart                                  *
+ *   Copyright (C) 2010-2025 Robin Stuart                                  *
  *                                                                         *
  *   This program is free software: you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -22,28 +22,35 @@
 #endif
 #endif
 
-//#include <QDebug>
-#include "qzint.h"
-#include <math.h>
-#include <stdio.h>
+#if 0
+#include <QDebug>
+#endif
 #include <QFontDatabase>
 #include <QFontMetrics>
 /* The following include is necessary to compile with Qt 5.15 on Windows; Qt 5.7 did not require it */
 #include <QPainterPath>
 #include <QRegularExpression>
+
+#include <math.h>
+#include <stdio.h>
+#include "qzint.h"
 #include "../backend/fonts/normal_ttf.h" /* Arimo */
 #include "../backend/fonts/upcean_ttf.h" /* OCR-B subset (digits, "<", ">") */
 
+#define ARRAY_SIZE(x) ((int) (sizeof(x) / sizeof((x)[0])))
+
 // Shorthand
-#define QSL QStringLiteral
+#define QSL     QStringLiteral
+#define QSEmpty QLatin1String("")
 
 namespace Zint {
     static const int maxSegs = 256;
     static const int maxCLISegs = 10; /* CLI restricted to 10 segments (including main data) */
 
     /* Matches RGB(A) hex string or CMYK decimal "C,M,Y,K" percentage string */
-    static const QRegularExpression colorRE(
+    static const QString colorREstr(
                                 QSL("^([0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?)|(((100|[0-9]{0,2}),){3}(100|[0-9]{0,2}))$"));
+    Q_GLOBAL_STATIC_WITH_ARGS(QRegularExpression, colorRE, (colorREstr))
 
     static const QString normalFontFamily = QSL("Arimo"); /* Sans-serif metrically compatible with Arial */
     static const QString upceanFontFamily = QSL("OCRB"); /* Monospace OCR-B */
@@ -70,6 +77,12 @@ namespace Zint {
 
         upceanFontID = QFontDatabase::addApplicationFontFromData(upceanFontArray);
         return upceanFontID;
+    }
+
+    /* Helper to copy byte array up to max `max` into `buf` which must be NUL filled & at least `max` size */
+    static void cpy_bytearray_left(char *buf, const QByteArray &ba, const int max) {
+        QByteArray left = ba.left(max);
+        memcpy(buf, left, left.size());
     }
 
     /* Helper to convert QColor to RGB(A) hex string */
@@ -186,13 +199,14 @@ namespace Zint {
             m_compliant_height(false),
             m_rotate_angle(0),
             m_eci(0),
-            m_gs1parens(false), m_gs1nocheck(false),
+            m_gs1parens(false), m_gs1nocheck(false), m_gs1syntaxengine(false),
             m_reader_init(false),
             m_guard_whitespace(false),
             m_embed_vector_font(false),
             m_warn_level(WARN_DEFAULT), m_debug(false),
             m_encodedWidth(0), m_encodedRows(0), m_encodedHeight(0.0f),
             m_vectorWidth(0.0f), m_vectorHeight(0.0f),
+            m_encodedOption1(-1), m_encodedOption2(0), m_encodedOption3(0),
             m_error(0),
             target_size_horiz(0), target_size_vert(0) // Legacy
     {
@@ -250,9 +264,9 @@ namespace Zint {
         if (m_embed_vector_font) {
             m_zintSymbol->output_options |= EMBED_VECTOR_FONT;
         }
-        strcpy(m_zintSymbol->fgcolour, m_fgStr.toLatin1().left(15));
-        strcpy(m_zintSymbol->bgcolour, m_bgStr.toLatin1().left(15));
-        strcpy(m_zintSymbol->primary, m_primaryMessage.toLatin1().left(127));
+        cpy_bytearray_left(m_zintSymbol->fgcolour, m_fgStr.toLatin1(), ARRAY_SIZE(m_zintSymbol->fgcolour) - 1);
+        cpy_bytearray_left(m_zintSymbol->bgcolour, m_bgStr.toLatin1(), ARRAY_SIZE(m_zintSymbol->fgcolour) - 1);
+        cpy_bytearray_left(m_zintSymbol->primary, m_primaryMessage.toLatin1(), ARRAY_SIZE(m_zintSymbol->primary) - 1);
         m_zintSymbol->option_1 = m_option_1;
         m_zintSymbol->option_2 = m_option_2;
         m_zintSymbol->option_3 = m_option_3;
@@ -263,6 +277,9 @@ namespace Zint {
         }
         if (m_gs1nocheck) {
             m_zintSymbol->input_mode |= GS1NOCHECK_MODE;
+        }
+        if (m_gs1syntaxengine) {
+            m_zintSymbol->input_mode |= GS1SYNTAXENGINE_MODE;
         }
         m_zintSymbol->eci = m_eci;
         m_zintSymbol->dpmm = m_dpmm;
@@ -304,10 +321,16 @@ namespace Zint {
             m_encodedHeight = m_zintSymbol->height;
             m_vectorWidth = m_zintSymbol->vector->width;
             m_vectorHeight = m_zintSymbol->vector->height;
+            m_encodedOption1 = m_zintSymbol->option_1;
+            m_encodedOption2 = m_zintSymbol->option_2;
+            m_encodedOption3 = m_zintSymbol->option_3;
             emit encoded();
         } else {
             m_encodedWidth = m_encodedRows = 0;
             m_encodedHeight = m_vectorWidth = m_vectorHeight = 0.0f;
+            m_encodedOption1 = -1;
+            m_encodedOption2 = 0;
+            m_encodedOption3 = 0;
             emit errored();
         }
     }
@@ -463,15 +486,8 @@ namespace Zint {
             m_structapp.index = index;
             memset(m_structapp.id, 0, sizeof(m_structapp.id));
             if (!id.isEmpty()) {
-                QByteArray idArr = id.toLatin1();
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
-#endif
-                strncpy(m_structapp.id, idArr, sizeof(m_structapp.id));
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+                /* Note may not have NUL terminator */
+                cpy_bytearray_left(m_structapp.id, id.toLatin1(), ARRAY_SIZE(m_structapp.id));
             }
         } else {
             clearStructApp();
@@ -488,7 +504,7 @@ namespace Zint {
     }
 
     bool QZint::setFgStr(const QString& fgStr) {
-        if (fgStr.indexOf(colorRE) == 0) {
+        if (fgStr.indexOf(*colorRE) == 0) {
             m_fgStr = fgStr;
             return true;
         }
@@ -510,7 +526,7 @@ namespace Zint {
     }
 
     bool QZint::setBgStr(const QString& bgStr) {
-        if (bgStr.indexOf(colorRE) == 0) {
+        if (bgStr.indexOf(*colorRE) == 0) {
             m_bgStr = bgStr;
             return true;
         }
@@ -725,6 +741,15 @@ namespace Zint {
         m_gs1nocheck = gs1NoCheck;
     }
 
+    /* Use GS1 Syntax Engine to validate GS1 data */
+    bool QZint::gs1SyntaxEngine() const {
+        return m_gs1syntaxengine;
+    }
+
+    void QZint::setGS1SyntaxEngine(bool gs1SyntaxEngine) {
+        m_gs1syntaxengine = gs1SyntaxEngine;
+    }
+
     /* Reader Initialisation (Programming) */
     bool QZint::readerInit() const {
         return m_reader_init;
@@ -794,11 +819,23 @@ namespace Zint {
         return m_vectorHeight;
     }
 
+    int QZint::encodedOption1() const { // Read-only, encoded `option_1`
+        return m_encodedOption1;
+    }
+
+    int QZint::encodedOption2() const { // Read-only, encoded `option_2`
+        return m_encodedOption2;
+    }
+
+    int QZint::encodedOption3() const { // Read-only, encoded `option_3`
+        return m_encodedOption3;
+    }
+
     /* Legacy property getters/setters */
-    void QZint::setWidth(int width) { setOption1(width); }
-    int QZint::width() const { return m_option_1; }
-    void QZint::setSecurityLevel(int securityLevel) { setOption2(securityLevel); }
-    int QZint::securityLevel() const { return m_option_2; }
+    void QZint::setWidth(int width) { setOption2(width); }
+    int QZint::width() const { return m_option_2; }
+    void QZint::setSecurityLevel(int securityLevel) { setOption1(securityLevel); }
+    int QZint::securityLevel() const { return m_option_1; }
     void QZint::setPdf417CodeWords(int /*pdf417CodeWords*/) {}
     int QZint::pdf417CodeWords() const { return 0; }
     void QZint::setHideText(bool hide) { setShowText(!hide); }
@@ -869,6 +906,10 @@ namespace Zint {
         return ZBarcode_Cap(symbology ? symbology : m_symbol, ZINT_CAP_COMPLIANT_HEIGHT);
     }
 
+    bool QZint::isBindable(int symbology) const {
+        return ZBarcode_Cap(symbology ? symbology : m_symbol, ZINT_CAP_BINDABLE);
+    }
+
     /* Whether takes GS1 AI-delimited data */
     bool QZint::takesGS1AIData(int symbology) const {
         if (symbology == 0) {
@@ -881,7 +922,8 @@ namespace Zint {
                 return true;
                 break;
             default:
-                return symbology >= BARCODE_EANX_CC && symbology <= BARCODE_DBAR_EXPSTK_CC;
+                return (symbology >= BARCODE_EANX_CC && symbology <= BARCODE_DBAR_EXPSTK_CC)
+						|| symbology == BARCODE_EAN8_CC || symbology == BARCODE_EAN13_CC;
                 break;
         }
     }
@@ -903,7 +945,7 @@ namespace Zint {
 
     bool QZint::save_to_file(const QString& filename) {
         if (resetSymbol()) {
-            strcpy(m_zintSymbol->outfile, filename.toUtf8().left(255));
+            cpy_bytearray_left(m_zintSymbol->outfile, filename.toUtf8(), ARRAY_SIZE(m_zintSymbol->outfile) - 1);
             if (m_segs.empty()) {
                 QByteArray bstr = m_text.toUtf8();
                 m_error = ZBarcode_Encode_and_Print(m_zintSymbol, (unsigned char *) bstr.data(), bstr.length(),
@@ -1195,12 +1237,17 @@ namespace Zint {
         if (ZBarcode_BarcodeName(symbology, buf) == 0) {
             return QString(buf);
         }
-        return QSL("");
+        return QSEmpty;
     }
 
     /* Whether Zint library "libzint" built with PNG support or not */
     bool QZint::noPng() {
         return ZBarcode_NoPng() == 1;
+    }
+
+    /* Whether Zint library "libzint" built with PNG support or not */
+    bool QZint::haveGS1SyntaxEngine() {
+        return ZBarcode_HaveGS1SyntaxEngine() == 1;
     }
 
     /* Version of Zint library "libzint" linked to */
@@ -1315,9 +1362,16 @@ namespace Zint {
         arg_bool(cmd, "--fullmultibyte", supportsFullMultibyte() && (option3() & 0xFF) == ZINT_FULL_MULTIBYTE);
 
         if (supportsGS1()) {
-            arg_bool(cmd, "--gs1", (inputMode() & 0x07) == GS1_MODE);
-            arg_bool(cmd, "--gs1parens", gs1Parens() || (inputMode() & GS1PARENS_MODE));
-            arg_bool(cmd, "--gs1nocheck", gs1NoCheck() || (inputMode() & GS1NOCHECK_MODE));
+            bool gs1_implied = false;
+            if (gs1Parens() || (inputMode() & GS1PARENS_MODE)) {
+                arg_bool(cmd, "--gs1parens", (gs1_implied = true));
+            }
+            if (gs1NoCheck() || (inputMode() & GS1NOCHECK_MODE)) {
+                arg_bool(cmd, "--gs1nocheck", (gs1_implied = true));
+            } else if (gs1SyntaxEngine() || (inputMode() & GS1SYNTAXENGINE_MODE)) {
+                arg_bool(cmd, "--gs1strict", (gs1_implied = true));
+            }
+            arg_bool(cmd, "--gs1", (inputMode() & 0x07) == GS1_MODE && !gs1_implied);
             arg_bool(cmd, "--gssep", gsSep());
         }
 

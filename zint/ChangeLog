@@ -1,3 +1,197 @@
+Version 2.16.0 (2025-12-19)
+===========================
+
+**Incompatible changes**
+------------------------
+- In `UNICODE_MODE`, ECI 899 Binary input now interpreted as UTF-8 (previously
+  treated as-is, i.e. as binary bytes - this now requires `DATA_MODE`)
+- Buffer length of member `errtxt` in `zint_symbol` extended 100 -> 160
+  (client buffers may need checking/extending)
+- New `content_segs` & `content_seg_count` fields in `zint_symbol` for use with
+  new output option `BARCODE_CONTENT_SEGS`
+- Symbol structure members `option_1`, `option_2` and `option_3` now updated
+  after `ZBarcode_Encode()` and variants are called, and there are three new
+  methods in the Qt Backend to access to them
+- New Qt Backend method `isBindable()` for new flag `ZINT_CAP_BINDABLE`
+- New Qt Backend methods `gs1SyntaxEngine()`, `setGS1SyntaxEngine()` and
+  `haveGS1SyntaxEngine()` to access newly added GS1 Syntax Engine support
+- GS1 Composites now return warning if CC type upped from requested due to size
+  of composite data
+- EAN-8 with add-on now returns warning that it's non-standard
+- UPC-E now returns warning if first digit of 7 digits ignored (not '0' or '1')
+- For GS1 Composite, no primary (linear component) now returns
+  `ZINT_ERROR_INVALID_DATA` (previously returned `ZINT_ERROR_INVALID_OPTION`)
+- The distributed Windows binary "zint.exe" is now built with Microsoft Visual
+  Studio 2015 and requires the Visual C runtime DLL "VCRUNTIME140.dll"
+  (previously it was built with Visual Studio 6.0)
+
+Changes
+-------
+- Add new `BARCODE_CONTENT_SEGS` option for `output_options` which sets new
+  fields `content_segs` and `content_seg_count` with encoded data
+  (pre-converted, i.e. UTF-8 unless input mode is `DATA_MODE`)
+- Add API funcs `ZBarcode_UTF8_To_ECI()` and `ZBarcode_Dest_Len_ECI()`
+- Set `option_1`, `option_2`, `option_3` to values used in encodation, and add
+  new access methods `encodedOption1()` etc. to Qt Backend, and use in GUI to
+  provide better feedback
+- AZTEC: give more precise warnings in low ECC situations, and indicate via
+  `option_1` by setting to -1 (min 3 words), 0 (<5% + 3 words)
+- Better warning messages on non-compliant heights
+- composite: warn if CC type upped from requested
+- gs1: csumalpha: improve warning, report both chars (ticket #332, props Harald
+  Oehlmann)
+- New `ZBarcode_Cap()` flag `ZINT_CAP_BINDABLE`, differentiated from
+  `ZINT_CAP_STACKABLE`, and new Qt Backend method `isBindable()`
+- DOTCODE: now pads rows if given number of columns instead of failing if rows
+  below min (5)
+- EAN-8 + add-on: warn as non-compliant
+- UPC-E: warn if first digit of 7 (or 8 if check digit given) not '0' or '1'
+- Extend `errtxt` buffer 100 -> 160
+- Add new symbologies `BARCODE_EAN8`, `BARCODE_EAN_2ADDON`,
+  `BARCODE_EAN_5ADDON`, `BARCODE_EAN13`, `BARCODE_EAN8_CC` and
+  `BARCODE_EAN13_CC` as replacements for `BARCODE_EANX`, `BARCODE_EANX_CHK` and
+  `BARCODE_EANX_CC` and use in CLI/GUI (`BARCODE_EANX` etc. marked as legacy)
+- For EAN/UPC accept space as alternative add-on separator to '+', and accept
+  GTIN-13 format with & without 2-digit or 5-digit add-on (no separator)
+- GS1PARENS_MODE: allow parentheses in AI data if backslashed (necessary for
+  opening parentheses, optional for closing ones)
+- Prefix all `INTERNAL` funcs/tables with `zint_`, except for those in
+  "backend/common.h", which are prefixed by `z_` - makes symbol clashes more
+  unlikely when zint is statically linked (ticket #337, props Ulrich Becker)
+- Add support for GS1 Syntax Engine with new `input_mode` flag
+  `GS1SYNTAXENGINE_MODE` (CLI --gs1strict, GUI "GS1 Strict" checkbox)
+- GS1_MODE: allow GS1 Digital Link URIs (no validation unless
+  `GS1SYNTAXENGINE_MODE` set)
+- CLI: --gs1parens, --gs1nocheck and --gs1strict now imply --gs1
+- GS1: new AIs 717 (GSCN 25-199) and 8040-3 (GSCN 25-047)
+
+Bugs
+----
+- CODABLOCKF: fix misencodation of extended ASCII 0xB0-0xB9 when followed by
+  digit (ignore 2nd byte of FNC4 when categorizing Code C characters)
+- AZTEC: fix GS1 mode with Structured Append (wasn't outputting initial FNC1)
+- ECI: ECI 899 in UNICODE_MODE wasn't being converted from UTF-8, which was
+  inconsistent
+- set_height: fix non-compliance false positives by using epsilon in checks
+- UPU_S10: fix Service Indicator warning re "H" (ticket #331, props Milton Neal)
+- CLI: fix `separator` check to use new `ZINT_CAP_BINDABLE` instead of
+  `ZINT_CAP_STACKABLE`
+- ZBarcode_Cap: add missing symbologies to `ZINT_CAP_BINDABLE` (was
+  `ZINT_CAP_STACKABLE`)
+- MAILMARK_2D: fix postcode validation: no limited alphanumerics, spaced-out
+  DPS "outward"-only allowed, all-blank DPS allowed (ticket #334, props Milton
+  Neal)
+- DOTCODE: fix padding allowance to cover cases with large no. of columns
+  requested and little data, to prevent buffer overflow
+- manual/man page: fix DATAMATRIX Sizes tables "28 12x26" -> "27 12x26"
+
+
+Version 2.15.0 (2025-02-25)
+===========================
+
+***2.14.0 regression fix***
+---------------------------
+- CODE128: start code no longer omitted for data starting with numerics followed
+  by extended ASCII (Latin-1)
+
+**Incompatible changes**
+------------------------
+- New `text_length` field in `zint_symbol`
+
+Changes
+-------
+- iso4217: remove 191 (HRK), 694 (SLL), 931 (CUC); add 926 (VED)
+- Add `text_length` (length of `text`) to `zint_symbol`
+- PLESSEY: add show default check characters option
+
+Bugs
+----
+- CODE128: fix 2.14.0 regression (see above), never start in mode C1
+- CODE32: ignore `option_2` (check digit options)
+- PZN: ignore `option_2` (check digit options) except for indicates PZN7 only
+- DPD: exclude DEL from ident tag also
+- out_maybe_mkdir: fix `utf8_to_wide()` return (Windows only)
+- man page: fix Code 93 `--vers=1` hide -> show default check digits
+
+
+Version 2.14.0 (2025-02-05)
+===========================
+
+**Incompatible changes**
+------------------------
+- New `memfile` & `memfile_size` fields in `zint_symbol` for use with new output
+  option `BARCODE_MEMORY_FILE`
+- Buffer length of member `text` (HRT) in `zint_symbol` extended 200 -> 256
+  (client buffers may need checking/extending)
+- Invalid `input_mode` now returns warning
+- Aztec Code symbols that due to input length & user-requested version have less
+  than recommended 5% error correction codewords now return warning
+- New CODE128-only special extra escapes beginning `\^`
+- Add-ons for UPC-A and UPC-E now descend to be level with the main symbol guard
+  bars, and the righthand outside digit is now placed 1X less from main symbol
+  to avoid touching any add-on
+- GS1-128 symbols now warn if READER_INIT option used
+
+Changes
+-------
+- BMP: lessen heap memory usage by only `malloc()`ing a row
+- GIF: lessen heap memory usage by paging; use standard colour char map
+- Add `BARCODE_MEMORY_FILE` to `symbol->output_options` to allow outputting to
+  in-memory buffer `symbol->memfile` instead of to file `symbol->outfile`,
+  ticket #301
+- CODE16K (was for CODE128): improve encodation on A/B shifting, props Daniel
+  Gredler (Okapi)
+- CODE128: add new extra escape `\^1` for manual insertion of FNC1s, ticket
+  #324, props Jim Shank;
+  new  extra escapes `\^A`, `\^B`, `\^C` and `\^@` for manual switching of
+  Code Sets;
+  add minimal encodation algorithm, props Alex Geller (ZXing) and Bue Jensen
+  (BWIPP);
+- library: return warning on invalid `input_mode` reset
+- library/CLI: expanded error messages
+- GS1: new AIs 7250-7259 (GSCN 22-246);
+  iso4217: new ISO 4217 currency code 924;
+  new AIs 7041 (GSCN 23-272) (packagetype) and 716 (GSCN-24-157)
+- AZTEC: workaround MSVC 2022 optimizer bug in `az_populate_map()` loops,
+  ticket #317, props Andre Maute;
+  return warning if ECC < 5% (due to bit-stuffing when version given)
+- MAXICODE: zero-pad US postcodes that lack "+4" (Annex B.1.4a), from
+  OkapiBarcode, props Daniel Gredler;
+  add minimal encodation algorithm, props Bue Jensen (BWIPP)
+- GUI: use X11 (xcb) as platform instead of Wayland on Linux to avoid various
+  weird behaviours;
+  in "grpDATF.ui" use "PlainText" rather than "RichText" for tracker ratio
+  examples as height of text messing up sometimes
+- UPCA/UPCE: descend add-ons to same level as guards and adjust righthand
+  outside digit to be 4X/2X instead of 5X/3X away from main symbol so as not to
+  touch add-on TODO: revisit when standard clarified
+- manual: make explicit that AI "(00)" and "(01)" prefixes added by Zint are
+  HRT-only; clarify Codablock-F length maximum & add examples
+- add DXFILMEDGE (MR #159, props Antoine Mérino)
+
+Bugs
+----
+- raster/BMP/GIF/PCX/TIF: fix dealing with very large data (use `size_t`)
+- raster: add `raster_malloc()` to fail > 1GB (avoids very large output files;
+  also lessens to some degree chances of being victim of OOM killer on Linux)
+- GUI: printing scale dialog: set maxima on X-dim and resolution to keep scale
+  <= 200
+- BMP/EMF/PCX/TIF: fix endianness on big-endian machines (note TIF now always
+  written as little-endian - simplifies testing)
+- ITF14/DPLEIT/DPIDENT: ignore `option_2` (check digit options)
+- GUI: scalewindow: fix cropping of initial resolution and bound X-dim <= 10
+- GUI: factory reset: reset preview background colour also
+- GUI: cliwindow: `#if _WIN32` -> `#ifdef _WIN32`
+- QZint: fix legacy width and security level getters/setters, MR #158, props
+  Philip Ye
+- CODE128: fix extended char latching when exactly 3 extended chars at end
+- library: need to check for valid UTF-8 after de-escaping
+- MAXICODE: maintain current set between segments
+- MSYS2: fix stdout output on Windows under MSYS2 (mailing list, props Frank)
+- DATAMATRIX: fix mis-encodation by only doing special end-of-data processing
+  on last segment
+
+
 Version 2.13.0 (2023-12-18)
 ===========================
 
@@ -134,6 +328,9 @@ Bugs
 - QRCODE: fix out-of-bounds crash due to incorrect mode costings for GS1
   percents in `qr_in_alpha()`; fix incorrect numeric costings (out-by-1) in
   `qr_in_numeric()`; ticket #300 (#14, #15; #16), props Andre Maute
+- GS1: fix square brackets treated as FNC1 in GS1PARENS_MODE by changing
+  internal FNC1 marker '[' -> '\x1D' (GS), ticket #319, props Moli Sojet;
+  also fix non-AI square brackets -> round brackets in GS1_128 HRT
 
 
 Version 2.12.0 (2022-12-12)
@@ -469,7 +666,7 @@ Changes
   sanitizer flag detection, and many other improvements, props Alonso Schaich
 - PLESSEY: add options NCR weighted mod-10, hide check digit(s) in HRT
 - Fuller error messages; more comments zint.h
-- CMake: simplication and modernization, Qt5/6 version, props Null Void (atom)
+- CMake: simplification and modernization, Qt5/6 version, props Null Void (atom)
 - POSTNET/PLANET: allow up to 38 chars (ZINT_WARN_NONCOMPLIANT) (see [d7ac9c])
 - RMQR: update to new draft ISO/IEC JTC1/SC31N000 (Draft 2019-6-24)
 - ULTRA: update max size and min cols based on BWIPP 2021-07-14 update
@@ -625,7 +822,7 @@ Bugs
   - Code128 routines for Codablock&Code16K
   - output.c has common routines from raster.c and symbologies.
 - HIBC_39: restrict max length to 68 otherwise to avoid overrun
-- Code One: protect agains overrun
+- Code One: protect against overrun
 - Telepen: allow DEL
 - GS1 Databar/ GS1-128 Composite:
   - Separator bar corrections
@@ -649,7 +846,7 @@ Changes
   upcean, all output formats
 - QR, Han Xin, Grid Matrix: the multi byte compaction schemes (ex: Kanji)
   are used by some decoders as codepage information (Ex: GB2312) and output
-  may be translated to UTF-8. This may destroy the data in a not controlable
+  may be translated to UTF-8. This may destroy the data in a not controllable
   manner.
   In consequence, multibyte compaction schemes are disabled by default.
   The new option --fullmultibyte (option_3 = ZINT_FULL_MULTIBYTE) enables this
@@ -779,7 +976,7 @@ Fixed bugs: EMF output, maxicode plot/content
 Datamatrix DMRE updated to the ISO/IEC29158 version. This is incompatible in the
 way that the old -vers numbers for DMRE are re-assigned.
 The separator of GS1-datamatrix may be switched from FNC1 to GS.
-GS1 field length check AI 8009 and 7230 to 7239 currected.
+GS1 field length check AI 8009 and 7230 to 7239 corrected.
 
 
 Version 2.6.3 2018-02-15

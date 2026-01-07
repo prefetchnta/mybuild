@@ -14,15 +14,25 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <string_view>
+
 #include "./fuzz_utils.h"
 #include "src/webp/decode.h"
+#include "src/webp/types.h"
 
-int LLVMFuzzerTestOneInput(const uint8_t* const data, size_t size) {
+namespace {
+
+void SimpleApiTest(std::string_view data_in) {
+  const uint8_t* const data = reinterpret_cast<const uint8_t*>(data_in.data());
+  const size_t size = data_in.size();
   int w, h;
-  if (!WebPGetInfo(data, size, &w, &h)) return 0;
-  if ((size_t)w * h > kFuzzPxLimit) return 0;
+  if (!WebPGetInfo(data, size, &w, &h)) return;
+  if ((size_t)w * h > fuzz_utils::kFuzzPxLimit) return;
 
-  const uint8_t value = FuzzHash(data, size);
+  const uint8_t value = fuzz_utils::FuzzHash(data, size);
   uint8_t* buf = NULL;
 
   // For *Into functions, which decode into an external buffer, an
@@ -84,6 +94,11 @@ int LLVMFuzzerTestOneInput(const uint8_t* const data, size_t size) {
   }
 
   if (buf) WebPFree(buf);
-
-  return 0;
 }
+
+}  // namespace
+
+FUZZ_TEST(SimpleApi, SimpleApiTest)
+    .WithDomains(
+        fuzztest::String()
+            .WithMaxSize(fuzz_utils::kMaxWebPFileSize + 1));

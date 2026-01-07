@@ -1,8 +1,6 @@
-#!/usr/bin/env bash
-set -eu
+#!/bin/bash -eu
 
-# Copyright 2024 Cosmin Truta
-# Copyright 2017 Glenn Randers-Pehrson
+# Copyright 2017-2018 Glenn Randers-Pehrson
 # Copyright 2016 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,31 +15,45 @@ set -eu
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# Revisions by Glenn Randers-Pehrson, 2017:
+# 1. Build only the library, not the tools (changed "make -j$(nproc) all" to
+#     "make -j$(nproc) libpng16.la").
+# 2. Disabled WARNING and WRITE options in pnglibconf.dfa.
+# 3. Build zlib alongside libpng
 ################################################################################
 
 # Disable logging via library build configuration control.
-sed -e "s/option STDIO/option STDIO disabled/" \
-    -e "s/option WARNING /option WARNING disabled/" \
-    -e "s/option WRITE enables WRITE_INT_FUNCTIONS/option WRITE disabled/" \
-    scripts/pnglibconf.dfa >scripts/pnglibconf.dfa.tmp
-mv -f scripts/pnglibconf.dfa.tmp scripts/pnglibconf.dfa
+cat scripts/pnglibconf.dfa | \
+  sed -e "s/option STDIO/option STDIO disabled/" \
+      -e "s/option WARNING /option WARNING disabled/" \
+      -e "s/option WRITE enables WRITE_INT_FUNCTIONS/option WRITE disabled/" \
+> scripts/pnglibconf.dfa.temp
+mv scripts/pnglibconf.dfa.temp scripts/pnglibconf.dfa
 
-# Build the libpng library ("libpng16.la"), excluding the auxiliary tools.
+# build the libpng library.
 autoreconf -f -i
 ./configure --with-libpng-prefix=OSS_FUZZ_
 make -j$(nproc) clean
 make -j$(nproc) libpng16.la
 
-# Build libpng_read_fuzzer.
+# build libpng_read_fuzzer.
 $CXX $CXXFLAGS -std=c++11 -I. \
      $SRC/libpng/contrib/oss-fuzz/libpng_read_fuzzer.cc \
      -o $OUT/libpng_read_fuzzer \
      -lFuzzingEngine .libs/libpng16.a -lz
 
-# Add seed corpus.
+# wrapper script to duplicate target, run with env var NALLOC_FREQ=32
+# having a separate target with allocations failures
+cat << EOF > $OUT/libpng_read_fuzzer_nalloc
+#!/bin/sh
+# LLVMFuzzerTestOneInput for fuzzer detection.
+this_dir=\$(dirname "\$0")
+NALLOC_FREQ=32 \$this_dir/libpng_read_fuzzer \$@
+EOF
+
+# add seed corpus.
 find $SRC/libpng -name "*.png" | grep -v crashers | \
      xargs zip $OUT/libpng_read_fuzzer_seed_corpus.zip
 
 cp $SRC/libpng/contrib/oss-fuzz/*.dict \
-   $SRC/libpng/contrib/oss-fuzz/*.options \
-   $OUT/
+     $SRC/libpng/contrib/oss-fuzz/*.options $OUT/

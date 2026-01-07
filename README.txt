@@ -12,7 +12,7 @@ Windows (Visual Studio 2010 X86 /MD)
     giflib-5.2.2            LIB                     https://sourceforge.net/projects/giflib/files/
 [E] leptonica-1.74.4        DLL                     https://github.com/DanBloomberg/leptonica/releases
     libjpeg-9f              LIB                     http://www.ijg.org/
-    libpng-1.6.44           DLL                     http://www.libpng.org/pub/png/libpng.html
+    libpng-1.6.53           DLL                     http://www.libpng.org/pub/png/libpng.html
 [E] libtesseract-3.05.02    LIB & DLL               https://github.com/tesseract-ocr/tesseract/releases
 [E] libtiff-4.2.0           LIB & DLL               http://libtiff.maptools.org/
     libwebp-1.4.0           LIB & DLL (SSE4.1)      https://github.com/webmproject/libwebp/tags

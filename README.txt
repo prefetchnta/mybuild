@@ -21,4 +21,4 @@ Windows (Visual Studio 2010 X86 /MD)
 [E] pcre-8.45               DLL                     https://sourceforge.net/projects/pcre/files/
 [E] pixman-0.38.4           LIB (SSSE3)             https://www.cairographics.org/releases/
     zint-2.16.0             DLL                     https://sourceforge.net/projects/zint/files/
-    zlib-1.3.1              LIB & DLL               https://www.zlib.net/
+    zlib-1.3.2              LIB & DLL               https://www.zlib.net/
